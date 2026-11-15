@@ -33,6 +33,8 @@ jobs:
           test -f extracted/site/index.html || { echo "::error::ZIP must contain site/index.html"; exit 1; }
           test -f extracted/site/manifest.json || { echo "::error::ZIP must contain site/manifest.json"; exit 1; }
           test -f extracted/site/js/app.js || { echo "::error::ZIP must contain site/js/app.js"; exit 1; }
+      - name: Apply CENTURION2 startup password gate
+        run: python3 .github/security/apply_gate.py extracted/site
       - name: Configure GitHub Pages
         uses: actions/configure-pages@v5
       - name: Upload GitHub Pages artifact
