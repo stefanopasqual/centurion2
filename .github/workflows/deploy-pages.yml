@@ -1,0 +1,44 @@
+name: Publish CENTURION2 mobile
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'CENTURION2_GITHUB_MOBILE.zip'
+      - '.github/workflows/deploy-pages.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: centurion2-pages
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Extract mobile website
+        run: |
+          test -f CENTURION2_GITHUB_MOBILE.zip || { echo "::error::Upload CENTURION2_GITHUB_MOBILE.zip to the root of this repository"; exit 1; }
+          mkdir -p extracted
+          unzip -q CENTURION2_GITHUB_MOBILE.zip -d extracted
+          test -f extracted/site/index.html || { echo "::error::ZIP must contain site/index.html"; exit 1; }
+          test -f extracted/site/manifest.json || { echo "::error::ZIP must contain site/manifest.json"; exit 1; }
+          test -f extracted/site/js/app.js || { echo "::error::ZIP must contain site/js/app.js"; exit 1; }
+      - name: Configure GitHub Pages
+        uses: actions/configure-pages@v5
+      - name: Upload GitHub Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: extracted/site
+      - name: Deploy website
+        id: deployment
+        uses: actions/deploy-pages@v4
