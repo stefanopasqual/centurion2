@@ -1,0 +1,29 @@
+name: CENTURION2 source inspection
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/inspect-source.yml'
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Extract simulation source for integration review
+        shell: bash
+        run: |
+          mkdir -p _integration_inspect
+          unzip -qp CENTURION2_GITHUB_MOBILE.zip site/js/app.js > _integration_inspect/app.js
+          unzip -Z1 CENTURION2_GITHUB_MOBILE.zip | grep -E 'site/(js|index.html|assets|css)' > _integration_inspect/filelist.txt
+          ls -l _integration_inspect
+      - name: Commit source snapshot
+        shell: bash
+        run: |
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git config user.name 'github-actions[bot]'
+          git add _integration_inspect/app.js _integration_inspect/filelist.txt
+          git commit -m 'chore: extract app structure for EF2000 integration' || exit 0
+          git push
