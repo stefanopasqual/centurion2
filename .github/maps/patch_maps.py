@@ -38,20 +38,20 @@ patch("index.html","</body>","<script src=\"js/maps5.js\"></script>\n</body>")
 print("CENTURION2 maps5: patched map selector, free flight geographic terrain and Giza landmarks")
 
 
-# 500 km2: crop real elevation and satellite tile meshes to an exact projected 22.3607 km square.
+# 10000 km2: crop real elevation and satellite tile meshes to an exact projected 100 km square.
 def replace_exact(rel, old, new):
     p=root/rel
     s=p.read_text(encoding="utf-8")
     if old not in s:
-        raise RuntimeError("Cannot find 500 km2 patch anchor in "+rel+": "+old[:90])
+        raise RuntimeError("Cannot find 10000 km2 patch anchor in "+rel+": "+old[:90])
     p.write_text(s.replace(old,new,1),encoding="utf-8")
 
 replace_exact("js/volo.js",
     "const lat0 = TERRA.lat0, lon0 = TERRA.lon0, z = 10;",
-    "const lat0 = TERRA.lat0, lon0 = TERRA.lon0, z = APP.sc.mappa5 ? (mobile() ? 12 : 13) : 10;")
+    "const lat0 = TERRA.lat0, lon0 = TERRA.lon0, z = APP.sc.mappa5 ? 11 : 10;")
 replace_exact("js/mondo3d.js",
     "const sc = APP.sc; const lat0 = TERRA.lat0, lon0 = TERRA.lon0; const z = 10;",
-    "const sc = APP.sc; const lat0 = TERRA.lat0, lon0 = TERRA.lon0; const z = sc.mappa5 ? (window.innerWidth < 900 ? 12 : 13) : 10;")
+    "const sc = APP.sc; const lat0 = TERRA.lat0, lon0 = TERRA.lon0; const z = sc.mappa5 ? 11 : 10;")
 # A clipped mesh reuses its full satellite and height tile, remapping UVs to its actual world position.
 clipmesh = """
       const arena=APP.sc.mappa5, half=arena ? arena.lato_m/2 : Infinity;
@@ -103,3 +103,13 @@ replace_exact("js/map.js",
 replace_exact("js/map.js",
     "function reDraw(scenario) { sc = scenario; disegnaStatici(); }",
     "function reDraw(scenario) { sc = scenario; disegnaStatici(); if(sc.mappa5){setBase('sat');fitScenario();} }")
+
+# More terrain vertices per base tile preserve ridge and valley shapes over 100 km.
+# Avoid loading hundreds of z12/z13 tiles at once: use about 7x7 z11 DEM tiles,
+# each with a 256x256 measured-elevation grid.
+replace_exact("js/volo.js",
+    "const SEG = mobile() ? 32 : 48;",
+    "const SEG = APP.sc.mappa5 ? (mobile() ? 72 : 112) : (mobile() ? 32 : 48);")
+replace_exact("js/mondo3d.js",
+    "const SEG = window.innerWidth < 900 ? 32 : 48;",
+    "const SEG = sc.mappa5 ? (window.innerWidth < 900 ? 72 : 112) : (window.innerWidth < 900 ? 32 : 48);")
