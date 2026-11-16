@@ -32,6 +32,15 @@ window.CENTURION_COCKPIT = (() => {
       if(canopyRe.test(name))canopies.push(o);
     });
     const eye=new THREE.Vector3(...(eyes[type]||eyes.F16));
+    mdl.updateMatrixWorld(true);
+    const cockpitBounds=new THREE.Box3();
+    interiors.forEach(mesh=>cockpitBounds.expandByObject(mesh));
+    if(!cockpitBounds.isEmpty()){
+      const center=cockpitBounds.getCenter(new THREE.Vector3());
+      center.y+=Math.max(.15,cockpitBounds.getSize(new THREE.Vector3()).y*.22);
+      root.worldToLocal(center);
+      if(center.toArray().every(Number.isFinite))eye.copy(center);
+    }
     // Prefer named pilot viewpoint nodes, then model-specific default offsets.
     let camNode=null;
     mdl.traverse(o=>{if(!camNode&&/pilot.?eye|eye.?point|camera.?pilot/i.test(o.name||""))camNode=o;});
@@ -61,7 +70,15 @@ window.CENTURION_COCKPIT = (() => {
       }else if(!inside && o.userData.origMaterial)o.material=o.userData.origMaterial;
     });
     // Never show an uncalibrated external mesh as an authentic cockpit.
-    root.visible=!inside;
+    root.visible=true;
+    if(inside){
+      d.model.traverse(o=>{
+        if(!o.isMesh)return;
+        const name=(o.name||"")+" "+(o.parent&&o.parent.name||"");
+        const keep=interiorRe.test(name)||canopyRe.test(name)||/wing|hudglass|canopyframe/i.test(name);
+        if(!keep)o.visible=false;
+      });
+    }
     return d;
   }
   function cameraEye(root,type){
