@@ -202,9 +202,9 @@ def main():
     })
     # Any additional, user supplied model source is automatically published.
     # Uploaded GLBs are not fetched from the local computer by GitHub Actions.
-    extras = [
-        ('su35','SU35','Sukhoi Su-35S Flanker-E',21.9,[0,0,0]),
-        ('ea18','EA18','Boeing EA-18G Growler',18.31,[0,0,0]),
+    # Keep each source mesh axis correction when the user GLB overwrites earlier mission entries.\n    extras = [
+        ('su35','SU35','Sukhoi Su-35S Flanker-E',21.9,[0,-90,0]),
+        ('ea18','EA18','Boeing EA-18G Growler',18.31,[0,-90,0]),
         ('f22','F22','F-22 Raptor',18.9,[0,180,0]),
     ]
     for code,mission_type,label,length,rotation in extras:
