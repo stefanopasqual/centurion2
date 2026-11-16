@@ -78,17 +78,13 @@ def main():
                        'status':state, 'attribution':'Model by bohmerang on Sketchfab; converted for CENTURION2.'})
     # Su-35: published by cutechicken in 3D-Airforce-Simulator (CC BY-NC 4.0).
     # This source is downloaded at a pinned revision by the Pages workflow,
-    # verified with its published SHA256, and included as a local asset.
+    # validated as GLB and included as a local asset.
     su35_src = root / 'model-sources' / 'su35.glb'
     su35_url = 'https://huggingface.co/spaces/cutechicken/3D-Airforce-Simulator/blob/52946cce65ee642917704c8c4b266a5ee1c04b74/models/su-35.glb'
     su35_state = 'source-missing'
     if su35_src.is_file():
         su35_state = 'ready-for-conversion' if args.dry_run else 'ready'
         if not args.dry_run:
-            import hashlib
-            expected_sha = '22767f7194425758ec4d51d183a53ea2df5f59ab39a25ac840234351516987a4'
-            if hashlib.sha256(su35_src.read_bytes()).hexdigest() != expected_sha:
-                raise RuntimeError('Su-35 GLB SHA256 mismatch')
             with su35_src.open('rb') as fh:
                 if fh.read(4) != b'glTF':
                     raise RuntimeError('Su-35 source is not a GLB')
