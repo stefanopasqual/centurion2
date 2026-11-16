@@ -75,6 +75,16 @@ jobs:
               assert p.is_file() and p.stat().st_size > 10000, p
           print('Hangar models:',len([v for v in h['models'] if v['status']=='ready']))
           print('Mission aircraft:', sorted(m))
+          expected={'typhoon':'F2000','f15e':'F15','su57':'SU57'}
+          present={p.name for p in Path('model-sources').glob('*.zip')} if Path('model-sources').exists() else set()
+          if present:
+              for code, mission_code in expected.items():
+                  rec=next(x for x in h['models'] if x['id']==code)
+                  assert rec['status']=='ready', f'Original source present but model not converted: {code}'
+                  assert mission_code in m, f'Mission aircraft not mapped: {mission_code}'
+              print('PASS: all original mission jets converted')
+          else:
+              print('::warning::Original jet source archives absent: missions still use procedural fallback')
           PY
       - name: Apply CENTURION2 startup password gate
         run: python3 .github/security/apply_gate.py extracted/site
