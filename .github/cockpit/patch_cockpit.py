@@ -65,6 +65,13 @@ patch('else if (k === "o") { S.lookYaw=0; S.lookPitch=0; }',
       window.CENTURION_POV_DEBUG=result;console.info("CENTURION POV",result);
       messaggio(result.ready ? (result.interior ? "POV 3D · "+result.interiorMeshes+" mesh · "+(result.obstruction?"OSTRUZIONE "+result.obstruction.meters+"m":"ORIZZONTE LIBERO") : "POV: INTERNO 3D ASSENTE") : "MODELLO NON ANCORA PRONTO",3);
     }''')
+# Chase must be horizon-stabilized. The old interpolation camera.up<-aircraft.up
+# made the entire view bank during a roll, making every chase view appear crooked.
+patch('_cp.copy(P.pos).addScaledVector(_fwd, -24).addScaledVector(_up, 6); camera.position.lerp(_cp, Math.min(1, dt * 6)); _cu.lerp(_up, Math.min(1, dt * 3)).normalize(); camera.up.copy(_cu); camera.lookAt(V3().copy(P.pos).addScaledVector(_fwd, 25));',
+      '''_cp.copy(P.pos).addScaledVector(_fwd, -28).add(V3(0, 8, 0));
+    camera.position.lerp(_cp, Math.min(1, dt * 5));
+    camera.up.set(0, 1, 0); // stable world horizon: aircraft may bank, camera does not
+    camera.lookAt(V3().copy(P.pos).addScaledVector(_fwd, 20).add(V3(0, 2, 0)));''')
 src.write_text(s,encoding="utf-8")
 index=root/"index.html"
 html=index.read_text(encoding="utf-8")
