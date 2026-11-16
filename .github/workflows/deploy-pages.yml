@@ -49,6 +49,7 @@ jobs:
         run: |
           mkdir -p extracted/site/models extracted/site/ef2000
           python3 .github/models/build_models.py --input-dir . --output-dir extracted/site/models --mission-dir extracted/site/modelli
+          python3 .github/models/patch_site.py extracted/site
           cp .github/ef2000/viewer.html extracted/site/ef2000/viewer.html
           cp .github/ef2000/launcher.js extracted/site/ef2000/launcher.js
           python3 - <<'PY'
@@ -76,10 +77,13 @@ jobs:
               assert p.is_file() and p.stat().st_size > 10000, p
           print('Hangar models:',len([v for v in h['models'] if v['status']=='ready']))
           print('Mission aircraft:', sorted(m))
-          expected={'typhoon':'F2000','f15e':'F15','su57':'SU57'}
+          expected={'typhoon':'F2000','f15e':'F15','su57':'SU57','ea18':'EA18'}
           present={p.name for p in Path('model-sources').glob('*.zip')} if Path('model-sources').exists() else set()
           if present:
               for code, mission_code in expected.items():
+                  if code == 'ea18' and not Path('model-sources/ea18.glb').is_file():
+                      print('::warning::EA-18G GLB not yet uploaded; using procedural EA18 fallback')
+                      continue
                   rec=next(x for x in h['models'] if x['id']==code)
                   assert rec['status']=='ready', f'Original source present but model not converted: {code}'
                   assert mission_code in m, f'Mission aircraft not mapped: {mission_code}'
@@ -88,7 +92,8 @@ jobs:
               print('::warning::Original jet source archives absent: missions still use procedural fallback')
           PY
       - name: Refresh offline cache for 3D hangar
-        run: sed -i 's/centurion2-mobile-password-v2/centurion2-mobile-hangar-v4/g' extracted/site/sw.js
+        run: |
+          sed -i 's/centurion2-mobile-password-v2/centurion2-mobile-gearup-ea18-v6/g; s/centurion2-mobile-hangar-v4/centurion2-mobile-gearup-ea18-v6/g; s/centurion2-mobile-hangar-su35-v5/centurion2-mobile-gearup-ea18-v6/g' extracted/site/sw.js
       - name: Configure GitHub Pages
         uses: actions/configure-pages@v5
       - name: Upload GitHub Pages artifact
