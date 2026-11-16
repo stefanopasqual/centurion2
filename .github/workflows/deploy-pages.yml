@@ -12,6 +12,9 @@ on:
       - 'model-sources/**'
   workflow_dispatch:
 
+# Destinazione: se i segreti CLOUDFLARE_API_TOKEN e CLOUDFLARE_ACCOUNT_ID esistono,
+# il sito va su Cloudflare Pages (privato dietro Cloudflare Access, vedi README);
+# altrimenti resta su GitHub Pages, che e' PUBBLICO.
 permissions:
   contents: read
   pages: write
@@ -24,9 +27,8 @@ concurrency:
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
+    outputs:
+      target: ${{ steps.target.outputs.target }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -106,13 +108,59 @@ jobs:
           PY
       - name: Refresh offline cache for 3D hangar
         run: |
-          sed -i 's/centurion2-mobile-password-v2/centurion2-mobile-cockpit-hmd-v9/g; s/centurion2-mobile-hangar-v4/centurion2-mobile-f22-home-v7/g; s/centurion2-mobile-hangar-su35-v5/centurion2-mobile-f22-home-v7/g' extracted/site/sw.js
-      - name: Configure GitHub Pages
-        uses: actions/configure-pages@v5
+          sed -i 's/centurion2-mobile-password-v2/centurion2-mobile-cockpit-jets-v10/g; s/centurion2-mobile-hangar-v4/centurion2-mobile-f22-home-v7/g; s/centurion2-mobile-hangar-su35-v5/centurion2-mobile-f22-home-v7/g' extracted/site/sw.js
+      - name: Keep every file under the 25 MiB hosting limit
+        shell: bash
+        run: |
+          big=$(find extracted/site -type f -size +24M)
+          if [ -n "$big" ]; then
+            npm install --no-save --no-audit --no-fund @gltf-transform/cli@4
+            for f in $big; do
+              case "$f" in
+                *.glb)
+                  echo "Compressing textures (WebP, max 2048 px): $f ($(du -h "$f" | cut -f1))"
+                  npx gltf-transform resize "$f" "$f" --width 2048 --height 2048
+                  npx gltf-transform webp "$f" "$f"
+                  echo "  -> $(du -h "$f" | cut -f1)" ;;
+              esac
+            done
+          fi
+          still=$(find extracted/site -type f -size +24M)
+          if [ -n "$still" ]; then
+            echo "::error::Files above the 25 MiB limit:"; ls -l $still; exit 1
+          fi
+      - name: Choose hosting
+        id: target
+        env:
+          CF_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CF_ACCOUNT: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          if [ -n "$CF_TOKEN" ] && [ -n "$CF_ACCOUNT" ]; then echo target=cloudflare >> "$GITHUB_OUTPUT"
+          else echo target=github >> "$GITHUB_OUTPUT"; echo "::warning::Cloudflare secrets missing: publishing on PUBLIC GitHub Pages"; fi
+      - name: Deploy to Cloudflare Pages (private behind Cloudflare Access)
+        if: steps.target.outputs.target == 'cloudflare'
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          npx --yes wrangler@3 pages project create centurion2 --production-branch=main 2>/dev/null || true
+          npx --yes wrangler@3 pages deploy extracted/site --project-name=centurion2 --branch=main --commit-dirty=true
       - name: Upload GitHub Pages artifact
+        if: steps.target.outputs.target == 'github'
         uses: actions/upload-pages-artifact@v3
         with:
           path: extracted/site
+
+  github-pages:
+    needs: deploy
+    if: needs.deploy.outputs.target == 'github'
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Configure GitHub Pages
+        uses: actions/configure-pages@v5
       - name: Deploy website
         id: deployment
         uses: actions/deploy-pages@v4

@@ -77,6 +77,7 @@ def main():
                        'source':url, 'author':'bohmerang', 'license':'CC BY-NC-SA 4.0',
                        'status':state, 'attribution':'Model by bohmerang on Sketchfab; converted for CENTURION2.'})
     # Prefer an uploaded user GLB over an archived / converted SU-57.
+    # Sketchfab GLBs of Su-57, Su-35 and EA-18G have the nose on +X: rot Y -90 puts it on +Z.
     # These files are prepared with gear retracted; no geometry is replaced.
     user_su57 = root / 'model-sources' / 'su57.glb'
     if user_su57.is_file():
@@ -85,19 +86,19 @@ def main():
                 raise RuntimeError('Uploaded Su-57 is not a GLB')
             shutil.copyfile(user_su57, out / 'su57.glb')
             shutil.copyfile(user_su57, mission / 'su57.glb')
-            mission_manifest['SU57'] = {'file':'su57.glb','rot':[0,0,0],
+            mission_manifest['SU57'] = {'file':'su57.glb','rot':[0,-90,0],
                 'lunghezza_m':20.1,'tint':False,'gear':'up',
-                'autore':'user supplied','licenza':'verify upload rights','url':''}
+                'autore':'bohmerang','licenza':'CC BY-NC-SA 4.0',
+                'url':'https://sketchfab.com/3d-models/sukhoi-su-57-felon-p-fighter-jet-free-31127bc63bc048debb694aa88bbaafae'}
         rec=next(x for x in report if x['id']=='su57')
         rec.update({'status':'ready' if not args.dry_run else 'ready-for-conversion',
                     'glb':'models/su57.glb' if not args.dry_run else None,
-                    'source':'user supplied GLB, gear-up','author':'user supplied',
-                    'attribution':'User supplied Su-57 geometry with landing gear removed.'})
-    # Su-35: published by cutechicken in 3D-Airforce-Simulator (CC BY-NC 4.0).
-    # This source is downloaded at a pinned revision by the Pages workflow,
-    # validated as GLB and included as a local asset.
+                    'source':'https://sketchfab.com/3d-models/sukhoi-su-57-felon-p-fighter-jet-free-31127bc63bc048debb694aa88bbaafae',
+                    'author':'bohmerang','license':'CC BY-NC-SA 4.0',
+                    'attribution':'Model by bohmerang on Sketchfab (CC BY-NC-SA 4.0), landing gear hidden.'})
+    # Su-35: bohmerang on Sketchfab (CC BY-NC-SA 4.0), gear-up GLB in model-sources/.
     su35_src = root / 'model-sources' / 'su35.glb'
-    su35_url = 'https://huggingface.co/spaces/cutechicken/3D-Airforce-Simulator/blob/52946cce65ee642917704c8c4b266a5ee1c04b74/models/su-35.glb'
+    su35_url = 'https://sketchfab.com/3d-models/sukhoi-su-35-fighter-jet-free-3213a404e5cb4fb68f778b9acae5109c'
     su35_state = 'source-missing'
     if su35_src.is_file():
         su35_state = 'ready-for-conversion' if args.dry_run else 'ready'
@@ -109,16 +110,16 @@ def main():
             shutil.copyfile(su35_src, target)
             shutil.copyfile(target, mission / target.name)
             mission_manifest['SU35'] = {
-                'file': target.name, 'rot': [0, 0, 0], 'lunghezza_m': 21.9,
-                'autore': 'cutechicken', 'licenza': 'CC BY-NC 4.0',
+                'file': target.name, 'rot': [0, -90, 0], 'lunghezza_m': 21.9,
+                'autore': 'bohmerang', 'licenza': 'CC BY-NC-SA 4.0',
                 'url': su35_url, 'tint': False
             }
     report.append({
         'id': 'su35', 'name': 'Sukhoi Su-35S Flanker-E',
         'glb': 'models/su35.glb' if su35_state == 'ready' else None,
-        'source': su35_url, 'author': 'cutechicken', 'license': 'CC BY-NC 4.0',
+        'source': su35_url, 'author': 'bohmerang', 'license': 'CC BY-NC-SA 4.0',
         'status': su35_state,
-        'attribution': 'Model from cutechicken/3D-Airforce-Simulator on Hugging Face; integrated for CENTURION2.'
+        'attribution': 'Model by bohmerang on Sketchfab (CC BY-NC-SA 4.0), landing gear hidden.'
     })
     # User-provided EA-18G Growler, gear-up variant prepared from CC BY 4.0 GLB.
     growler_src = root / 'model-sources' / 'ea18.glb'
@@ -134,7 +135,7 @@ def main():
             shutil.copyfile(growler_src, target)
             shutil.copyfile(target, mission / target.name)
             mission_manifest['EA18'] = {
-                'file': target.name, 'rot': [0, 0, 0], 'lunghezza_m': 18.31,
+                'file': target.name, 'rot': [0, -90, 0], 'lunghezza_m': 18.31,
                 'autore': 'Rhine_Lab_Muelsyse', 'licenza': 'CC BY 4.0',
                 'url': growler_url, 'tint': False, 'gear': 'up'
             }
@@ -163,16 +164,16 @@ def main():
             mission_manifest['F22'] = {
                 'file': target.name, 'rot': [0, 180, 0],
                 'lunghezza_m': 18.9, 'tint': False, 'gear': 'up',
-                'autore': 'user-provided model', 'licenza': 'not specified',
-                'url': ''
+                'autore': 'sxnneh', 'licenza': 'Sketchfab Standard',
+                'url': 'https://sketchfab.com/3d-models/f22-raptor-ec44bd6cffa649b4927799a7b19c703b'
             }
     report.append({
         'id': 'f22', 'name': 'F-22 Raptor (user-supplied)',
         'glb': 'models/f22.glb' if f22_state == 'ready' else None,
-        'source': 'user upload: f22-raptor (1).zip',
-        'author': 'not specified', 'license': 'not specified',
+        'source': 'https://sketchfab.com/3d-models/f22-raptor-ec44bd6cffa649b4927799a7b19c703b',
+        'author': 'sxnneh', 'license': 'Sketchfab Standard',
         'status': f22_state,
-        'attribution': 'Original source supplied by user. Redistribution rights not documented.'
+        'attribution': 'F22 RAPTOR by sxnneh on Sketchfab (Sketchfab Standard license), landing gear hidden.'
     })
     # Original procedural F-16C, separate from the Sketchfab embed.
     # Keep it in both the hangar (models/) and the flying simulation (modelli/).
@@ -226,7 +227,7 @@ def main():
                     'license':'verify upload rights',
                     'status':'ready' if not args.dry_run else 'ready-for-conversion',
                     'attribution':'User supplied mesh, prepared for in-flight rendering.'})
-    (out / 'manifest.json').write_text(json.dumps({'models': report, 'notice': 'Third-party aircraft models: bohmerang / Sketchfab (CC BY-NC-SA 4.0) and cutechicken / Hugging Face (CC BY-NC 4.0). Attribution and noncommercial conditions apply.'}, indent=2), encoding='utf-8')
+    (out / 'manifest.json').write_text(json.dumps({'models': report, 'notice': 'Third-party aircraft models: bohmerang / Sketchfab (CC BY-NC-SA 4.0) , Rhine_Lab_Muelsyse / Sketchfab (CC BY 4.0) and sxnneh / Sketchfab (Sketchfab Standard). Attribution and noncommercial conditions apply.'}, indent=2), encoding='utf-8')
     (mission / 'manifest.json').write_text(json.dumps(mission_manifest, indent=2), encoding='utf-8')
     print(json.dumps({'hangar':report, 'mission':mission_manifest}, indent=2))
 
