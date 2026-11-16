@@ -11,6 +11,75 @@ window.CENTURION_COCKPIT = (() => {
     SU35:{name:"SU-35",panels:2,accent:"#9bedbe",style:"sukhoi",labels:["RADAR","ENGINE"],title:"MULTIFUNCTION"},
     EA18:{name:"EA-18G",panels:3,accent:"#9ceba5",style:"hornet",labels:["EW","RADAR","NAV"],title:"UFCD"}
   };
+
+  // Local eye offsets (metres): X lateral, Y up, Z nose-forward.
+  const eyes={F16:[0,1.13,3.1],F15:[0,1.45,4.6],F2000:[0,1.38,3.5],
+    F22:[0,1.42,4.1],SU57:[0,1.35,4.7],SU35:[0,1.54,4.9],EA18:[0,1.42,4.1]};
+  const interiorRe=/cockpit|instrument|panel|hud|seat|console|dashboard|mfd/i;
+  const canopyRe=/canopy|glass|windscreen|windshield/i;
+  const occludeRe=/pilotbody|pilothead|pilothelmet|pilot_mesh|occupant/i;
+  const modelCache=new WeakMap();
+  function inspect(root,type){
+    if(!root||!root.userData||!root.userData.mdl)return null;
+    const mdl=root.userData.mdl;
+    const cached=modelCache.get(root);
+    if(cached&&cached.model===mdl)return cached;
+    const interiors=[],canopies=[];
+    mdl.traverse(o=>{
+      if(!o.isMesh)return;
+      const name=(o.name||"")+" "+(o.parent&&o.parent.name||"");
+      if(interiorRe.test(name)&&!canopyRe.test(name))interiors.push(o);
+      if(canopyRe.test(name))canopies.push(o);
+    });
+    const eye=new THREE.Vector3(...(eyes[type]||eyes.F16));
+    // Prefer named pilot viewpoint nodes, then model-specific default offsets.
+    let camNode=null;
+    mdl.traverse(o=>{if(!camNode&&/pilot.?eye|eye.?point|camera.?pilot/i.test(o.name||""))camNode=o;});
+    if(camNode){
+      const w=camNode.getWorldPosition(new THREE.Vector3());
+      root.worldToLocal(w); eye.copy(w);
+    }
+    const data={model:mdl,eye,hasInterior:interiors.length>0,interiors,canopies};
+    modelCache.set(root,data);return data;
+  }
+  function setView(root,type,inside){
+    if(!root)return null;
+    const d=inspect(root,type);
+    if(!d){root.visible=!inside;return null;}
+    d.model.traverse(o=>{
+      if(!o.isMesh)return;
+      const name=(o.name||"")+" "+(o.parent&&o.parent.name||"");
+      if(occludeRe.test(name)){o.visible=!inside;return;}
+      o.visible=true;
+      if(canopyRe.test(name)&&inside){
+        if(!o.userData.origMaterial)o.userData.origMaterial=o.material;
+        if(!o.userData.cockpitMaterial && !Array.isArray(o.material)){
+          const m=o.material.clone();m.transparent=true;m.opacity=Math.min(.25,m.opacity===undefined?1:m.opacity);
+          m.depthWrite=false;o.userData.cockpitMaterial=m;
+        }
+        if(o.userData.cockpitMaterial)o.material=o.userData.cockpitMaterial;
+      }else if(!inside && o.userData.origMaterial)o.material=o.userData.origMaterial;
+    });
+    root.visible=!inside||d.hasInterior;
+    return d;
+  }
+  function cameraEye(root,type){
+    const d=inspect(root,type);
+    if(!root)return null;
+    root.updateMatrixWorld(true);
+    const eye=d?d.eye:new THREE.Vector3(...(eyes[type]||eyes.F16));
+    return root.localToWorld(eye.clone());
+  }
+  function diagnose(camera,root,type){
+    const d=inspect(root,type);
+    if(!d)return {ready:false,reason:"model loading"};
+    const ray=new THREE.Raycaster(camera.position.clone(),new THREE.Vector3(0,0,-1).applyQuaternion(camera.quaternion),.06,100);
+    const hits=d.hasInterior?ray.intersectObject(d.model,true):[];
+    const first=hits.find(h=>h.object.visible&&!canopyRe.test(h.object.name||""));
+    return {ready:true,type,interior:d.hasInterior,eye:d.eye.toArray(),interiorMeshes:d.interiors.length,
+      canopyMeshes:d.canopies.length,obstruction:first?{mesh:first.object.name,meters:+first.distance.toFixed(2)}:null};
+  }
+
   let overlay=null,ctx=null;
   function attach(parent) {
     overlay=parent.querySelector("#vl-cockpit-art");
@@ -71,8 +140,10 @@ window.CENTURION_COCKPIT = (() => {
       text(g,"HDG "+fmt(data.hdg)+"°",W*.5,H*.16,15*scale,accent);
       text(g,"G "+fmt(data.nz,1)+"    M "+fmt(data.mach,2),W*.5,H*.81,14*scale,accent);
       text(g,"HEAD LOOK  I/J/K/L · CENTER O",W*.5,H*.90,11*scale,"#acd9bc");
+    } else if(data.hasInterior){
+      text(g,p.name+" · 3D COCKPIT",W*.5,H*.95,11*scale,accent);
     } else {
-      // Non-photographic cockpit panel, scaling to display aspect ratio.
+      // Approximate panel fallback when a real interior is unavailable.
       const deskTop=H*.72, deskBottom=H*1.12;
       g.fillStyle="#151b22";
       g.beginPath();g.moveTo(0,H);g.lineTo(0,deskTop+H*.06);g.lineTo(W*.16,deskTop);
@@ -93,5 +164,5 @@ window.CENTURION_COCKPIT = (() => {
     }
     g.restore();
   }
-  return {attach,resize,draw,profiles};
+  return {attach,resize,draw,profiles,eyes,inspect,setView,cameraEye,diagnose};
 })();
