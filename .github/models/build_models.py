@@ -103,6 +103,31 @@ def main():
         'status': su35_state,
         'attribution': 'Model from cutechicken/3D-Airforce-Simulator on Hugging Face; integrated for CENTURION2.'
     })
+    # User-provided EA-18G Growler, gear-up variant prepared from CC BY 4.0 GLB.
+    growler_src = root / 'model-sources' / 'ea18.glb'
+    growler_url = 'https://sketchfab.com/3d-models/mcdonnell-douglas-fa-18eboeing-ea-18g-growler-d69153c8e91744cab2bad239a2cb5d98'
+    growler_state = 'source-missing'
+    if growler_src.is_file():
+        growler_state = 'ready-for-conversion' if args.dry_run else 'ready'
+        if not args.dry_run:
+            with growler_src.open('rb') as fh:
+                if fh.read(4) != b'glTF':
+                    raise RuntimeError('EA-18G Growler source is not a GLB')
+            target = out / 'ea18.glb'
+            shutil.copyfile(growler_src, target)
+            shutil.copyfile(target, mission / target.name)
+            mission_manifest['EA18'] = {
+                'file': target.name, 'rot': [0, 0, 0], 'lunghezza_m': 18.31,
+                'autore': 'Rhine_Lab_Muelsyse', 'licenza': 'CC BY 4.0',
+                'url': growler_url, 'tint': False, 'gear': 'up'
+            }
+    report.append({
+        'id': 'ea18', 'name': 'Boeing EA-18G Growler',
+        'glb': 'models/ea18.glb' if growler_state == 'ready' else None,
+        'source': growler_url, 'author': 'Rhine_Lab_Muelsyse',
+        'license': 'CC BY 4.0', 'status': growler_state,
+        'attribution': 'Model by Rhine_Lab_Muelsyse on Sketchfab (CC BY 4.0).'
+    })
     (out / 'manifest.json').write_text(json.dumps({'models': report, 'notice': 'Third-party aircraft models: bohmerang / Sketchfab (CC BY-NC-SA 4.0) and cutechicken / Hugging Face (CC BY-NC 4.0). Attribution and noncommercial conditions apply.'}, indent=2), encoding='utf-8')
     (mission / 'manifest.json').write_text(json.dumps(mission_manifest, indent=2), encoding='utf-8')
     print(json.dumps({'hangar':report, 'mission':mission_manifest}, indent=2))
