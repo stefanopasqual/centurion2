@@ -1,5 +1,6 @@
 site/index.html
 site/assets/apple-touch-icon.png
+site/assets/centurion.ico
 site/assets/icon-192.png
 site/assets/icon-512.png
 site/assets/sectional_mt_shasta.jpg
@@ -23,9 +24,12 @@ site/js/geo.js
 site/js/highlights.js
 site/js/map.js
 site/js/meteo.js
+site/js/missioni.js
 site/js/modelli3d.js
 site/js/mondo3d.js
 site/js/physics.js
+site/js/rete.js
 site/js/scenario_default.js
 site/js/ui.js
 site/js/vista3d.js
+site/js/volo.js
