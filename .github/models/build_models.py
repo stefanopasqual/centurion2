@@ -1,0 +1,66 @@
+#!/usr/bin/env python3
+"""Extract verified user-supplied Sketchfab archives and convert with Blender.
+One source is one distinct model. Never download an unlicensed third-party mesh.
+To run: python3 build_models.py --input-dir . --output-dir extracted/site/models
+"""
+import argparse
+import json
+import shutil
+import subprocess
+import tempfile
+import zipfile
+from pathlib import Path
+
+MODELS = [
+    ('typhoon', 'eurofighter-typhoon-fighter-jet-free.zip', 'Eurofighter Typhoon', 'https://sketchfab.com/3d-models/eurofighter-typhoon-fighter-jet-free-992bcc8987964ca09d55410330aa8579'),
+    ('f15e', 'f-15e-strike-eagle-fighter-jet-free.zip', 'F-15E Strike Eagle', 'https://sketchfab.com/3d-models/f-15e-strike-eagle-fighter-jet-free-fff7d75490474e9b964d90cc031c8d01'),
+    ('su57', 'sukhoi-su-57-felon-p-fighter-jet-free.zip', 'Sukhoi Su-57 Felon (P)', 'https://sketchfab.com/3d-models/sukhoi-su-57-felon-p-fighter-jet-free-31127bc63bc048debb694aa88bbaafae'),
+    ('weapons', 'missile-bomb-collection-fighter-jets-free.zip', 'Missile & Bomb Collection', 'https://sketchfab.com/3d-models/missile-bomb-collection-fighter-jets-free-d203b678424a43568703bf85ba680f47'),
+]
+
+
+def unpack_safe(path, dest):
+    with zipfile.ZipFile(path) as z:
+        for info in z.infolist():
+            target = (dest / info.filename).resolve()
+            if not target.is_relative_to(dest.resolve()):
+                raise ValueError('Unsafe archive path: ' + info.filename)
+            if info.is_dir():
+                continue
+            target.parent.mkdir(parents=True, exist_ok=True)
+            with z.open(info) as src, target.open('wb') as dst:
+                shutil.copyfileobj(src, dst)
+
+
+def main():
+    ap = argparse.ArgumentParser()
+    ap.add_argument('--input-dir', type=Path, default=Path('.'))
+    ap.add_argument('--output-dir', type=Path, default=Path('extracted/site/models'))
+    ap.add_argument('--dry-run', action='store_true')
+    args = ap.parse_args()
+    root, out = args.input_dir.resolve(), args.output_dir.resolve()
+    out.mkdir(parents=True, exist_ok=True)
+    report = []
+    exporter = Path(__file__).with_name('export_blend.py').resolve()
+    for code, archive, label, url in MODELS:
+        zip_path = next((p for p in [root / 'model-sources' / archive, root / archive] if p.is_file()), None)
+        state = 'source-missing' if zip_path is None else 'ready-for-conversion'
+        if zip_path and not args.dry_run:
+            with tempfile.TemporaryDirectory(prefix='centurion_model_') as d:
+                stage = Path(d)
+                unpack_safe(zip_path, stage)
+                sources = list(stage.rglob('*.blend'))
+                if len(sources) != 1:
+                    raise RuntimeError(f'{archive}: expected one blend file, got {len(sources)}')
+                target = out / (code + '.glb')
+                subprocess.run(['blender', '-b', '--python', str(exporter), '--', str(sources[0]), str(target), str(stage / 'textures')], check=True)
+                state = 'ready'
+        report.append({'id':code, 'name':label, 'glb':'models/' + code + '.glb' if state=='ready' else None,
+                       'source':url, 'author':'bohmerang', 'license':'CC BY-NC-SA 4.0',
+                       'status':state, 'attribution':'Model by bohmerang on Sketchfab; converted for CENTURION2.'})
+    (out / 'manifest.json').write_text(json.dumps({'models': report, 'notice': 'Third-party models CC BY-NC-SA 4.0. Attribution and noncommercial/share-alike conditions apply.'}, indent=2), encoding='utf-8')
+    print(json.dumps(report, indent=2))
+
+
+if __name__ == '__main__':
+    main()
