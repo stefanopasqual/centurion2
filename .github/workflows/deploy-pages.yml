@@ -6,6 +6,8 @@ on:
       - 'CENTURION2_GITHUB_MOBILE.zip'
       - '.github/workflows/deploy-pages.yml'
       - '.github/ef2000/**'
+      - '.github/models/**'
+      - 'model-sources/**'
   workflow_dispatch:
 
 permissions:
@@ -34,13 +36,18 @@ jobs:
           test -f extracted/site/index.html || { echo "::error::ZIP must contain site/index.html"; exit 1; }
           test -f extracted/site/manifest.json || { echo "::error::ZIP must contain site/manifest.json"; exit 1; }
           test -f extracted/site/js/app.js || { echo "::error::ZIP must contain site/js/app.js"; exit 1; }
-      - name: Integrate Eurofighter EF-2000 3D
+      - name: Install Blender when original source archives are present
         shell: bash
         run: |
-          python3 -m pip install --user numpy trimesh
-          python3 .github/ef2000/build_ef2000.py
-          mkdir -p extracted/site/ef2000
-          cp .github/ef2000/EF2000_*.glb extracted/site/ef2000/
+          if find model-sources -maxdepth 1 -type f -name '*.zip' -print -quit 2>/dev/null | grep -q .; then
+            sudo apt-get update
+            sudo apt-get install -y blender
+          fi
+      - name: Convert licensed original aircraft for web
+        shell: bash
+        run: |
+          mkdir -p extracted/site/models extracted/site/ef2000
+          python3 .github/models/build_models.py --input-dir . --output-dir extracted/site/models
           cp .github/ef2000/viewer.html extracted/site/ef2000/viewer.html
           cp .github/ef2000/launcher.js extracted/site/ef2000/launcher.js
           python3 - <<'PY'
@@ -49,17 +56,15 @@ jobs:
           html=path.read_text(encoding='utf-8')
           marker='<script src="ef2000/launcher.js"></script>'
           if marker not in html:
-              assert '</body>' in html, "CENTURION2 source missing closing body"
+              assert '</body>' in html, 'CENTURION2 source missing closing body'
               html=html.replace('</body>', marker+'\n</body>', 1)
           path.write_text(html, encoding='utf-8')
           PY
-          test -s extracted/site/ef2000/EF2000_flight_armed.glb
-          test -s extracted/site/ef2000/EF2000_flight_clean.glb
-          test -s extracted/site/ef2000/EF2000_gear_down.glb
+          test -s extracted/site/ef2000/viewer.html
       - name: Apply CENTURION2 startup password gate
         run: python3 .github/security/apply_gate.py extracted/site
-      - name: Refresh offline cache version for EF2000
-        run: sed -i 's/centurion2-mobile-password-v2/centurion2-mobile-ef2000-v3/g' extracted/site/sw.js
+      - name: Refresh offline cache for 3D hangar
+        run: sed -i 's/centurion2-mobile-password-v2/centurion2-mobile-hangar-v4/g' extracted/site/sw.js
       - name: Configure GitHub Pages
         uses: actions/configure-pages@v5
       - name: Upload GitHub Pages artifact
