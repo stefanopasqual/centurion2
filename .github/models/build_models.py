@@ -157,6 +157,31 @@ def main():
         'status': f22_state,
         'attribution': 'Original source supplied by user. Redistribution rights not documented.'
     })
+    # Original procedural F-16C, separate from the Sketchfab embed.
+    # Keep it in both the hangar (models/) and the flying simulation (modelli/).
+    f16_target = out / 'f16.glb'
+    if not args.dry_run:
+        subprocess.run(['blender', '-b', '--python-exit-code', '7', '--python',
+                        str(Path(__file__).with_name('generate_f16.py')), '--',
+                        str(f16_target)], check=True)
+        with f16_target.open('rb') as fp:
+            if fp.read(4) != b'glTF' or f16_target.stat().st_size < 10000:
+                raise RuntimeError('F-16 generation produced invalid or undersized GLB')
+        shutil.copyfile(f16_target, mission / 'f16.glb')
+        mission_manifest['F16'] = {
+            'file': 'f16.glb', 'rot': [0, 0, 0],
+            'lunghezza_m': 15.0, 'tint': False, 'gear': 'up',
+            'autore': 'CENTURION2 procedural', 'licenza': 'original approximation',
+            'url': ''
+        }
+    report.append({
+        'id': 'f16', 'name': 'F-16C Fighting Falcon',
+        'glb': 'models/f16.glb' if not args.dry_run else None,
+        'source': 'original CENTURION2 procedural model; not the Sketchfab source',
+        'author': 'CENTURION2 procedural', 'license': 'original approximation',
+        'status': 'ready' if not args.dry_run else 'ready-for-conversion',
+        'attribution': 'Original simplified F-16C reconstruction, not the linked Sketchfab mesh.'
+    })
     (out / 'manifest.json').write_text(json.dumps({'models': report, 'notice': 'Third-party aircraft models: bohmerang / Sketchfab (CC BY-NC-SA 4.0) and cutechicken / Hugging Face (CC BY-NC 4.0). Attribution and noncommercial conditions apply.'}, indent=2), encoding='utf-8')
     (mission / 'manifest.json').write_text(json.dumps(mission_manifest, indent=2), encoding='utf-8')
     print(json.dumps({'hangar':report, 'mission':mission_manifest}, indent=2))
