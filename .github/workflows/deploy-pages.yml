@@ -58,6 +58,8 @@ jobs:
           test -s extracted/site/ef2000/EF2000_gear_down.glb
       - name: Apply CENTURION2 startup password gate
         run: python3 .github/security/apply_gate.py extracted/site
+      - name: Refresh offline cache version for EF2000
+        run: sed -i 's/centurion2-mobile-password-v2/centurion2-mobile-ef2000-v3/g' extracted/site/sw.js
       - name: Configure GitHub Pages
         uses: actions/configure-pages@v5
       - name: Upload GitHub Pages artifact
