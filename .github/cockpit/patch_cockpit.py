@@ -41,6 +41,30 @@ patch('renderer.render(scene, camera); disegnaHud(); audioFrame(); aggiornaUi();
     }''')
 patch('let n = CAMS[(i + 1) % CAMS.length];','let n = CAMS[(i + 1) % CAMS.length];')
 patch('<b>🎥</b> cockpit / esterna / missile','<b>🎥</b> cockpit strumentale / casco HMD / esterna / missile')
+# Dedicated pilot-seat position; keep 3D interior geometry whenever available.
+patch('const vis = !["cockpit","helmet"].includes(S.cam) || !P.vivo; if (P.obj) P.obj.visible = P.vivo && vis;',
+      '''const inside = ["cockpit","helmet"].includes(S.cam) && P.vivo;
+    const cockpitInfo = P.obj && window.CENTURION_COCKPIT
+      ? CENTURION_COCKPIT.setView(P.obj,S.cfg.aereo,inside) : null;
+    if(P.obj) P.obj.visible=P.vivo && (!inside || !!(cockpitInfo && cockpitInfo.hasInterior));''')
+patch('camera.position.copy(P.pos).addScaledVector(_up, 1.1).addScaledVector(_fwd, 5.5);',
+      '''const seat = P.obj && window.CENTURION_COCKPIT
+        ? CENTURION_COCKPIT.cameraEye(P.obj,S.cfg.aereo) : null;
+      camera.position.copy(seat || P.pos.clone().addScaledVector(_up,1.2).addScaledVector(_fwd,3.2));
+      camera.near=0.055;''')
+patch('// esterna stile videogioco: dietro e sopra, con inerzia; segue anche il rollio',
+      '''camera.near=1;
+    // esterna stile videogioco: dietro e sopra, con inerzia; segue anche il rollio''')
+patch('fuel:p.fuel,gear:p.carrello});',
+      '''fuel:p.fuel,gear:p.carrello,
+        hasInterior:!!(p.obj && CENTURION_COCKPIT.inspect(p.obj,S.cfg.aereo)?.hasInterior)});''')
+patch('else if (k === "o") { S.lookYaw=0; S.lookPitch=0; }',
+      '''else if (k === "o") { S.lookYaw=0; S.lookPitch=0; }
+    else if(k === "b" && window.CENTURION_COCKPIT) {
+      const result=CENTURION_COCKPIT.diagnose(camera,S.pl.obj,S.cfg.aereo);
+      window.CENTURION_POV_DEBUG=result;console.info("CENTURION POV",result);
+      messaggio(result.ready ? (result.interior ? "POV 3D · "+result.interiorMeshes+" mesh · "+(result.obstruction?"OSTRUZIONE "+result.obstruction.meters+"m":"ORIZZONTE LIBERO") : "POV: INTERNO 3D ASSENTE") : "MODELLO NON ANCORA PRONTO",3);
+    }''')
 src.write_text(s,encoding="utf-8")
 index=root/"index.html"
 html=index.read_text(encoding="utf-8")
