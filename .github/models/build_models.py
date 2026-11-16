@@ -227,7 +227,7 @@ def main():
                     'license':'verify upload rights',
                     'status':'ready' if not args.dry_run else 'ready-for-conversion',
                     'attribution':'User supplied mesh, prepared for in-flight rendering.'})
-    (out / 'manifest.json').write_text(json.dumps({'models': report, 'notice': 'Third-party aircraft models: bohmerang / Sketchfab (CC BY-NC-SA 4.0) and cutechicken / Hugging Face (CC BY-NC 4.0). Attribution and noncommercial conditions apply.'}, indent=2), encoding='utf-8')
+    (out / 'manifest.json').write_text(json.dumps({'models': report, 'notice': 'Third-party aircraft models: bohmerang / Sketchfab (CC BY-NC-SA 4.0) , Rhine_Lab_Muelsyse / Sketchfab (CC BY 4.0) and sxnneh / Sketchfab (Sketchfab Standard). Attribution and noncommercial conditions apply.'}, indent=2), encoding='utf-8')
     (mission / 'manifest.json').write_text(json.dumps(mission_manifest, indent=2), encoding='utf-8')
     print(json.dumps({'hangar':report, 'mission':mission_manifest}, indent=2))
 
