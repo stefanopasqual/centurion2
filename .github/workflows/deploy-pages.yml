@@ -86,8 +86,10 @@ jobs:
           present={p.name for p in Path('model-sources').glob('*.zip')} if Path('model-sources').exists() else set()
           if present:
               for code, mission_code in expected.items():
-                  if code == 'ea18' and not Path('model-sources/ea18.glb').is_file():
-                      print('::warning::EA-18G GLB not yet uploaded; using procedural EA18 fallback')
+                  # modelli forniti come GLB singolo: se il file non è ancora nel repository si usa il modello procedurale
+                  glb_opzionali={'ea18':('model-sources/ea18.glb','EA-18G'),'f22':('model-sources/f22.glb','F-22')}
+                  if code in glb_opzionali and not Path(glb_opzionali[code][0]).is_file():
+                      print(f'::warning::{glb_opzionali[code][1]} GLB not yet uploaded; using procedural {mission_code} fallback')
                       continue
                   rec=next(x for x in h['models'] if x['id']==code)
                   assert rec['status']=='ready', f'Original source present but model not converted: {code}'
