@@ -16,7 +16,7 @@ jobs:
         shell: bash
         run: |
           mkdir -p _integration_inspect
-          for f in site/js/app.js site/js/vista3d.js site/js/modelli3d.js site/js/mondo3d.js site/js/physics.js site/index.html; do unzip -qp CENTURION2_GITHUB_MOBILE.zip "$f" > "_integration_inspect/$(basename "$f")"; done
+          for f in site/js/*.js site/index.html; do unzip -qp CENTURION2_GITHUB_MOBILE.zip "$f" > "_integration_inspect/$(basename "$f")"; done
           unzip -Z1 CENTURION2_GITHUB_MOBILE.zip | grep -E 'site/(js|index.html|assets|css)' > _integration_inspect/filelist.txt
           ls -l _integration_inspect
       - name: Commit source snapshot
