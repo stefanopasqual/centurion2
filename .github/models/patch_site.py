@@ -11,7 +11,7 @@ replacement = '''if (!scene) return null; const g = scene.clone(true);
         // GEAR UP: keep *Off (retracted) meshes; remove *On (extended).
         const gearDown = [];
         g.traverse(o => {
-          const n = (o.name || "").toLowerCase().replace(/[\\s_.-]/g, "");
+          const n = (o.name || "").toLowerCase().replace(/[\s_.-]/g, "");
           if (/landingon|gearon|geardown|gearout|refuelon|landinglights|undercarriage(?!off|up)|wheel(?!off|up)|tire(?!off|up)|tyre(?!off|up)/.test(n)) gearDown.push(o);
         });
         gearDown.forEach(o => { if (o.parent) o.parent.remove(o); });
