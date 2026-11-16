@@ -60,7 +60,8 @@ window.CENTURION_COCKPIT = (() => {
         if(o.userData.cockpitMaterial)o.material=o.userData.cockpitMaterial;
       }else if(!inside && o.userData.origMaterial)o.material=o.userData.origMaterial;
     });
-    root.visible=!inside||d.hasInterior;
+    // Never show an uncalibrated external mesh as an authentic cockpit.
+    root.visible=!inside;
     return d;
   }
   function cameraEye(root,type){
@@ -140,27 +141,9 @@ window.CENTURION_COCKPIT = (() => {
       text(g,"HDG "+fmt(data.hdg)+"°",W*.5,H*.16,15*scale,accent);
       text(g,"G "+fmt(data.nz,1)+"    M "+fmt(data.mach,2),W*.5,H*.81,14*scale,accent);
       text(g,"HEAD LOOK  I/J/K/L · CENTER O",W*.5,H*.90,11*scale,"#acd9bc");
-    } else if(data.hasInterior){
-      text(g,p.name+" · 3D COCKPIT",W*.5,H*.95,11*scale,accent);
     } else {
-      // Approximate panel fallback when a real interior is unavailable.
-      const deskTop=H*.72, deskBottom=H*1.12;
-      g.fillStyle="#151b22";
-      g.beginPath();g.moveTo(0,H);g.lineTo(0,deskTop+H*.06);g.lineTo(W*.16,deskTop);
-      g.lineTo(W*.84,deskTop);g.lineTo(W,deskTop+H*.06);g.lineTo(W,H);g.closePath();g.fill();
-      g.strokeStyle="#59656a";g.lineWidth=6*scale;
-      poly(g,[[W*.08,H*.92],[W*.13,H*.43],[W*.26,H*.26]],"#65737b",5*scale);
-      poly(g,[[W*.92,H*.92],[W*.87,H*.43],[W*.74,H*.26]],"#65737b",5*scale);
-      const px=W*.22, total=W*.56, gap=13*scale,n=p.panels;
-      const screenW=Math.min(205*scale,(total-gap*(n-1))/n),screenH=145*scale;
-      const start=W/2-(screenW*n+gap*(n-1))/2;
-      for(let i=0;i<n;i++)instrument(g,start+i*(screenW+gap),deskTop+18*scale,screenW,screenH,p.labels[i],i,data,accent);
-      g.fillStyle="#262e36";g.fillRect(W*.45,deskTop-19*scale,W*.10,25*scale);
-      text(g,p.title,W*.5,deskTop-2*scale,10*scale,accent);
-      // HUD combiner frame ahead of the instrument panel.
-      g.strokeStyle="rgba(121,202,167,.6)";g.lineWidth=4*scale;
-      poly(g,[[W*.43,H*.70],[W*.43,H*.37],[W*.57,H*.37],[W*.57,H*.70]],"rgba(121,202,167,.5)",4*scale);
-      text(g,p.name+" · SIMULATED PANEL",W*.5,H*.955,11*scale,"#8ea0a8");
+      // No synthetic dashboard: 3D geometry only, with flight HUD from volo.js.
+      if(!data.hasInterior) text(g,"COCKPIT 3D NON DISPONIBILE",W*.5,H*.93,12*scale,"#e0b585");
     }
     g.restore();
   }
