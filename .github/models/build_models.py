@@ -77,6 +77,7 @@ def main():
                        'source':url, 'author':'bohmerang', 'license':'CC BY-NC-SA 4.0',
                        'status':state, 'attribution':'Model by bohmerang on Sketchfab; converted for CENTURION2.'})
     # Prefer an uploaded user GLB over an archived / converted SU-57.
+    # Sketchfab GLBs of Su-57, Su-35 and EA-18G have the nose on +X: rot Y -90 puts it on +Z.
     # These files are prepared with gear retracted; no geometry is replaced.
     user_su57 = root / 'model-sources' / 'su57.glb'
     if user_su57.is_file():
@@ -85,7 +86,7 @@ def main():
                 raise RuntimeError('Uploaded Su-57 is not a GLB')
             shutil.copyfile(user_su57, out / 'su57.glb')
             shutil.copyfile(user_su57, mission / 'su57.glb')
-            mission_manifest['SU57'] = {'file':'su57.glb','rot':[0,0,0],
+            mission_manifest['SU57'] = {'file':'su57.glb','rot':[0,-90,0],
                 'lunghezza_m':20.1,'tint':False,'gear':'up',
                 'autore':'user supplied','licenza':'verify upload rights','url':''}
         rec=next(x for x in report if x['id']=='su57')
@@ -109,7 +110,7 @@ def main():
             shutil.copyfile(su35_src, target)
             shutil.copyfile(target, mission / target.name)
             mission_manifest['SU35'] = {
-                'file': target.name, 'rot': [0, 0, 0], 'lunghezza_m': 21.9,
+                'file': target.name, 'rot': [0, -90, 0], 'lunghezza_m': 21.9,
                 'autore': 'cutechicken', 'licenza': 'CC BY-NC 4.0',
                 'url': su35_url, 'tint': False
             }
@@ -134,7 +135,7 @@ def main():
             shutil.copyfile(growler_src, target)
             shutil.copyfile(target, mission / target.name)
             mission_manifest['EA18'] = {
-                'file': target.name, 'rot': [0, 0, 0], 'lunghezza_m': 18.31,
+                'file': target.name, 'rot': [0, -90, 0], 'lunghezza_m': 18.31,
                 'autore': 'Rhine_Lab_Muelsyse', 'licenza': 'CC BY 4.0',
                 'url': growler_url, 'tint': False, 'gear': 'up'
             }
