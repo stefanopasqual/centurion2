@@ -1,4 +1,4 @@
-/* CENTURION2 - Five geographic flight arenas. Deployed by GitHub Actions. */
+/* CENTURION2 - Geographic flight arenas (10000 km2 each). Deployed by GitHub Actions. */
 (()=>{
 "use strict";
 const REGIONS=[
@@ -6,7 +6,10 @@ const REGIONS=[
 {id:"dolomiti",name:"Dolomiti · Tre Cime",lat:46.619,lon:12.303,zoom:10,icon:"🏔️",desc:"Pareti dolomitiche, valli alpine e quote reali."},
 {id:"vladivostok",name:"Vladivostok · Russkij",lat:43.067,lon:131.912,zoom:10,icon:"🌉",desc:"Penisola, isole, porto e grandi ponti visibili da satellite."},
 {id:"himalaya",name:"Himalaya · Everest",lat:27.9881,lon:86.925,zoom:10,icon:"🏔️",desc:"Everest, ghiacciai e terreno ad alta quota."},
-{id:"sardegna",name:"Sardegna · Costa Smeralda",lat:41.025,lon:9.538,zoom:10,icon:"🏝️",desc:"Arcipelago della Maddalena, coste e rilievi sardi."}
+{id:"sardegna",name:"Sardegna · Costa Smeralda",lat:41.025,lon:9.538,zoom:10,icon:"🏝️",desc:"Arcipelago della Maddalena, coste e rilievi sardi."},
+{id:"donbass",name:"Donbass · Donetsk",lat:48.03,lon:37.85,zoom:10,quota:3500,icon:"🏭",desc:"Donetsk, Makiivka e Horlivka: pianura steppica, cumuli minerari e la dorsale del Donec."},
+{id:"taiwan",name:"Taiwan · Taichung e Catena Centrale",lat:24.2,lon:120.85,zoom:10,quota:5500,icon:"⛰️",desc:"Stretto di Taiwan, pianura costiera di Taichung e vette oltre 3.800 m della Catena Centrale."},
+{id:"caracas",name:"Venezuela · Caracas e El Ávila",lat:10.5,lon:-66.9,zoom:10,quota:4500,icon:"🌴",desc:"Valle di Caracas, massiccio di El Ávila oltre 2.700 m e costa caraibica di La Guaira."}
 ];
 const BASE=[40.85,-123.0], EARTH_M=111320, AREA_KM2=10000, SIDE_M=Math.sqrt(AREA_KM2)*1000;
 const GEO_FIELDS=new Set(["centro","origine","etichetta","poligono","fir_boundary","bounds"]);
@@ -54,13 +57,13 @@ function trasla(sc,r){
  sc.meteo.descrizione="Condizioni meteo di addestramento. Vento e visibilità configurabili.";
  if(sc.briefing?.BLUE){sc.briefing.BLUE.titolo="Esercitazione · "+r.name;sc.briefing.BLUE.situazione="Esercitazione aeronautica su 10.000 km² reali nella regione "+r.name+". Basi e bersagli di gioco sono simulati e non corrispondono a infrastrutture locali.";}
  if(sc.briefing?.RED){sc.briefing.RED.titolo="Difesa aerea · "+r.name;sc.briefing.RED.situazione="Scenario esercitativo su 10.000 km² reali nella regione "+r.name+". Unità e installazioni tattiche fittizie.";}
- sc.mappa5={id:r.id,nome:r.name,centro:[r.lat,r.lon],lato_m:SIDE_M,area_km2:AREA_KM2,hasMonuments:r.id==="giza",quotaInizioM:r.id==="himalaya"?12500:r.id==="dolomiti"?5600:r.id==="sardegna"?3500:4000};
+ sc.mappa5={id:r.id,nome:r.name,centro:[r.lat,r.lon],lato_m:SIDE_M,area_km2:AREA_KM2,hasMonuments:r.id==="giza",quotaInizioM:r.quota?r.quota:r.id==="himalaya"?12500:r.id==="dolomiti"?5600:r.id==="sardegna"?3500:4000};
  return sc;
 }
 let modal=null;
 function show(){
  if(!modal){modal=document.createElement("div");modal.id="centurion-map5-modal";modal.style.cssText="position:fixed;inset:0;z-index:20050;background:#04101bec;overflow:auto;padding:24px 12px;color:#f1f6fc;font:15px system-ui,sans-serif";
- modal.innerHTML='<div style="max-width:890px;margin:auto"><div style="display:flex;justify-content:space-between;align-items:center;gap:12px"><h2 style="margin:4px 0 16px">🌍 Scenari geografici · CENTURION2</h2><button id="map5-close" style="padding:10px;border-radius:8px">✕ Chiudi</button></div><p style="opacity:.8">Cinque aree reali da 10.000 km² ciascuna (100 × 100 km). Altimetria 3D e immagini satellitari online; edifici e unità tattiche non sono ricostruzioni fotogrammetriche.</p><div id="map5-cards" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px"></div></div>';
+ modal.innerHTML='<div style="max-width:890px;margin:auto"><div style="display:flex;justify-content:space-between;align-items:center;gap:12px"><h2 style="margin:4px 0 16px">🌍 Scenari geografici · CENTURION2</h2><button id="map5-close" style="padding:10px;border-radius:8px">✕ Chiudi</button></div><p style="opacity:.8">'+REGIONS.length+' aree reali da 10.000 km² ciascuna (100 × 100 km). Altimetria 3D e immagini satellitari online; edifici e unità tattiche non sono ricostruzioni fotogrammetriche.</p><div id="map5-cards" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px"></div></div>';
  document.body.appendChild(modal);
  modal.querySelector("#map5-close").onclick=()=>modal.style.display="none";
  modal.addEventListener("click",e=>{if(e.target===modal)modal.style.display="none";});}
@@ -93,9 +96,9 @@ function show(){
 }
 function boot(){
  if(document.getElementById("map5-entry"))return;
- const b=document.createElement("button");b.id="map5-entry";b.textContent="🌍 5 MAPPE 3D · 10.000 km²";b.className="link-btn";b.style.cssText="color:#8ce4ff;font-weight:800";b.onclick=show;
+ const b=document.createElement("button");b.id="map5-entry";b.textContent="🌍 "+REGIONS.length+" MAPPE 3D · 10.000 km²";b.className="link-btn";b.style.cssText="color:#8ce4ff;font-weight:800";b.onclick=show;
  const links=document.querySelector(".splash-links");if(links)links.prepend(b);
- const top=document.querySelector(".top-right");if(top){const x=document.createElement("button");x.textContent="🌍 Mappe";x.title="Seleziona Egitto, Dolomiti, Vladivostok, Himalaya o Sardegna";x.onclick=show;top.prepend(x);}
+ const top=document.querySelector(".top-right");if(top){const x=document.createElement("button");x.textContent="🌍 Mappe";x.title="Seleziona "+REGIONS.map(r=>r.name.split(" · ")[0]).join(", ");x.onclick=show;top.prepend(x);}
 }
 if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",boot);else boot();
 window.CENTURION_MAPPE5={REGIONS,open:show,trasla};
