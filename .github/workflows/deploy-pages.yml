@@ -82,7 +82,7 @@ jobs:
           for code, cfg in m.items():
               p=Path('extracted/site/modelli') / cfg['file']
               assert p.is_file() and p.stat().st_size > 10000, p
-          print('Hangar models:',len([v for v in h['models'] if v['status']=='ready']))
+          assert any(v['id']=='f16' and v['status']=='ready' for v in h['models']), 'F-16 absent from hangar'\n          assert 'F16' in m, 'F-16 absent from mission manifest'\n          print('Hangar models:',len([v for v in h['models'] if v['status']=='ready']))
           print('Mission aircraft:', sorted(m))
           expected={'typhoon':'F2000','f15e':'F15','su57':'SU57','ea18':'EA18','f22':'F22'}
           present={p.name for p in Path('model-sources').glob('*.zip')} if Path('model-sources').exists() else set()
@@ -102,7 +102,7 @@ jobs:
           PY
       - name: Refresh offline cache for 3D hangar
         run: |
-          sed -i 's/centurion2-mobile-password-v2/centurion2-mobile-f22-home-v7/g; s/centurion2-mobile-hangar-v4/centurion2-mobile-f22-home-v7/g; s/centurion2-mobile-hangar-su35-v5/centurion2-mobile-f22-home-v7/g' extracted/site/sw.js
+          sed -i 's/centurion2-mobile-password-v2/centurion2-mobile-f16-hangar-v8/g; s/centurion2-mobile-hangar-v4/centurion2-mobile-f22-home-v7/g; s/centurion2-mobile-hangar-su35-v5/centurion2-mobile-f22-home-v7/g' extracted/site/sw.js
       - name: Configure GitHub Pages
         uses: actions/configure-pages@v5
       - name: Upload GitHub Pages artifact
