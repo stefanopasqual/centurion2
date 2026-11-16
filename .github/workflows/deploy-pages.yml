@@ -11,10 +11,10 @@ on:
       - 'model-sources/**'
   workflow_dispatch:
 
+# Sito privato: pubblicato su Cloudflare Pages e protetto da Cloudflare Access.
+# GitHub Pages non va più usato (sarebbe pubblico): disattivarlo in Settings → Pages.
 permissions:
   contents: read
-  pages: write
-  id-token: write
 
 concurrency:
   group: centurion2-pages
@@ -23,9 +23,6 @@ concurrency:
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -105,12 +102,34 @@ jobs:
       - name: Refresh offline cache for 3D hangar
         run: |
           sed -i 's/centurion2-mobile-password-v2/centurion2-mobile-f16-hangar-v8/g; s/centurion2-mobile-hangar-v4/centurion2-mobile-f22-home-v7/g; s/centurion2-mobile-hangar-su35-v5/centurion2-mobile-f22-home-v7/g' extracted/site/sw.js
-      - name: Configure GitHub Pages
-        uses: actions/configure-pages@v5
-      - name: Upload GitHub Pages artifact
-        uses: actions/upload-pages-artifact@v3
-        with:
-          path: extracted/site
-      - name: Deploy website
-        id: deployment
-        uses: actions/deploy-pages@v4
+      - name: Keep every file under the Cloudflare Pages 25 MiB limit
+        shell: bash
+        run: |
+          big=$(find extracted/site -type f -size +24M)
+          if [ -n "$big" ]; then
+            npm install --no-save --no-audit --no-fund @gltf-transform/cli@4
+            for f in $big; do
+              case "$f" in
+                *.glb)
+                  echo "Compressing textures (WebP, max 2048 px): $f ($(du -h "$f" | cut -f1))"
+                  npx gltf-transform resize "$f" "$f" --width 2048 --height 2048
+                  npx gltf-transform webp "$f" "$f"
+                  echo "  -> $(du -h "$f" | cut -f1)" ;;
+              esac
+            done
+          fi
+          still=$(find extracted/site -type f -size +24M)
+          if [ -n "$still" ]; then
+            echo "::error::Files above the Cloudflare Pages 25 MiB limit:"; ls -l $still; exit 1
+          fi
+      - name: Deploy to Cloudflare Pages (private behind Cloudflare Access)
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        shell: bash
+        run: |
+          if [ -z "$CLOUDFLARE_API_TOKEN" ] || [ -z "$CLOUDFLARE_ACCOUNT_ID" ]; then
+            echo "::error::Add the CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID repository secrets (see README)"; exit 1
+          fi
+          npx --yes wrangler@3 pages project create centurion2 --production-branch=main 2>/dev/null || true
+          npx --yes wrangler@3 pages deploy extracted/site --project-name=centurion2 --branch=main --commit-dirty=true
