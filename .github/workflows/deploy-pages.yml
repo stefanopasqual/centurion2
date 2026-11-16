@@ -50,6 +50,7 @@ jobs:
           mkdir -p extracted/site/models extracted/site/ef2000
           python3 .github/models/build_models.py --input-dir . --output-dir extracted/site/models --mission-dir extracted/site/modelli
           python3 .github/models/patch_site.py extracted/site
+          python3 .github/models/patch_sam_controls.py extracted/site
           cp .github/ef2000/viewer.html extracted/site/ef2000/viewer.html
           cp .github/ef2000/launcher.js extracted/site/ef2000/launcher.js
           python3 - <<'PY'
