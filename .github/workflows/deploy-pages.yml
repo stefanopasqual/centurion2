@@ -41,7 +41,8 @@ jobs:
         run: |
           if find model-sources -maxdepth 1 -type f -name '*.zip' -print -quit 2>/dev/null | grep -q .; then
             sudo apt-get update
-            sudo apt-get install -y blender
+            sudo apt-get install -y blender python3-numpy python3-pil
+            blender --background --python-exit-code 7 --python-expr 'import numpy; print("Blender numpy OK:", numpy.__version__)'
           fi
       - name: Convert licensed original aircraft for web
         shell: bash
