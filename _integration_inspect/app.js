@@ -10,32 +10,28 @@ const APP = (() => {
     // aggiorna campi mancanti rispetto al default (versioni precedenti)
     Object.keys(SCENARIO_DEFAULT).forEach(k => { if (A.sc[k] === undefined) A.sc[k] = DATAIO.clone(SCENARIO_DEFAULT[k]); });
     Object.keys(SCENARIO_DEFAULT.regole).forEach(k => { if (A.sc.regole[k] === undefined) A.sc.regole[k] = SCENARIO_DEFAULT.regole[k]; });
-    MAPPA.init(A.sc); A.engine = new Engine(A.sc); A.engine.on(onEvento);
+    MAPPA.init(A.sc); A.engine = new Engine(A.sc); A.engine.on(onEvento); if (typeof RETE !== "undefined") RETE.agganciaEngine(A.engine); A._firmaPiani = JSON.stringify(A.sc.piani);
     $$(".role-btn").forEach(b => b.onclick = () => { setRuolo(b.dataset.role); $("#splash").classList.add("hidden"); $("#app").classList.remove("hidden"); setTimeout(() => { MAPPA.map.invalidateSize(); MAPPA.fitScenario(); vaiFase("briefing"); }, 50); });
     $("#btn-demo-splash").onclick = () => { $("#splash").classList.add("hidden"); $("#app").classList.remove("hidden"); setTimeout(() => { MAPPA.map.invalidateSize(); MAPPA.fitScenario(); DEMO.avvia(); }, 50); };
     $("#btn-tour-splash").onclick = () => { setRuolo("TRAINER"); $("#splash").classList.add("hidden"); $("#app").classList.remove("hidden"); setTimeout(() => { MAPPA.map.invalidateSize(); MAPPA.fitScenario(); vaiFase("briefing"); UI.tour(0); }, 50); };
     $$("#fasi button").forEach(b => b.onclick = () => vaiFase(b.dataset.fase));
+    // Free Flight: dalla schermata iniziale (senza scegliere un ruolo) e dalla barra in alto
+    const apriVolo = () => { if (typeof VOLO !== "undefined") VOLO.apri(); };
+    const bvs = $("#btn-volo-splash"); if (bvs) bvs.onclick = apriVolo; const bv = $("#btn-volo"); if (bv) bv.onclick = apriVolo;
+    // catalogo missioni
+    const apriMis = () => { if (typeof MISSIONI !== "undefined") MISSIONI.apriCatalogo(); }; const bms = $("#btn-missioni-splash"); if (bms) bms.onclick = apriMis; const bm = $("#btn-missioni"); if (bm) bm.onclick = apriMis;
     try { if (typeof AUDIO !== "undefined") { AUDIO.init(); AUDIO.badge(); const ba = $("#btn-audio"); if (ba) ba.onclick = () => AUDIO.pannello(); } } catch (e) { console.warn("audio non disponibile", e); }
     // app installabile (PWA): service worker per l'uso offline + pulsante "Installa" quando il browser lo permette
     if ("serviceWorker" in navigator && (location.protocol === "https:" || /^(localhost|127\.0\.0\.1)$/.test(location.hostname))) { navigator.serviceWorker.register("sw.js").catch(e => console.warn("service worker", e)); }
     window.addEventListener("beforeinstallprompt", e => { e.preventDefault(); A._installa = e; const b = $("#btn-installa"); if (b) { b.classList.remove("hidden"); b.onclick = () => { b.classList.add("hidden"); e.prompt(); }; } });
-    // Pannelli mobile: backdrop, chiusura accessibile e controlli dimensionati per il touch.
-    const bp = $("#btn-pannello"), bl = $("#btn-log"), backdrop = $("#drawer-backdrop");
-    function chiudiPannelli() { $("#left").classList.remove("open"); $("#right").classList.remove("open"); backdrop.classList.add("hidden"); bp.setAttribute("aria-expanded", "false"); bl.setAttribute("aria-expanded", "false"); }
-    function apriPannello(which) { const el = $(which); const wasOpen = el.classList.contains("open"); chiudiPannelli(); if (!wasOpen && matchMedia("(max-width: 900px)").matches) { el.classList.add("open"); backdrop.classList.remove("hidden"); (which === "#left" ? bp : bl).setAttribute("aria-expanded", "true"); } }
-    bp.onclick = () => apriPannello("#left"); bl.onclick = () => apriPannello("#right");
-    $("#btn-close-left").onclick = chiudiPannelli; $("#btn-close-right").onclick = chiudiPannelli;
-    backdrop.onclick = chiudiPannelli;
-    $("#map").addEventListener("pointerdown", chiudiPannelli);
-    const toolsButton = $("#btn-maptools"), tools = $("#map-tools");
-    function setTools(open) { tools.classList.toggle("open", open); toolsButton.setAttribute("aria-expanded", String(open)); toolsButton.textContent = open ? "✕ Chiudi livelli" : "☷ Livelli"; }
-    toolsButton.onclick = () => setTools(!tools.classList.contains("open"));
-    $("#map").addEventListener("pointerdown", () => setTools(false));
-    window.addEventListener("resize", () => { if (innerWidth > 900) { chiudiPannelli(); setTools(false); } if (MAPPA.map) MAPPA.map.invalidateSize(); });
-    $("#btn-demo").onclick = () => DEMO.avvia(); $("#btn-tour").onclick = () => UI.tour(0); $("#btn-ruolo").onclick = () => { play(false); $("#splash").classList.remove("hidden"); };
+    // pannelli a scomparsa su schermi piccoli (tablet verticale, smartphone)
+    const bp = $("#btn-pannello"), bl = $("#btn-log"); if (bp) bp.onclick = () => { $("#left").classList.toggle("open"); $("#right").classList.remove("open"); }; if (bl) bl.onclick = () => { $("#right").classList.toggle("open"); $("#left").classList.remove("open"); };
+    $("#map").addEventListener("pointerdown", () => { $("#left").classList.remove("open"); $("#right").classList.remove("open"); });
+    $("#btn-demo").onclick = () => DEMO.avvia(); $("#btn-tour").onclick = () => UI.tour(0); $("#btn-ruolo").onclick = () => { if (typeof RETE !== "undefined") RETE.menu(); else { play(false); $("#splash").classList.remove("hidden"); } };
     $("#tour-next").onclick = UI.tourNext; $("#tour-prev").onclick = UI.tourPrev; $("#tour-end").onclick = UI.tourEnd; $("#modal-close").onclick = UI.chiudiModal;
-    $("#btn-play").onclick = () => play(!A.playing); $("#btn-step").onclick = () => { play(false); for (let i = 0; i < 60 / A.engine.tick_sec; i++) A.engine.tick(); refresh(); };
-    $("#btn-reset").onclick = () => { play(false); DEMO.stop(); ricostruisci(); UI.toast("Simulazione riportata alle " + A.sc.tempo.inizio); };
+    const remoto = () => typeof RETE !== "undefined" && RETE.client();
+    $("#btn-play").onclick = () => play(!A.playing); $("#btn-step").onclick = () => { if (remoto()) return UI.toast("Il tempo lo gestisce il trainer"); play(false); for (let i = 0; i < 60 / A.engine.tick_sec; i++) A.engine.tick(); refresh(); };
+    $("#btn-reset").onclick = () => { if (remoto()) return UI.toast("Solo il trainer può ricominciare la partita"); play(false); DEMO.stop(); ricostruisci(); UI.toast("Simulazione riportata alle " + A.sc.tempo.inizio); };
     $("#speeds").innerHTML = A.sc.tempo.velocita.map(v => `<button data-v="${v}" class="${v === A.speed ? "active" : ""}">×${v}</button>`).join("");
     $$("#speeds button").forEach(b => b.onclick = () => setSpeed(+b.dataset.v));
     $("#sel-base").value = A.sc.mappa.tile_default; $("#sel-base").onchange = e => MAPPA.setBase(e.target.value);
@@ -43,14 +39,16 @@ const APP = (() => {
     $("#chk-griglia").onchange = e => MAPPA.toggle("griglia", e.target.checked); $("#chk-trails").onchange = e => MAPPA.toggle("trails", e.target.checked); $("#chk-radar").onchange = e => MAPPA.radarRings(A.engine.vista(A.ruolo), e.target.checked);
     $("#btn-ruler").onclick = () => { const on = !$("#btn-ruler").classList.toggle("active"); MAPPA.rulerToggle(!on); UI.toast(!on ? "Righello attivo: clicca due o più punti sulla mappa" : "Righello disattivato"); };
     $("#btn-fit").onclick = () => MAPPA.fitScenario(); $("#log-filter").onchange = () => UI.log();
-    document.addEventListener("keydown", e => { if (e.target.tagName === "INPUT" || e.target.tagName === "TEXTAREA" || e.target.tagName === "SELECT") return; if (e.code === "Space") { e.preventDefault(); play(!A.playing); } if (e.key === "Escape") { UI.chiudiModal(); UI.tourEnd(); chiudiPannelli(); setTools(false); } });
+    document.addEventListener("keydown", e => { if (e.target.tagName === "INPUT" || e.target.tagName === "TEXTAREA" || e.target.tagName === "SELECT") return; if (e.code === "Space") { e.preventDefault(); play(!A.playing); } if (e.key === "Escape") { UI.chiudiModal(); UI.tourEnd(); } });
     $("#clock-sub").textContent = `Finestra ${A.sc.tempo.inizio} – ${A.sc.tempo.fine}`;
     DATAIO.serverDisponibile().then(ok => { $("#status-msg").textContent = ok ? "Server locale attivo: salvataggi in data/salvataggi" : "Modalità file: salvataggi nel browser + download"; if (typeof VISTA3D !== "undefined") VISTA3D.setProxyTile(ok); });
     refresh();
+    if (typeof RETE !== "undefined") RETE.init();
   }
   function setRuolo(r) { A.ruolo = r; const b = $("#role-badge"); b.textContent = r === "TRAINER" ? "TRAINER" : "SQUADRA " + r; b.className = r; if (A.fase) vaiFase(A.fase); }
   function vaiFase(f) {
-    A.fase = f; if (typeof document !== "undefined") { const left = $("#left"), right = $("#right"); left.classList.remove("open"); right.classList.remove("open"); $("#drawer-backdrop").classList.add("hidden"); $("#btn-pannello").setAttribute("aria-expanded", "false"); $("#btn-log").setAttribute("aria-expanded", "false"); } $$("#fasi button").forEach(b => { b.classList.toggle("active", b.dataset.fase === f); });
+    if (f === "esecuzione" && A.fase !== "esecuzione") applicaPianiNuovi();
+    A.fase = f; $$("#fasi button").forEach(b => { b.classList.toggle("active", b.dataset.fase === f); });
     const ord = ["briefing", "piano", "esecuzione", "debrief"]; $$("#fasi button").forEach(b => b.classList.toggle("done", ord.indexOf(b.dataset.fase) !== -1 && ord.indexOf(b.dataset.fase) < ord.indexOf(f)));
     $("#left").classList.remove("wide"); UI.tourEnd();
     if (f !== "esecuzione" && f !== "debrief") { play(false); }
@@ -58,13 +56,30 @@ const APP = (() => {
     if (f === "esecuzione" || f === "debrief") { MAPPA.disegnaSam(A.engine.vista(A.ruolo).sam, false); } else if (f === "briefing" || f === "editor") { UI.aggiornaRotteMappa(); MAPPA.disegnaRotte([]); }
     setTimeout(() => MAPPA.map.invalidateSize(), 30);
   }
-  function salva() { DATAIO.salvaLocale(A.sc); }
+  function salva() {
+    // postazione squadra in una sessione a più postazioni: il proprio piano va al trainer, lo scenario locale non si salva (è del trainer)
+    if (typeof RETE !== "undefined" && RETE.client()) { RETE.pianoModificato(); return; }
+    DATAIO.salvaLocale(A.sc); if (typeof RETE !== "undefined") RETE.scModificato();
+  }
   function ricostruisci() {
-    play(false); salva(); MAPPA.reDraw(A.sc); MAPPA.pulisciDinamici(); A.engine = new Engine(A.sc); A.engine.on(onEvento); A.sel = null; A._hlOfferto = false;
+    play(false); salva(); MAPPA.reDraw(A.sc); MAPPA.pulisciDinamici(); A.engine = new Engine(A.sc); A.engine.on(onEvento); if (typeof RETE !== "undefined") RETE.agganciaEngine(A.engine); A.sel = null; A._hlOfferto = false; A._firmaPiani = JSON.stringify(A.sc.piani); A._avvisoPiani = false;
     $("#clock-sub").textContent = `Finestra ${A.sc.tempo.inizio} – ${A.sc.tempo.fine}`; $("#log").innerHTML = ""; refresh(); if (A.fase) vaiFase(A.fase);
   }
+  // il piano modificato nella fase Piano arriva al motore senza dover premere ⟲: se la missione non è ancora partita si riparte col piano nuovo
+  function applicaPianiNuovi() {
+    if ((typeof RETE !== "undefined" && RETE.client()) || !A.engine || JSON.stringify(A.sc.piani) === A._firmaPiani) return false;
+    if (A.engine.t <= Engine.hm2s(A.sc.tempo.inizio)) { const f = A.fase; A.fase = null; ricostruisci(); A.fase = f; UI.toast("Piano aggiornato: la simulazione usa il piano appena modificato", 3500); return true; }
+    if (!A._avvisoPiani) { A._avvisoPiani = true; UI.toast(`Hai modificato il piano a missione iniziata: premi ⟲ per applicarlo ripartendo dalle ${A.sc.tempo.inizio}`, 7000); }
+    return false;
+  }
   function setSpeed(v) { A.speed = v; $$("#speeds button").forEach(b => b.classList.toggle("active", +b.dataset.v === v)); if (A.playing) { play(false); play(true); } }
+  function statoRemoto(m) {   // postazione squadra: play/velocità mostrati come sul PC del trainer (servono anche alla vista 3D)
+    A.playing = !!m.playing; if (m.speed) A.speed = m.speed;
+    $("#btn-play").textContent = A.playing ? "⏸" : "▶"; $("#btn-play").classList.toggle("playing", A.playing); $$("#speeds button").forEach(b => b.classList.toggle("active", +b.dataset.v === A.speed));
+  }
   function play(on) {
+    if (typeof RETE !== "undefined" && RETE.client()) { if (on) UI.toast("Il tempo lo gestisce il trainer: la simulazione parte dal suo PC"); return; }
+    if (on) applicaPianiNuovi();
     if (on && A.engine.finita) { UI.toast("La finestra operativa è finita: premi ⟲ per ricominciare o vai al Debrief"); on = false; }
     A.playing = on; $("#btn-play").textContent = on ? "⏸" : "▶"; $("#btn-play").classList.toggle("playing", on); clearInterval(A.timer); A.timer = null;
     if (on) { const tps = A.speed / A.engine.tick_sec; const intervallo = Math.max(16, 1000 / tps); const perInt = Math.max(1, Math.round(tps * intervallo / 1000)); let k = 0;
@@ -78,11 +93,13 @@ const APP = (() => {
   }
   function apriVista3d(v, opts) {
     const o = VISTA3D.daEvento(A.sc, A.engine, v); if (!o) return;
-    const eraInPlay = A.playing; play(false);
-    Object.assign(o, opts || {}); o.onFine = () => { if (eraInPlay && !A.engine.finita) play(true); if (opts && opts.onFine) opts.onFine(); };
+    // a più postazioni la cinematica non ferma la partita degli altri
+    const multi = typeof RETE !== "undefined" && RETE.attiva; const eraInPlay = A.playing; if (!multi) play(false);
+    Object.assign(o, opts || {}); o.onFine = () => { if (!multi && eraInPlay && !A.engine.finita) play(true); if (opts && opts.onFine) opts.onFine(); };
     VISTA3D.apri(o);
   }
   function onEvento(ev) { if (ev.tipo !== "evento") return; UI.log(ev.e);
+    if (typeof RETE !== "undefined" && RETE.bulk) return;   // eventi già passati ricevuti al collegamento: solo nel log, senza audio né cinematiche
     // audio delle comunicazioni (anche in demo); PICKLE/SHACK/OFF della formazione mostrata nella cinematica 3D sono già stati detti lì
     const cinem = A._v3dAttacco && ev.e.chi === A._v3dAttacco && /^(PICKLE|SHACK|OFF target)/.test(ev.e.testo); if (cinem && /^OFF target/.test(ev.e.testo)) A._v3dAttacco = null;
     if (typeof AUDIO !== "undefined" && !cinem) { try { AUDIO.evento(ev.e); } catch (e) {} }
@@ -100,5 +117,5 @@ const APP = (() => {
     $("#pl-file").onchange = () => { const f = $("#pl-file").files[0]; const r = new FileReader(); if (f.name.endsWith(".json")) { r.onload = () => { const o = JSON.parse(r.result); if (o.piani) A.sc.piani = o.piani; else if (o.scenario) A.sc = o.scenario; else A.sc = o; UI.chiudiModal(); ricostruisci(); }; r.readAsText(f); } else { r.onload = () => { const res = DATAIO.importExcel(new Uint8Array(r.result), A.sc); A.sc = res.sc; UI.chiudiModal(); ricostruisci(); UI.toast("Importato: " + res.log.join(", ")); }; r.readAsArrayBuffer(f); } };
   }
   window.addEventListener("DOMContentLoaded", init);
-  return { get sc() { return A.sc; }, set sc(v) { A.sc = v; }, get engine() { return A.engine; }, get ruolo() { return A.ruolo; }, get fase() { return A.fase; }, get sel() { return A.sel; }, set sel(v) { A.sel = v; }, get noteDebrief() { return A.noteDebrief; }, set noteDebrief(v) { A.noteDebrief = v; }, get speed() { return A.speed; }, get playing() { return A.playing; }, get vista3dAuto() { return A.vista3dAuto; }, set vista3dAuto(v) { A.vista3dAuto = v; }, get meteoNoaa() { return A.meteoNoaa; }, set meteoNoaa(v) { A.meteoNoaa = v; }, apriVista3d, setRuolo, vaiFase, salva, ricostruisci, setSpeed, play, refresh, salvaPiano, caricaPiano };
+  return { get sc() { return A.sc; }, set sc(v) { A.sc = v; }, get engine() { return A.engine; }, get ruolo() { return A.ruolo; }, get fase() { return A.fase; }, get sel() { return A.sel; }, set sel(v) { A.sel = v; }, get noteDebrief() { return A.noteDebrief; }, set noteDebrief(v) { A.noteDebrief = v; }, get speed() { return A.speed; }, get playing() { return A.playing; }, get vista3dAuto() { return A.vista3dAuto; }, set vista3dAuto(v) { A.vista3dAuto = v; }, get meteoNoaa() { return A.meteoNoaa; }, set meteoNoaa(v) { A.meteoNoaa = v; }, apriVista3d, setRuolo, vaiFase, salva, ricostruisci, setSpeed, play, refresh, salvaPiano, caricaPiano, statoRemoto, _hlReset: () => { A._hlOfferto = false; } };
 })();
