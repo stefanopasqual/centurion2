@@ -76,7 +76,38 @@ def main():
         report.append({'id':code, 'name':label, 'glb':'models/' + code + '.glb' if state=='ready' else None,
                        'source':url, 'author':'bohmerang', 'license':'CC BY-NC-SA 4.0',
                        'status':state, 'attribution':'Model by bohmerang on Sketchfab; converted for CENTURION2.'})
-    (out / 'manifest.json').write_text(json.dumps({'models': report, 'notice': 'Third-party models CC BY-NC-SA 4.0. Attribution and noncommercial/share-alike conditions apply.'}, indent=2), encoding='utf-8')
+    # Su-35: published by cutechicken in 3D-Airforce-Simulator (CC BY-NC 4.0).
+    # This source is downloaded at a pinned revision by the Pages workflow,
+    # verified with its published SHA256, and included as a local asset.
+    su35_src = root / 'model-sources' / 'su35.glb'
+    su35_url = 'https://huggingface.co/spaces/cutechicken/3D-Airforce-Simulator/blob/52946cce65ee642917704c8c4b266a5ee1c04b74/models/su-35.glb'
+    su35_state = 'source-missing'
+    if su35_src.is_file():
+        su35_state = 'ready-for-conversion' if args.dry_run else 'ready'
+        if not args.dry_run:
+            import hashlib
+            expected_sha = '22767f7194425758ec4d51d183a53ea2df5f59ab39a25ac840234351516987a4'
+            if hashlib.sha256(su35_src.read_bytes()).hexdigest() != expected_sha:
+                raise RuntimeError('Su-35 GLB SHA256 mismatch')
+            with su35_src.open('rb') as fh:
+                if fh.read(4) != b'glTF':
+                    raise RuntimeError('Su-35 source is not a GLB')
+            target = out / 'su35.glb'
+            shutil.copyfile(su35_src, target)
+            shutil.copyfile(target, mission / target.name)
+            mission_manifest['SU35'] = {
+                'file': target.name, 'rot': [0, 0, 0], 'lunghezza_m': 21.9,
+                'autore': 'cutechicken', 'licenza': 'CC BY-NC 4.0',
+                'url': su35_url, 'tint': False
+            }
+    report.append({
+        'id': 'su35', 'name': 'Sukhoi Su-35S Flanker-E',
+        'glb': 'models/su35.glb' if su35_state == 'ready' else None,
+        'source': su35_url, 'author': 'cutechicken', 'license': 'CC BY-NC 4.0',
+        'status': su35_state,
+        'attribution': 'Model from cutechicken/3D-Airforce-Simulator on Hugging Face; integrated for CENTURION2.'
+    })
+    (out / 'manifest.json').write_text(json.dumps({'models': report, 'notice': 'Third-party aircraft models: bohmerang / Sketchfab (CC BY-NC-SA 4.0) and cutechicken / Hugging Face (CC BY-NC 4.0). Attribution and noncommercial conditions apply.'}, indent=2), encoding='utf-8')
     (mission / 'manifest.json').write_text(json.dumps(mission_manifest, indent=2), encoding='utf-8')
     print(json.dumps({'hangar':report, 'mission':mission_manifest}, indent=2))
 
