@@ -76,6 +76,23 @@ def main():
         report.append({'id':code, 'name':label, 'glb':'models/' + code + '.glb' if state=='ready' else None,
                        'source':url, 'author':'bohmerang', 'license':'CC BY-NC-SA 4.0',
                        'status':state, 'attribution':'Model by bohmerang on Sketchfab; converted for CENTURION2.'})
+    # Prefer an uploaded user GLB over an archived / converted SU-57.
+    # These files are prepared with gear retracted; no geometry is replaced.
+    user_su57 = root / 'model-sources' / 'su57.glb'
+    if user_su57.is_file():
+        if not args.dry_run:
+            if user_su57.read_bytes()[:4] != b'glTF':
+                raise RuntimeError('Uploaded Su-57 is not a GLB')
+            shutil.copyfile(user_su57, out / 'su57.glb')
+            shutil.copyfile(user_su57, mission / 'su57.glb')
+            mission_manifest['SU57'] = {'file':'su57.glb','rot':[0,0,0],
+                'lunghezza_m':20.1,'tint':False,'gear':'up',
+                'autore':'user supplied','licenza':'verify upload rights','url':''}
+        rec=next(x for x in report if x['id']=='su57')
+        rec.update({'status':'ready' if not args.dry_run else 'ready-for-conversion',
+                    'glb':'models/su57.glb' if not args.dry_run else None,
+                    'source':'user supplied GLB, gear-up','author':'user supplied',
+                    'attribution':'User supplied Su-57 geometry with landing gear removed.'})
     # Su-35: published by cutechicken in 3D-Airforce-Simulator (CC BY-NC 4.0).
     # This source is downloaded at a pinned revision by the Pages workflow,
     # validated as GLB and included as a local asset.
@@ -182,6 +199,33 @@ def main():
         'status': 'ready' if not args.dry_run else 'ready-for-conversion',
         'attribution': 'Original simplified F-16C reconstruction, not the linked Sketchfab mesh.'
     })
+    # Any additional, user supplied model source is automatically published.
+    # Uploaded GLBs are not fetched from the local computer by GitHub Actions.
+    extras = [
+        ('su35','SU35','Sukhoi Su-35S Flanker-E',21.9,[0,0,0]),
+        ('ea18','EA18','Boeing EA-18G Growler',18.31,[0,0,0]),
+        ('f22','F22','F-22 Raptor',18.9,[0,180,0]),
+    ]
+    for code,mission_type,label,length,rotation in extras:
+        src = root / 'model-sources' / (code+'.glb')
+        if not src.is_file():
+            continue
+        if not args.dry_run:
+            if src.stat().st_size < 10000 or src.read_bytes()[:4] != b'glTF':
+                raise RuntimeError('Invalid uploaded GLB: '+str(src))
+            shutil.copyfile(src, out/(code+'.glb'))
+            shutil.copyfile(src, mission/(code+'.glb'))
+            mission_manifest[mission_type] = {
+                'file':code+'.glb','rot':rotation,'lunghezza_m':length,
+                'tint':False,'gear':'up','autore':'user supplied',
+                'licenza':'verify upload rights','url':''
+            }
+        rec=next(x for x in report if x['id']==code)
+        rec.update({'name':label,'glb':'models/'+code+'.glb' if not args.dry_run else None,
+                    'source':'user supplied GLB (gear-up)','author':'user supplied',
+                    'license':'verify upload rights',
+                    'status':'ready' if not args.dry_run else 'ready-for-conversion',
+                    'attribution':'User supplied mesh, prepared for in-flight rendering.'})
     (out / 'manifest.json').write_text(json.dumps({'models': report, 'notice': 'Third-party aircraft models: bohmerang / Sketchfab (CC BY-NC-SA 4.0) and cutechicken / Hugging Face (CC BY-NC 4.0). Attribution and noncommercial conditions apply.'}, indent=2), encoding='utf-8')
     (mission / 'manifest.json').write_text(json.dumps(mission_manifest, indent=2), encoding='utf-8')
     print(json.dumps({'hangar':report, 'mission':mission_manifest}, indent=2))
