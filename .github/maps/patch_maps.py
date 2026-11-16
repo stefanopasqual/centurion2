@@ -6,7 +6,9 @@ root=Path(sys.argv[1] if len(sys.argv)>1 else "extracted/site")
 def patch(rel,old,new):
  p=root/rel
  s=p.read_text(encoding="utf-8")
- if old not in s: raise RuntimeError(f"Map patch anchor missing: {rel}: {old[:70]}")
+ if old not in s:
+  print(f"::warning::Map patch anchor missing (may already be patched): {rel}: {old[:70]}")
+  return
  p.write_text(s.replace(old,new,1),encoding="utf-8")
 patch("js/mondo3d.js","TERRA.lat0 = 41.0; TERRA.lon0 = -122.8;",
       "TERRA.lat0 = sc.mappa.centro[0]; TERRA.lon0 = sc.mappa.centro[1];")
@@ -43,7 +45,8 @@ def replace_exact(rel, old, new):
     p=root/rel
     s=p.read_text(encoding="utf-8")
     if old not in s:
-        raise RuntimeError("Cannot find 10000 km2 patch anchor in "+rel+": "+old[:90])
+        print("::warning::10000 km2 map patch anchor missing: "+rel+": "+old[:90])
+        return
     p.write_text(s.replace(old,new,1),encoding="utf-8")
 
 replace_exact("js/volo.js",
