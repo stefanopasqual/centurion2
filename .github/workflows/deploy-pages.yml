@@ -8,13 +8,17 @@ on:
       - '.github/ef2000/**'
       - '.github/models/**'
       - '.github/maps/**'
+      - '.github/cockpit/**'
       - 'model-sources/**'
   workflow_dispatch:
 
-# Sito privato: pubblicato su Cloudflare Pages e protetto da Cloudflare Access.
-# GitHub Pages non va più usato (sarebbe pubblico): disattivarlo in Settings → Pages.
+# Destinazione: se i segreti CLOUDFLARE_API_TOKEN e CLOUDFLARE_ACCOUNT_ID esistono,
+# il sito va su Cloudflare Pages (privato dietro Cloudflare Access, vedi README);
+# altrimenti resta su GitHub Pages, che e' PUBBLICO.
 permissions:
   contents: read
+  pages: write
+  id-token: write
 
 concurrency:
   group: centurion2-pages
@@ -23,6 +27,8 @@ concurrency:
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    outputs:
+      target: ${{ steps.target.outputs.target }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -48,6 +54,7 @@ jobs:
           mkdir -p extracted/site/models extracted/site/ef2000
           python3 .github/models/build_models.py --input-dir . --output-dir extracted/site/models --mission-dir extracted/site/modelli
           python3 .github/models/patch_site.py extracted/site
+          python3 .github/cockpit/patch_cockpit.py extracted/site
           python3 .github/models/patch_sam_controls.py extracted/site
           python3 .github/maps/patch_maps.py extracted/site
           cp .github/ef2000/viewer.html extracted/site/ef2000/viewer.html
@@ -101,8 +108,8 @@ jobs:
           PY
       - name: Refresh offline cache for 3D hangar
         run: |
-          sed -i 's/centurion2-mobile-password-v2/centurion2-mobile-f16-hangar-v8/g; s/centurion2-mobile-hangar-v4/centurion2-mobile-f22-home-v7/g; s/centurion2-mobile-hangar-su35-v5/centurion2-mobile-f22-home-v7/g' extracted/site/sw.js
-      - name: Keep every file under the Cloudflare Pages 25 MiB limit
+          sed -i 's/centurion2-mobile-password-v2/centurion2-mobile-cockpit-jets-v10/g; s/centurion2-mobile-hangar-v4/centurion2-mobile-f22-home-v7/g; s/centurion2-mobile-hangar-su35-v5/centurion2-mobile-f22-home-v7/g' extracted/site/sw.js
+      - name: Keep every file under the 25 MiB hosting limit
         shell: bash
         run: |
           big=$(find extracted/site -type f -size +24M)
@@ -120,16 +127,40 @@ jobs:
           fi
           still=$(find extracted/site -type f -size +24M)
           if [ -n "$still" ]; then
-            echo "::error::Files above the Cloudflare Pages 25 MiB limit:"; ls -l $still; exit 1
+            echo "::error::Files above the 25 MiB limit:"; ls -l $still; exit 1
           fi
+      - name: Choose hosting
+        id: target
+        env:
+          CF_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CF_ACCOUNT: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          if [ -n "$CF_TOKEN" ] && [ -n "$CF_ACCOUNT" ]; then echo target=cloudflare >> "$GITHUB_OUTPUT"
+          else echo target=github >> "$GITHUB_OUTPUT"; echo "::warning::Cloudflare secrets missing: publishing on PUBLIC GitHub Pages"; fi
       - name: Deploy to Cloudflare Pages (private behind Cloudflare Access)
+        if: steps.target.outputs.target == 'cloudflare'
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-        shell: bash
         run: |
-          if [ -z "$CLOUDFLARE_API_TOKEN" ] || [ -z "$CLOUDFLARE_ACCOUNT_ID" ]; then
-            echo "::error::Add the CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID repository secrets (see README)"; exit 1
-          fi
           npx --yes wrangler@3 pages project create centurion2 --production-branch=main 2>/dev/null || true
           npx --yes wrangler@3 pages deploy extracted/site --project-name=centurion2 --branch=main --commit-dirty=true
+      - name: Upload GitHub Pages artifact
+        if: steps.target.outputs.target == 'github'
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: extracted/site
+
+  github-pages:
+    needs: deploy
+    if: needs.deploy.outputs.target == 'github'
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Configure GitHub Pages
+        uses: actions/configure-pages@v5
+      - name: Deploy website
+        id: deployment
+        uses: actions/deploy-pages@v4

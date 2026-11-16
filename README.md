@@ -25,7 +25,7 @@ I modelli indicati nei manifest hanno attribuzione bohmerang / Sketchfab e licen
 
 ## Accesso privato (Cloudflare Pages + Cloudflare Access)
 
-Il workflow `Publish CENTURION2 mobile` pubblica il sito su Cloudflare Pages (progetto `centurion2`), non più su GitHub Pages. Configurazione una tantum:
+Il workflow `Publish CENTURION2 mobile` pubblica il sito su Cloudflare Pages (progetto `centurion2`) quando trova i segreti `CLOUDFLARE_API_TOKEN` e `CLOUDFLARE_ACCOUNT_ID`; **finché mancano, continua a pubblicare su GitHub Pages, che è pubblico**. Configurazione una tantum:
 
 1. **Repository privato**: Settings → General → Danger Zone → *Change visibility* → Private.
 2. **Spegnere GitHub Pages**: Settings → Pages → *Unpublish site*; in *Source* scegliere *None*/disattivare.
