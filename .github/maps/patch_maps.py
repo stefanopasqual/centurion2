@@ -60,7 +60,7 @@ clipmesh = """
       const zmin=arena?Math.max(-half,cz-tileM/2):cz-tileM/2;
       const zmax=arena?Math.min(half,cz+tileM/2):cz+tileM/2;
       if (xmin>=xmax || zmin>=zmax) return;
-      const geo = new THREE.PlaneGeometry(xmax-xmin, zmax-zmin, SEG, SEG);
+      const detailSeg = Math.hypot(cx-c0.x,cz-c0.z) < 28000 ? SEG : Math.max(28,Math.floor(SEG/2));\n      const geo = new THREE.PlaneGeometry(xmax-xmin, zmax-zmin, detailSeg, detailSeg);
       if(arena){
         const uv=geo.attributes.uv, u0=(xmin-(cx-tileM/2))/tileM, du=(xmax-xmin)/tileM;
         const v0=1-(zmax-(cz-tileM/2))/tileM, dv=(zmax-zmin)/tileM;
