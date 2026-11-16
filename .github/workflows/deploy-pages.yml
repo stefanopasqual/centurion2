@@ -53,15 +53,16 @@ jobs:
           python3 .github/models/patch_sam_controls.py extracted/site
           cp .github/ef2000/viewer.html extracted/site/ef2000/viewer.html
           cp .github/ef2000/launcher.js extracted/site/ef2000/launcher.js
+          cp .github/ef2000/home.js extracted/site/ef2000/home.js
           python3 - <<'PY'
           from pathlib import Path
           path=Path('extracted/site/index.html')
           html=path.read_text(encoding='utf-8')
-          marker='<script src="ef2000/launcher.js"></script>'
+          marker='<script src="ef2000/launcher.js"></script>'\n          home='<script src="ef2000/home.js"></script>'
           if marker not in html:
               assert '</body>' in html, 'CENTURION2 source missing closing body'
               html=html.replace('</body>', marker+'\n</body>', 1)
-          path.write_text(html, encoding='utf-8')
+          if home not in html:\n              html=html.replace('</body>', home+'\\n</body>', 1)\n          path.write_text(html, encoding='utf-8')
           PY
           test -s extracted/site/ef2000/viewer.html
           python3 - <<'PY'
@@ -78,7 +79,7 @@ jobs:
               assert p.is_file() and p.stat().st_size > 10000, p
           print('Hangar models:',len([v for v in h['models'] if v['status']=='ready']))
           print('Mission aircraft:', sorted(m))
-          expected={'typhoon':'F2000','f15e':'F15','su57':'SU57','ea18':'EA18'}
+          expected={'typhoon':'F2000','f15e':'F15','su57':'SU57','ea18':'EA18','f22':'F22'}
           present={p.name for p in Path('model-sources').glob('*.zip')} if Path('model-sources').exists() else set()
           if present:
               for code, mission_code in expected.items():
@@ -94,7 +95,7 @@ jobs:
           PY
       - name: Refresh offline cache for 3D hangar
         run: |
-          sed -i 's/centurion2-mobile-password-v2/centurion2-mobile-gearup-ea18-v6/g; s/centurion2-mobile-hangar-v4/centurion2-mobile-gearup-ea18-v6/g; s/centurion2-mobile-hangar-su35-v5/centurion2-mobile-gearup-ea18-v6/g' extracted/site/sw.js
+          sed -i 's/centurion2-mobile-password-v2/centurion2-mobile-f22-home-v7/g; s/centurion2-mobile-hangar-v4/centurion2-mobile-gearup-ea18-v6/g; s/centurion2-mobile-hangar-su35-v5/centurion2-mobile-gearup-ea18-v6/g' extracted/site/sw.js
       - name: Configure GitHub Pages
         uses: actions/configure-pages@v5
       - name: Upload GitHub Pages artifact
