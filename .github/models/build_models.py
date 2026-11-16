@@ -37,10 +37,15 @@ def main():
     ap.add_argument('--input-dir', type=Path, default=Path('.'))
     ap.add_argument('--output-dir', type=Path, default=Path('extracted/site/models'))
     ap.add_argument('--dry-run', action='store_true')
+    ap.add_argument('--mission-dir', type=Path, default=Path('extracted/site/modelli'))
     args = ap.parse_args()
     root, out = args.input_dir.resolve(), args.output_dir.resolve()
+    mission = args.mission_dir.resolve()
     out.mkdir(parents=True, exist_ok=True)
+    mission.mkdir(parents=True, exist_ok=True)
     report = []
+    mission_manifest = {}
+    mission_map = {'typhoon': ('F2000', 15.96), 'f15e': ('F15', 19.43), 'su57': ('SU57', 20.1)}
     exporter = Path(__file__).with_name('export_blend.py').resolve()
     for code, archive, label, url in MODELS:
         zip_path = next((p for p in [root / 'model-sources' / archive, root / archive] if p.is_file()), None)
@@ -55,11 +60,20 @@ def main():
                 target = out / (code + '.glb')
                 subprocess.run(['blender', '-b', '--python', str(exporter), '--', str(sources[0]), str(target), str(stage / 'textures')], check=True)
                 state = 'ready'
+                if code in mission_map:
+                    shutil.copyfile(target, mission / target.name)
+                    sim_type, length_m = mission_map[code]
+                    mission_manifest[sim_type] = {
+                        'file': target.name, 'rot': [0, 0, 0], 'lunghezza_m': length_m,
+                        'autore': 'bohmerang', 'licenza': 'CC BY-NC-SA 4.0', 'url': url,
+                        'tint': False
+                    }
         report.append({'id':code, 'name':label, 'glb':'models/' + code + '.glb' if state=='ready' else None,
                        'source':url, 'author':'bohmerang', 'license':'CC BY-NC-SA 4.0',
                        'status':state, 'attribution':'Model by bohmerang on Sketchfab; converted for CENTURION2.'})
     (out / 'manifest.json').write_text(json.dumps({'models': report, 'notice': 'Third-party models CC BY-NC-SA 4.0. Attribution and noncommercial/share-alike conditions apply.'}, indent=2), encoding='utf-8')
-    print(json.dumps(report, indent=2))
+    (mission / 'manifest.json').write_text(json.dumps(mission_manifest, indent=2), encoding='utf-8')
+    print(json.dumps({'hangar':report, 'mission':mission_manifest}, indent=2))
 
 
 if __name__ == '__main__':
