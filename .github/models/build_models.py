@@ -58,7 +58,12 @@ def main():
                 if len(sources) != 1:
                     raise RuntimeError(f'{archive}: expected one blend file, got {len(sources)}')
                 target = out / (code + '.glb')
-                subprocess.run(['blender', '-b', '--python', str(exporter), '--', str(sources[0]), str(target), str(stage / 'textures')], check=True)
+                subprocess.run(['blender', '-b', '--python-exit-code', '7', '--python', str(exporter), '--', str(sources[0]), str(target), str(stage / 'textures')], check=True)
+                if not target.is_file() or target.stat().st_size < 10000:
+                    raise RuntimeError(f'{archive}: Blender did not create a valid GLB: {target}')
+                with target.open('rb') as fp:
+                    if fp.read(4) != b'glTF':
+                        raise RuntimeError(f'{archive}: invalid GLB signature')
                 state = 'ready'
                 if code in mission_map:
                     shutil.copyfile(target, mission / target.name)
