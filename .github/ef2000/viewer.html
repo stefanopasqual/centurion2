@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="it"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>CENTURION2 — Eurofighter EF-2000</title>
+<style>
+*{box-sizing:border-box}html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#071320;color:#edf7ff;font-family:system-ui,Arial,sans-serif}
+canvas{display:block;touch-action:none}.hud{position:fixed;top:env(safe-area-inset-top);left:0;right:0;display:flex;gap:8px;flex-wrap:wrap;padding:10px;align-items:center;z-index:3;pointer-events:none}
+.hud button,.hud select{pointer-events:auto;background:#142c42;color:#fff;border:1px solid #426781;border-radius:9px;min-height:42px;padding:0 12px;font-weight:600}
+.hud h1{font-size:14px;margin:0 8px;letter-spacing:.07em}.tip{position:fixed;bottom:10px;left:10px;right:10px;text-align:center;font-size:12px;color:#acbfd2;pointer-events:none}#status{font-size:12px;color:#b9d4e7}
+</style>
+<script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.160.1/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.160.1/examples/jsm/"}}</script>
+</head><body>
+<div class="hud">
+<button id="back" aria-label="Torna al simulatore">← Simulatore</button>
+<h1>EF-2000 TYPHOON</h1>
+<select id="variant" aria-label="Configurazione"><option value="armed">Armato</option><option value="clean">Pulito</option><option value="gear">Carrelli giù</option></select>
+<button id="reset">Centra</button><span id="status">Caricamento 3D…</span>
+</div><div class="tip">Trascina per ruotare · Due dita per zoom e spostamento · Modello 3D originale</div>
+<script type="module">
+import * as THREE from 'three';
+import {OrbitControls} from 'three/addons/controls/OrbitControls.js';
+import {GLTFLoader} from 'three/addons/loaders/GLTFLoader.js';
+const params=new URLSearchParams(location.search),variant=document.querySelector('#variant'),status=document.querySelector('#status');
+if(['armed','clean','gear'].includes(params.get('variant')))variant.value=params.get('variant');
+document.querySelector('#back').onclick=()=>{if(window.parent!==window){window.parent.postMessage({type:'centurion2-ef2000-close'},location.origin);}else{location.href='../';}};
+const scene=new THREE.Scene();scene.background=new THREE.Color('#071320');
+const camera=new THREE.PerspectiveCamera(46,innerWidth/innerHeight,.1,600);camera.position.set(19,11,-22);
+const renderer=new THREE.WebGLRenderer({antialias:true,powerPreference:'high-performance'});renderer.setPixelRatio(Math.min(devicePixelRatio,2));renderer.setSize(innerWidth,innerHeight);renderer.outputColorSpace=THREE.SRGBColorSpace;document.body.appendChild(renderer.domElement);
+scene.add(new THREE.HemisphereLight(0xcbe5ff,0x21374e,2.1));
+const light=new THREE.DirectionalLight(0xfff3de,3);light.position.set(-10,16,-10);scene.add(light);
+const fill=new THREE.DirectionalLight(0x8cbaff,1.4);fill.position.set(10,-4,14);scene.add(fill);
+const grid=new THREE.GridHelper(80,32,0x24435b,0x142639);grid.position.y=-3.3;scene.add(grid);
+const ctl=new OrbitControls(camera,renderer.domElement);ctl.enableDamping=true;ctl.dampingFactor=.08;ctl.minDistance=5;ctl.maxDistance=65;ctl.target.set(0,0,0);
+const loader=new GLTFLoader();let aircraft=null,loadId=0;
+async function load(name){const id=++loadId;status.textContent='Caricamento '+name+'…';try{const map={armed:'EF2000_flight_armed.glb',clean:'EF2000_flight_clean.glb',gear:'EF2000_gear_down.glb'};const gltf=await loader.loadAsync(map[name]);if(id!==loadId)return;if(aircraft)scene.remove(aircraft);aircraft=gltf.scene;aircraft.name='EF2000_AircraftRoot';scene.add(aircraft);status.textContent='Modello pronto';}catch(e){status.textContent='Errore caricamento modello';console.error(e);}}
+variant.onchange=()=>load(variant.value);document.querySelector('#reset').onclick=()=>{camera.position.set(19,11,-22);ctl.target.set(0,0,0);ctl.update();};
+window.addEventListener('resize',()=>{camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight);});
+renderer.setAnimationLoop(()=>{ctl.update();renderer.render(scene,camera)});load(variant.value);
+</script></body></html>
