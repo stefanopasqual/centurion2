@@ -47,7 +47,7 @@ jobs:
         shell: bash
         run: |
           mkdir -p extracted/site/models extracted/site/ef2000
-          python3 .github/models/build_models.py --input-dir . --output-dir extracted/site/models
+          python3 .github/models/build_models.py --input-dir . --output-dir extracted/site/models --mission-dir extracted/site/modelli
           cp .github/ef2000/viewer.html extracted/site/ef2000/viewer.html
           cp .github/ef2000/launcher.js extracted/site/ef2000/launcher.js
           python3 - <<'PY'
@@ -61,6 +61,21 @@ jobs:
           path.write_text(html, encoding='utf-8')
           PY
           test -s extracted/site/ef2000/viewer.html
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          h=json.loads(Path('extracted/site/models/manifest.json').read_text())
+          m=json.loads(Path('extracted/site/modelli/manifest.json').read_text())
+          for model in h['models']:
+              if model['status'] == 'ready':
+                  p=Path('extracted/site') / model['glb']
+                  assert p.is_file() and p.stat().st_size > 10000, p
+          for code, cfg in m.items():
+              p=Path('extracted/site/modelli') / cfg['file']
+              assert p.is_file() and p.stat().st_size > 10000, p
+          print('Hangar models:',len([v for v in h['models'] if v['status']=='ready']))
+          print('Mission aircraft:', sorted(m))
+          PY
       - name: Apply CENTURION2 startup password gate
         run: python3 .github/security/apply_gate.py extracted/site
       - name: Refresh offline cache for 3D hangar
