@@ -1,0 +1,83 @@
+"""Blender 3.6+ background script for converting a provided .blend to glTF/GLB.
+Called by: blender -b --python export_blend.py -- INPUT.blend OUTPUT.glb
+Preserves source geometry/materials and reconnects externally supplied textures.
+"""
+import bpy
+import sys
+from pathlib import Path
+
+
+def log(*xs):
+    print('CENTURION_IMPORT:', *xs, flush=True)
+
+
+def main():
+    argv = sys.argv[sys.argv.index('--') + 1:]
+    if len(argv) != 3:
+        raise SystemExit('Usage: export_blend.py -- INPUT.blend OUTPUT.glb TEXTURES_DIR')
+    source, output, textures = map(Path, argv)
+    textures = textures.resolve()
+    bpy.ops.wm.open_mainfile(filepath=str(source.resolve()), load_ui=False)
+
+    matches = {}
+    for path in textures.rglob('*'):
+        if path.is_file() and path.suffix.lower() in {'.png', '.jpg', '.jpeg', '.webp', '.tga', '.exr'}:
+            matches[path.name.lower()] = path
+    linked = 0
+    for img in bpy.data.images:
+        if img.source not in {'FILE', 'SEQUENCE', 'TILED'}:
+            continue
+        options = [Path(bpy.path.abspath(img.filepath)).name.lower(), img.name.lower()]
+        options += [o.rsplit('.', 1)[0].lower() for o in options]
+        selected = None
+        for cand in options:
+            if cand in matches:
+                selected = matches[cand]
+                break
+            for key, val in matches.items():
+                if key.startswith(cand + '.'):
+                    selected = val
+                    break
+            if selected:
+                break
+        if selected is not None:
+            try:
+                img.filepath = str(selected)
+                img.reload()
+                linked += 1
+            except Exception as exc:
+                log('Texture warning', img.name, str(exc))
+
+    # Keep authored mesh geometry, UVs, normals, materials and animations.
+    # Reuse 3D object's scene transforms. No procedural aircraft substitutions.
+    for ob in bpy.data.objects:
+        if ob.type in {'MESH', 'CURVE'}:
+            ob.hide_set(False)
+            ob.hide_viewport = False
+            ob.hide_render = False
+    selectable = [ob for ob in bpy.context.scene.objects if ob.type in {'MESH', 'CURVE'}]
+    if not selectable:
+        raise RuntimeError('No mesh geometry in source .blend')
+    log('Geometry objects', len(selectable), 'images relinked', linked)
+    output.parent.mkdir(parents=True, exist_ok=True)
+    bpy.ops.export_scene.gltf(
+        filepath=str(output.resolve()),
+        export_format='GLB',
+        use_selection=False,
+        export_cameras=False,
+        export_lights=False,
+        export_texcoords=True,
+        export_normals=True,
+        export_materials='EXPORT',
+        export_animations=True,
+        export_yup=True,
+        export_image_format='AUTO',
+        export_apply=False,
+    )
+    if not output.is_file() or output.stat().st_size < 10000:
+        raise RuntimeError('GLB file missing/too small')
+    log('Exported', output, output.stat().st_size, 'bytes')
+
+
+if __name__ == '__main__':
+    main()
