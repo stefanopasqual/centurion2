@@ -52,6 +52,10 @@ function trasla(sc,r){
  sc.aar.forEach(a=>a.lunghezza_nm=Math.min(a.lunghezza_nm,3));
  sc.cap_box.forEach(c=>c.raggio_nm=Math.min(c.raggio_nm,2));
  sc.regole.commit_nm_blue=2;
+ /* gittate in proporzione alla compressione dell'area: anelli SA-10 e HARM dei Growler */
+ sc.sam.forEach(s=>s.raggio_nm=Math.max(3,Math.round((s.raggio_nm||40)*scale*10)/10));
+ sc.regole.harm_nm=Math.max(4,Math.round((sc.regole.harm_nm||50)*scale*10)/10);
+ sc.mappa5_scala=scale;
  sc.meta.nome="CENTURION2 · "+r.name;
  sc.meta.note="Superficie reale 10.000 km² (100 × 100 km), terrain DEM Terrarium e ortofoto Esri online. Basi, obiettivi e difese sono entità simulate, riposizionate entro l'area.";
  sc.meteo.descrizione="Condizioni meteo di addestramento. Vento e visibilità configurabili.";
