@@ -16,7 +16,8 @@ jobs:
         shell: bash
         run: |
           mkdir -p _integration_inspect
-          for f in site/js/*.js site/index.html; do unzip -qp CENTURION2_GITHUB_MOBILE.zip "$f" > "_integration_inspect/$(basename "$f")"; done
+          unzip -Z1 CENTURION2_GITHUB_MOBILE.zip | grep -E "^site/js/[^/]+[.]js$" | while IFS= read -r f; do unzip -p CENTURION2_GITHUB_MOBILE.zip "$f" > "_integration_inspect/$(basename "$f")"; done
+          unzip -p CENTURION2_GITHUB_MOBILE.zip site/index.html > _integration_inspect/index.html
           unzip -Z1 CENTURION2_GITHUB_MOBILE.zip | grep -E 'site/(js|index.html|assets|css)' > _integration_inspect/filelist.txt
           ls -l _integration_inspect
       - name: Commit source snapshot
