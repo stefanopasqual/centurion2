@@ -128,6 +128,35 @@ def main():
         'license': 'CC BY 4.0', 'status': growler_state,
         'attribution': 'Model by Rhine_Lab_Muelsyse on Sketchfab (CC BY 4.0).'
     })
+    # F-22 from the user-provided ZIP. The local GLB has the extended landing
+    # gear geometry removed, with all embedded original textures retained.
+    f22_src = root / 'model-sources' / 'f22.glb'
+    f22_state = 'source-missing'
+    if f22_src.is_file():
+        f22_state = 'ready-for-conversion' if args.dry_run else 'ready'
+        if not args.dry_run:
+            if f22_src.stat().st_size < 1_000_000:
+                raise RuntimeError('F-22 GLB too small')
+            with f22_src.open('rb') as fh:
+                if fh.read(4) != b'glTF':
+                    raise RuntimeError('F-22 source is not a GLB')
+            target = out / 'f22.glb'
+            shutil.copyfile(f22_src, target)
+            shutil.copyfile(target, mission / target.name)
+            mission_manifest['F22'] = {
+                'file': target.name, 'rot': [0, 180, 0],
+                'lunghezza_m': 18.9, 'tint': False, 'gear': 'up',
+                'autore': 'user-provided model', 'licenza': 'not specified',
+                'url': ''
+            }
+    report.append({
+        'id': 'f22', 'name': 'F-22 Raptor (user-supplied)',
+        'glb': 'models/f22.glb' if f22_state == 'ready' else None,
+        'source': 'user upload: f22-raptor (1).zip',
+        'author': 'not specified', 'license': 'not specified',
+        'status': f22_state,
+        'attribution': 'Original source supplied by user. Redistribution rights not documented.'
+    })
     (out / 'manifest.json').write_text(json.dumps({'models': report, 'notice': 'Third-party aircraft models: bohmerang / Sketchfab (CC BY-NC-SA 4.0) and cutechicken / Hugging Face (CC BY-NC 4.0). Attribution and noncommercial conditions apply.'}, indent=2), encoding='utf-8')
     (mission / 'manifest.json').write_text(json.dumps(mission_manifest, indent=2), encoding='utf-8')
     print(json.dumps({'hangar':report, 'mission':mission_manifest}, indent=2))
