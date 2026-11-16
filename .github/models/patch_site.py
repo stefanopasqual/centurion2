@@ -13,7 +13,7 @@ replacement = r'''if (!scene) return null; const g = scene.clone(true);
         const removed = [];
         g.traverse(o => {
           if (!o.isMesh && !o.isGroup) return;
-          const name = (o.name || "").toLowerCase().replace(/[\\s_.-]/g, "");
+          const name = (o.name || "").toLowerCase().replace(/[^a-z0-9]/g, "");
           const keep = /gearup|landingoff|gearoff|retracted|stowed|doorclosed|wheelwell/.test(name);
           const down = /landingon|gearon|geardown|gearout|gearopen|landinggear|undercarriage|nosewheel|mainwheel|wheel(?!well)|tire|tyre|bogie|oleostrut|gearstrut|do[o]?ropen|dooropened/.test(name);
           if (!keep && down) removed.push(o);
