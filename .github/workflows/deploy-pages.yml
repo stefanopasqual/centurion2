@@ -44,6 +44,20 @@ jobs:
             sudo apt-get install -y blender python3-numpy python3-pil
             blender --background --python-exit-code 7 --python-expr 'import numpy; print("Blender numpy OK:", numpy.__version__)'
           fi
+      - name: Retrieve pinned Su-35 3D aircraft
+        shell: bash
+        run: |
+          mkdir -p model-sources
+          curl --fail --location --retry 3 --connect-timeout 15 --max-time 180 \
+            'https://huggingface.co/spaces/cutechicken/3D-Airforce-Simulator/resolve/52946cce65ee642917704c8c4b266a5ee1c04b74/models/su-35.glb?download=true' \
+            --output model-sources/su35.glb
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('model-sources/su35.glb')
+          assert p.stat().st_size > 10000, 'Su-35 GLB too small'
+          assert p.read_bytes()[:4] == b'glTF', 'Su-35 file is not GLB'
+          print('Su-35 downloaded:',p.stat().st_size,'bytes')
+          PY
       - name: Convert licensed original aircraft for web
         shell: bash
         run: |
@@ -76,7 +90,7 @@ jobs:
               assert p.is_file() and p.stat().st_size > 10000, p
           print('Hangar models:',len([v for v in h['models'] if v['status']=='ready']))
           print('Mission aircraft:', sorted(m))
-          expected={'typhoon':'F2000','f15e':'F15','su57':'SU57'}
+          expected={'typhoon':'F2000','f15e':'F15','su57':'SU57','su35':'SU35'}
           present={p.name for p in Path('model-sources').glob('*.zip')} if Path('model-sources').exists() else set()
           if present:
               for code, mission_code in expected.items():
@@ -90,7 +104,8 @@ jobs:
       - name: Apply CENTURION2 startup password gate
         run: python3 .github/security/apply_gate.py extracted/site
       - name: Refresh offline cache for 3D hangar
-        run: sed -i 's/centurion2-mobile-password-v2/centurion2-mobile-hangar-v4/g' extracted/site/sw.js
+        run: |
+          sed -i 's/centurion2-mobile-password-v2/centurion2-mobile-hangar-su35-v5/g; s/centurion2-mobile-hangar-v4/centurion2-mobile-hangar-su35-v5/g' extracted/site/sw.js
       - name: Configure GitHub Pages
         uses: actions/configure-pages@v5
       - name: Upload GitHub Pages artifact
