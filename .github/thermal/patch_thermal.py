@@ -33,9 +33,12 @@ patch("js/mondo3d.js",
 # including Geran and original procedural aircraft, but not fighters/AWACS.
 patch("js/mondo3d.js",
       '  function nvg() { if (!st) return; st.nvg = !st.nvg; if (st.nvg && st.cam !== "cockpit") setCam("cockpit"); }',
-      '''  function uavThermalReady(){
-    return !!(st&&st.notte&&APP&&APP.sc&&Array.isArray(APP.sc.droni)
+      '''  function selectedUav(){
+    return !!(st&&APP&&APP.sc&&Array.isArray(APP.sc.droni)
       &&APP.sc.droni.some(d=>d.id===st.sel));
+  }
+  function uavThermalReady(){
+    return !!(st&&st.notte&&selectedUav());
   }
   function toggleThermal(){
     if(!uavThermalReady()){if(st)st.thermalMode=0;return;}
@@ -46,6 +49,10 @@ patch("js/mondo3d.js",
   function thermalButton(){
     const button=overlay&&overlay.querySelector("#m3d-thermal");
     if(!button||!st)return;
+    const isUav=selectedUav();
+    const nvgButton=overlay.querySelector("#m3d-nvgb");
+    if(nvgButton){nvgButton.style.display=isUav?"none":"";nvgButton.disabled=isUav;}
+    if(isUav)st.nvg=false;
     const eligible=uavThermalReady();
     if(!eligible)st.thermalMode=0;
     button.style.display=eligible?"inline-flex":"none";
@@ -54,7 +61,9 @@ patch("js/mondo3d.js",
     button.setAttribute("aria-pressed",String(!!st.thermalMode));
     button.setAttribute("aria-label","Termico UAV simulato: "+button.textContent);
   }
-  function nvg() { if (!st) return; st.nvg = !st.nvg;
+  function nvg() { if (!st) return;
+    if(selectedUav()){st.nvg=false;return;}
+    st.nvg = !st.nvg;
     if(st.nvg)st.thermalMode=0;
     if (st.nvg && st.cam !== "cockpit") setCam("cockpit"); }''')
 
@@ -111,6 +120,10 @@ patch("js/volo.js",
   }
   function thermalButton(){
     if(!ov||!S)return;
+    const isUav=!!(S.pl&&S.pl.A&&S.pl.A.drone);
+    const nvgButton=ov.querySelector("#vl-nvgb");
+    if(nvgButton){nvgButton.style.display=isUav?"none":"";nvgButton.disabled=isUav;}
+    if(isUav)S.nvg=false;
     const button=ov.querySelector("#vl-thermal");
     if(!button)return;
     const eligible=uavThermalReady();
@@ -121,7 +134,9 @@ patch("js/volo.js",
     button.classList.toggle("on",!!S.thermalMode);
     button.setAttribute("aria-pressed",String(!!S.thermalMode));
   }
-  function nvg() { if (!S) return; S.nvg = !S.nvg;
+  function nvg() { if (!S) return;
+    if(S.pl&&S.pl.A&&S.pl.A.drone){S.nvg=false;return;}
+    S.nvg = !S.nvg;
     if(S.nvg)S.thermalMode=0;''')
 
 patch("js/volo.js",
@@ -166,4 +181,4 @@ patch("js/mondo3d.js",
       'const on = !!(st.nvg && st.cam === "cockpit");',
       'const on = !!(st.nvg && !st.thermalMode && st.cam === "cockpit");')
 
-print("PASS: UAV IR White/Black Hot accessible in Free Flight day or night, including independent touch button and night default.")
+print("PASS: UAV thermal enabled, NVG disabled and hidden for UAV in Free Flight and Mondo3D.")
