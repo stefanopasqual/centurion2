@@ -9,10 +9,11 @@
    - le chiavi vengono da PBKDF2-SHA256 (600.000 iterazioni) sulla password e su un sale fisso, così
      restano valide fra una pubblicazione e l'altra finché la password non cambia.
 
-   Senza il segreto il sito si chiude: resta solo una pagina «accesso chiuso» e un service worker che,
-   sui dispositivi che avevano già l'app, cancella cache e chiavi e si disinstalla.
+   Senza il segreto il sito resta in chiaro, aperto a chiunque abbia l'indirizzo (come prima della cifratura).
+   Con la variabile SITE_CHIUSO = 1 il sito si chiude: resta solo una pagina «accesso chiuso» e un service
+   worker che, sui dispositivi che avevano già l'app, cancella cache e chiavi e si disinstalla.
 
-   Uso: node .github/security/cifra_sito.mjs extracted/site   (SITE_PASSWORD nell'ambiente) */
+   Uso: node .github/security/cifra_sito.mjs extracted/site   (SITE_PASSWORD e SITE_CHIUSO nell'ambiente) */
 import { readFileSync, writeFileSync, readdirSync, statSync, rmSync, mkdirSync } from "node:fs";
 import { join, relative, sep, extname, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -43,14 +44,19 @@ function elenca(dir) {
 function svuota(dir) { for (const n of readdirSync(dir)) rmSync(join(dir, n), { recursive: true, force: true }); }
 
 const password = (process.env.SITE_PASSWORD || "").trim();
+const chiuso = /^(1|si|sì|true|chiuso)$/i.test((process.env.SITE_CHIUSO || "").trim());
 const vecchioSw = (() => { try { return readFileSync(join(sito, "sw.js"), "utf8"); } catch (e) { return ""; } })();
 
-if (!password) {
+if (chiuso) {
   // sito chiuso: niente contenuti, solo l'avviso e il service worker che ripulisce i dispositivi
   svuota(sito);
   writeFileSync(join(sito, "index.html"), readFileSync(join(qui, "chiuso.html")));
   writeFileSync(join(sito, "sw.js"), readFileSync(join(qui, "sw_chiuso.js")));
-  console.log("::warning::SITE_PASSWORD non impostato: pubblicata solo la pagina «accesso chiuso». Imposta il segreto e rilancia il workflow per pubblicare il sito cifrato.");
+  console.log("::warning::SITE_CHIUSO attivo: pubblicata solo la pagina «accesso chiuso».");
+  process.exit(0);
+}
+if (!password) {
+  console.log("::warning::SITE_PASSWORD non impostato: il sito resta in chiaro, aperto a chiunque abbia l'indirizzo. Imposta il segreto e rilancia il workflow per cifrarlo.");
   process.exit(0);
 }
 if (password.length < 10) { console.error("::error::SITE_PASSWORD troppo corta: servono almeno 10 caratteri."); process.exit(1); }
