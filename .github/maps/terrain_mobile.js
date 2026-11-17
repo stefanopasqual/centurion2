@@ -111,12 +111,19 @@
       const k=z+"_"+px+"_"+py;
       let promise=demCache.get(k);
       if(!promise){
+        // Reuse DEM parent tiles rather than fetching the same height data
+        // separately for each high-zoom satellite image.
         promise=new Promise(resolve=>{
           source.caricaDem(source.tileUrl("dem",z,px,py),
             img=>{try{resolve(source.demGrid(img));}catch(_){resolve(null);}},
             ()=>resolve(null));
         });
         demCache.set(k,promise);
+        if(demCache.size>160){
+          // Capped promise cache avoids unlimited memory during long flights.
+          const oldest=demCache.keys().next().value;
+          if(oldest!==k)demCache.delete(oldest);
+        }
       }
       return promise;
     }
@@ -172,8 +179,8 @@
       if(closed)return;
       while(active<parallel&&queue.length){
         const e=queue.shift();
-        if(e.disposed||tiles.get(e.key)!==e)continue;
-        active++;
+        if(e.disposed||tiles.get(e.key)!==e||e.started)continue;
+        e.started=true;active++;
         let finish=0;
         const done=()=>{finish++;if(finish===2){active--;next();}};
         const imgUrl=source.tileUrl('img',e.z,e.x,e.y);
@@ -240,8 +247,11 @@
       for(const [k,v] of tiles){if(!wanted.has(k)){evict(v);tiles.delete(k);}}
       queue.length=0;
       for(const [k,d] of wanted){
-        if(!tiles.has(k)){tiles.set(k,{...d,grid:null,tex:null,mesh:null,disposed:false});
-          queue.push(tiles.get(k));}
+        if(!tiles.has(k))tiles.set(k,{...d,grid:null,tex:null,mesh:null,disposed:false,started:false});
+        // Previously queued but not yet requested tiles must remain eligible.
+        // Clearing a queue without restoring them could leave holes forever.
+        const tile=tiles.get(k);
+        if(!tile.started)queue.push(tile);
       }
       queue.sort((a,b)=>a.dist-b.dist||b.z-a.z);
       next();
