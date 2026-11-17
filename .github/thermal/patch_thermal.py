@@ -24,7 +24,7 @@ patch("js/mondo3d.js",
     const irButton=document.createElement("button");
     irButton.id="m3d-thermal";
     irButton.textContent="IR OFF";
-    irButton.title="Camera termica simulata UAV in notturna · I: OFF / WHITE HOT / BLACK HOT";
+    irButton.title="Camera termica simulata UAV in notturna · U: OFF / WHITE HOT / BLACK HOT";
     irButton.style.cssText="display:none;min-height:40px;background:#253b47;color:#f1f5f7;border:1px solid #7a94a4;border-radius:7px;padding:8px 10px;font:700 12px system-ui";
     irButton.onclick=()=>toggleThermal();
     overlay.querySelector("#m3d-nvgb").insertAdjacentElement("afterend",irButton);''')
@@ -60,7 +60,7 @@ patch("js/mondo3d.js",
 
 patch("js/mondo3d.js",
       'if (e.key === "n" || e.key === "N") nvg();',
-      'if (e.key === "n" || e.key === "N") nvg(); if (e.key === "i" || e.key === "I") toggleThermal();')
+      'if (e.key === "n" || e.key === "N") nvg(); if (e.key === "u" || e.key === "U") toggleThermal();')
 
 patch("js/mondo3d.js",
       'renderer.render(scene, camera); hud(); aggiornaNvg();',
@@ -88,13 +88,13 @@ patch("js/volo.js",
     irButton.id="vl-thermal";
     irButton.className="vl-b sm";
     irButton.textContent="IR OFF";
-    irButton.title="Termico UAV simulato in notturna · I: bianco caldo / nero caldo";
+    irButton.title="Termico UAV simulato in notturna · U: bianco caldo / nero caldo";
     irButton.style.cssText="display:none;min-height:40px;padding:8px 9px;font-weight:750";
     irButton.onclick=()=>toggleThermal();
     ov.querySelector("#vl-nvgb").insertAdjacentElement("afterend",irButton);''')
 
 patch("js/volo.js",
-      'else if (k === "n") nvg(); else if (k === "z") eietta();',
+      'else if (k === "n") nvg(); else if (k === "u") toggleThermal();',
       'else if (k === "n") nvg(); else if (k === "i") toggleThermal(); else if (k === "z") eietta();')
 
 patch("js/volo.js",
