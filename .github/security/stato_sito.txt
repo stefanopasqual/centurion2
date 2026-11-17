@@ -1,0 +1,6 @@
+chiuso
+# Interruttore del sito pubblicato. Prima riga: «chiuso» oppure «aperto», poi salva (commit su main):
+# il workflow riparte da solo e in un paio di minuti il sito si chiude o si riapre.
+# - chiuso: si pubblica solo la pagina «Accesso chiuso»; i dispositivi che avevano l'app cancellano cache e chiavi.
+# - aperto: senza il segreto SITE_PASSWORD il sito è in chiaro; con il segreto è cifrato e chiede la password.
+# Anche la variabile del repository SITE_CHIUSO = 1 chiude il sito. Vedi «Sito cifrato e chiuso» nel README.
