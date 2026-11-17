@@ -100,6 +100,14 @@ jobs:
           python3 .github/mission_upgrade/patch_visuals.py extracted/site
           python3 .github/mission_upgrade/patch_drone_runtime.py extracted/site
           python3 .github/mission_upgrade/patch_geran.py extracted/site
+          cp .github/maps/terrain_mobile.js extracted/site/js/terrain_mobile.js
+          python3 .github/maps/patch_mobile_quality.py extracted/site
+          python3 -m py_compile .github/maps/patch_mobile_quality.py
+          node --check extracted/site/js/terrain_mobile.js
+          node --check extracted/site/js/volo.js
+          node --check extracted/site/js/vista3d.js
+          node --check extracted/site/js/mondo3d.js
+          node --check extracted/site/js/map.js
           node --check extracted/site/js/geran.js
           python3 .github/veneto/patch_veneto.py extracted/site
           node --check extracted/site/js/veneto.js
@@ -197,6 +205,7 @@ jobs:
           sed -i 's/centurion2-mobile-cadet-v24/centurion2-mobile-drone-ops-v26/g' extracted/site/sw.js
           sed -i 's/centurion2-mobile-drone-ops-v26/centurion2-mobile-hangar-uav-v27/g' extracted/site/sw.js
           sed -i 's/centurion2-mobile-hangar-uav-v27/centurion2-mobile-all-flight-v28/g' extracted/site/sw.js
+          sed -i 's/centurion2-mobile-all-flight-v28/centurion2-mobile-hd-terrain-v29/g' extracted/site/sw.js
           # manifest.json (modelli, audio) network-first: rotations and files change on every deploy
           sed -i 's|const isDati = url => /|const isDati = url => !/manifest[.]json/.test(url) \&\& /|' extracted/site/sw.js
           grep -q 'isDati = url => !/manifest\[\.\]json/.test(url) && /' extracted/site/sw.js
