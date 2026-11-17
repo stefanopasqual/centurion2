@@ -15,6 +15,18 @@ apply("js/mondo3d.js",[
     if(!APP.sc.droni)return;''',
  '''    st.uavs=[];
     st.plant=null;
+    // Mission buttons share one column at the bottom right. The camera/control
+    // bar at the top wraps onto more rows on narrow screens and holds
+    // "✕ Torna alla mappa", so nothing is pinned at a fixed offset under it.
+    const missionDock=()=>{
+      let dock=overlay.querySelector("#m3d-mission-actions");
+      if(!dock){
+        dock=document.createElement("div");dock.id="m3d-mission-actions";
+        dock.style.cssText="position:absolute;bottom:68px;right:12px;z-index:30;display:flex;flex-direction:column;align-items:flex-end;gap:8px;pointer-events:none";
+        overlay.appendChild(dock);
+      }
+      return dock;
+    };
     if(APP.sc.znpp && window.CENTURION_PLANT){
       const loc=toXZ(APP.sc.znpp.lat,APP.sc.znpp.lon);
       const plant=CENTURION_PLANT.create();
@@ -24,26 +36,26 @@ apply("js/mondo3d.js",[
       focus.id="m3d-plant-focus";
       focus.textContent="CENTRALE 3D";
       focus.title="Visita esterna illustrativa. Non riproduce la struttura operativa reale.";
-      focus.style.cssText="position:absolute;top:71px;left:12px;z-index:30;background:#163b4b;border:1px solid #80a8b6;border-radius:8px;padding:10px 13px;color:white;font:bold 12px system-ui;cursor:pointer";
+      focus.style.cssText="pointer-events:auto;background:#163b4b;border:1px solid #80a8b6;border-radius:8px;padding:10px 13px;color:white;font:bold 12px system-ui;cursor:pointer";
       focus.onclick=()=>{
         st.orbit.target.set(loc.x,elev(loc.x,loc.z)+65,loc.z);
         st.orbit.r=1800;st.orbit.theta=-.9;st.orbit.phi=.32;
         st.orbit.focusFlight=false;setCam("orbita");
       };
-      overlay.appendChild(focus);
+      missionDock().appendChild(focus);
     }
     if(APP.sc.droni&&APP.sc.droni.some(d=>d.lato==="RED")){
       const control=document.createElement("button");control.id="m3d-identify-uav";
       control.textContent="CONFERMA UAV SELEZIONATO";
       control.title="Identifica il drone selezionato dopo il rilevamento (non usa armi)";
-      control.style.cssText="position:absolute;bottom:68px;right:12px;z-index:30;background:#66332b;border:1px solid #f3a488;border-radius:8px;padding:11px 13px;color:white;font:bold 12px system-ui;cursor:pointer";
+      control.style.cssText="pointer-events:auto;background:#66332b;border:1px solid #f3a488;border-radius:8px;padding:11px 13px;color:white;font:bold 12px system-ui;cursor:pointer";
       control.onclick=()=>{
         const engine=APP.engine;
         const out=engine&&engine.identificaDrone?engine.identificaDrone(st.sel):
           {ok:false,msg:"Seleziona un drone RED nel menu dei velivoli"};
         if(typeof UI!=="undefined"&&UI.toast)UI.toast(out.msg,3500);
       };
-      overlay.appendChild(control);
+      missionDock().appendChild(control);
     }
     if(!APP.sc.droni)return;'''),
  ('const lab=label(cfg.nome,"#d9eaf7",10);lab.position.y=10;m.g.add(lab);',
@@ -66,7 +78,7 @@ apply("js/mondo3d.js",[
   'if (aux) { const k = f.tipo==="UAV"?"DRONI · osservazione / RED":"Tanker e AWACS";'),
  ('cancelAnimationFrame(raf); clearTimeout(raf); scrambleEnd(); overlay.classList.add("hidden");',
   '''cancelAnimationFrame(raf); clearTimeout(raf); scrambleEnd();
-    for(const id of ["m3d-plant-focus","m3d-identify-uav"]){
+    for(const id of ["m3d-plant-focus","m3d-identify-uav","m3d-mission-actions"]){
       const button=overlay.querySelector("#"+id);if(button)button.remove();
     }
     overlay.classList.add("hidden");''')
