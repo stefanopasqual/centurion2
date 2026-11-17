@@ -151,9 +151,9 @@ visuals=r'''
     if(!APP.sc.droni)return;
     for(const [i,cfg] of APP.sc.droni.entries()){
       const m=uavModel(cfg.tipo==="quad");scene.add(m.g);
-      const lab=label(cfg.nome,"#d9eaf7",80);lab.position.y=7;m.g.add(lab);
+      const lab=label(cfg.nome,"#d9eaf7",10);lab.position.y=10;m.g.add(lab);
       const origin=toXZ(cfg.lat,cfg.lon);
-      st.uavs.push({cfg,origin,mesh:m.g,rotors:m.rotors,animate:m.animate,i,disp:null});
+      st.uavs.push({cfg,origin,mesh:m.g,rotors:m.rotors,animate:m.animate,label:lab,i,disp:null});
     }
   }
   function uavTick(dt,now){
@@ -169,6 +169,7 @@ visuals=r'''
       const dx=Math.cos(t)*r,dz=r*.68*(.67*Math.cos(t*.67)*Math.cos(t)-Math.sin(t*.67)*Math.sin(t));
       const heading=Math.atan2(dx,dz);
       a.mesh.position.set(x,y,z);a.mesh.rotation.set(isQuad?.025*Math.sin(t*3):-.035,heading,.10*Math.sin(t*.7));
+      if(a.label)a.label.visible=camera.position.distanceTo(a.mesh.position)>220;
       if(a.animate)a.animate(dt,now);
       else for(const rotor of a.rotors)rotor.rotation.y+=dt*(isQuad?95:145);
       a.disp={x,y,z,hdg:(heading*180/Math.PI+360)%360,bank:0};
