@@ -1,4 +1,4 @@
-/* CENTURION 2 · Geran-2 (famiglia Shahed-136): drone ostile simulato della missione M12 "Donbass UAV".
+/* CENTURION 2 · Geran-2 (famiglia Shahed-136): drone ostile simulato delle missioni M12-M15 (Donbass, Zaporizzja).
  * Solo rappresentazione: rotta ad anello inventata, quota e velocita costanti, nessuna logica d'attacco.
  * La posizione dipende soltanto dal tempo di missione: motore (APP.engine.droni), mappa tattica 2D e
  * scena Mondo 3D mostrano il drone nello stesso punto e, in pausa, resta fermo come gli altri velivoli.
@@ -54,6 +54,11 @@ const GERAN = (() => {
     const bank = Math.max(-35, Math.min(35, Math.atan(v * v * (dh / 300) / G0) * 180 / Math.PI));
     return { lat: r.lat0 + p[1] / r.ky, lon: r.lon0 + p[0] / r.kx, hdg: (h * 180 / Math.PI + 360) % 360, bank, vel_ms: v, quota_m: cfg.quota_m || 450 };
   }
+  // etichetta prima/dopo l'identificazione; con piu Geran-2 nella stessa missione resta l'identificativo
+  function etichetta(cfg, ident) {
+    if (!ident) return cfg.id + " ?";
+    return /^GERAN/.test(cfg.id) ? "GERAN-2" : "GERAN-2 · " + cfg.id;
+  }
   function droni() {
     const sc = typeof APP !== "undefined" && APP.sc;
     return sc && Array.isArray(sc.droni) ? sc.droni.filter(d => d.tipo === "geran2" && Array.isArray(d.rotta) && d.rotta.length > 2) : [];
@@ -88,7 +93,7 @@ const GERAN = (() => {
       e.m.setLatLng([s.lat, s.lon]);
       const el = e.m.getElement();
       const ico = el && el.querySelector(".geran-ico"); if (ico) ico.style.transform = `rotate(${Math.round(s.hdg)}deg)`;
-      const lbl = el && el.querySelector(".geran-lbl"); if (lbl) lbl.textContent = ident ? "GERAN-2" : cfg.id + " ?";
+      const lbl = el && el.querySelector(".geran-lbl"); if (lbl) lbl.textContent = etichetta(cfg, ident);
       const tip = `<b>${cfg.id}</b> – ${ident ? "Geran-2 (Shahed-136) · drone ostile simulato" : "eco ostile da identificare (simulato)"}${live ? " · " + live.stato : ""}<br>HDG ${Math.round(s.hdg)}° · ${Math.round(s.vel_ms * 3.6)} km/h · ${s.quota_m} m sul terreno<br>Rotta inventata, nessuna logica d'attacco · tocca per seguirlo nel Mondo 3D`;
       if (e.m.getTooltip()) e.m.setTooltipContent(tip); else e.m.bindTooltip(tip, { direction: "right", offset: [18, 0] });
       // scia: ultimi 4 minuti della rotta
@@ -101,5 +106,5 @@ const GERAN = (() => {
     MAPPA.aggiornaFlights = function () { const r = orig.apply(this, arguments); try { aggiornaMappa(); } catch (e) { console.warn("Geran-2 mappa", e); } return r; };
     MAPPA._geran = true;
   }
-  return { stato, droni, aggiornaMappa };
+  return { stato, droni, etichetta, aggiornaMappa };
 })();
