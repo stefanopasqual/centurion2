@@ -1,0 +1,27 @@
+name: Verify Donbass UAV and Scramble patches
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/mission_upgrade/**'
+      - '.github/workflows/verify-mission-upgrade.yml'
+      - 'CENTURION2_GITHUB_MOBILE.zip'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Compile mission patches and check output JavaScript
+        run: |
+          python3 -m py_compile .github/mission_upgrade/patch_donbass.py .github/mission_upgrade/patch_visuals.py
+          mkdir -p /tmp/centurion-check/site/js
+          unzip -p CENTURION2_GITHUB_MOBILE.zip site/js/missioni.js > /tmp/centurion-check/site/js/missioni.js
+          unzip -p CENTURION2_GITHUB_MOBILE.zip site/js/mondo3d.js > /tmp/centurion-check/site/js/mondo3d.js
+          python3 .github/mission_upgrade/patch_donbass.py /tmp/centurion-check/site
+          python3 .github/mission_upgrade/patch_visuals.py /tmp/centurion-check/site
+          node --check /tmp/centurion-check/site/js/missioni.js
+          node --check /tmp/centurion-check/site/js/mondo3d.js
+          node -e 'const fs=require("fs");const m=fs.readFileSync("/tmp/centurion-check/site/js/missioni.js","utf8"); const v=fs.readFileSync("/tmp/centurion-check/site/js/mondo3d.js","utf8");if(!m.includes("DONBASS UAV")||!v.includes("scrambleTick(dt)")||!v.includes("function uavTick(dt,now)"))process.exit(1); console.log("PASS: UAV + scramble sources");'
