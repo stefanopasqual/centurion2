@@ -1,0 +1,61 @@
+/* CENTURION 2 — four-choice landing screen. */
+#splash .splash-modo,#splash #splash-multi,
+#splash .splash-links,#splash #btn-cadet-splash,
+#splash .splash-foot {display:none!important}
+#splash .splash-roles.unica,
+#splash .splash-roles.unica.hidden {
+  display:grid!important;
+  grid-template-columns:repeat(4,minmax(0,1fr));
+  gap:14px;max-width:1000px;margin:20px auto;
+}
+#splash .splash-roles #btn-volo-splash {
+  display:flex!important;flex-direction:column;align-items:center;
+  justify-content:center;gap:10px;min-height:145px;min-width:0;
+  padding:18px 12px;text-align:center;font-size:18px;font-weight:800;
+  background:linear-gradient(155deg,#173d49,#10242b);
+  color:#e9fbf3;border:1px solid #3b8b90;border-radius:14px;
+  cursor:pointer;letter-spacing:.02em;
+}
+#splash .splash-roles .role-btn {min-width:0}
+#ef2000-launcher {display:none!important}
+#topbar .top-right #btn-hangar,#topbar .top-right #btn-missioni,
+#topbar .top-right #btn-volo,#topbar .top-right #btn-demo,
+#topbar .top-right #btn-tour {display:none!important}
+body:not(.centurion-is-trainer) #fasi button[data-fase="editor"] {display:none!important}
+.centurion-trainer-tools {display:none!important}
+body.centurion-is-trainer #app:not(.hidden) .centurion-trainer-tools {
+  display:inline-flex!important;align-items:center;justify-content:center;
+  min-height:38px;padding:8px 12px;color:#ebfaf7;background:#155264;
+  border:1px solid #62a7af;border-radius:9px;font-weight:750;cursor:pointer;
+}
+#centurion-trainer-panel {
+  display:none;position:fixed;z-index:15000;top:62px;right:12px;
+  width:min(450px,calc(100vw - 24px));max-height:calc(100dvh - 80px);
+  overflow-y:auto;overscroll-behavior:contain;box-sizing:border-box;
+  background:#101d2a;color:#e7f0f9;border:1px solid #567888;
+  border-radius:13px;padding:18px;box-shadow:0 14px 50px #000b;
+}
+body.centurion-is-trainer #app:not(.hidden) #centurion-trainer-panel.is-open {display:block}
+#centurion-trainer-panel .centurion-hub-head {display:flex;align-items:center;justify-content:space-between;gap:16px}
+#centurion-trainer-panel .centurion-hub-head strong {font-size:17px}
+#centurion-hub-close {background:#233b4a;color:#fff;border:1px solid #657f8e;border-radius:8px;padding:8px 13px;cursor:pointer}
+#centurion-trainer-panel p {font-size:13px;line-height:1.5;color:#b2c5d4;margin:10px 0 16px}
+#centurion-trainer-panel h3 {font-size:13px;color:#b7dfe8;text-transform:uppercase;letter-spacing:.08em;margin:18px 0 10px}
+#centurion-trainer-panel .splash-links {display:grid;gap:8px;margin:0}
+#centurion-trainer-panel .splash-links .link-btn,
+#centurion-trainer-panel .cd-entry {display:flex;align-items:center;justify-content:center;min-height:44px;width:100%;margin:0;box-sizing:border-box}
+#centurion-trainer-panel .splash-links .hidden {display:none!important}
+#centurion-trainer-panel .splash-modo {display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+#centurion-trainer-panel .splash-modo .modo-btn {min-width:0;padding:10px}
+#centurion-trainer-panel .splash-modo small {display:block}
+#centurion-trainer-panel #splash-multi.hidden {display:none!important}
+#centurion-trainer-panel #splash-multi {padding-top:12px}
+#centurion-trainer-panel #btn-cadet-splash {display:flex!important}
+@media(max-width:820px) {
+ #splash .splash-roles.unica,#splash .splash-roles.unica.hidden {grid-template-columns:repeat(2,minmax(0,1fr));}
+}
+@media(max-width:420px) {
+ #splash .splash-roles.unica,#splash .splash-roles.unica.hidden {gap:8px;margin-top:14px}
+ #splash .splash-roles .role-btn,#splash .splash-roles #btn-volo-splash {min-height:115px;padding:10px 8px;font-size:14px}
+ #centurion-trainer-panel {top:48px;right:6px;width:calc(100vw - 12px);max-height:calc(100dvh - 55px);padding:12px}
+}
