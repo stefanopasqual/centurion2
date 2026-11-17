@@ -168,11 +168,12 @@ visuals=r'''
       const y=elev(x,z)+a.cfg.quota_m+Math.sin(t*.9)*Math.min(18,a.cfg.quota_m*.015);
       const dx=Math.cos(t)*r,dz=r*.68*(.67*Math.cos(t*.67)*Math.cos(t)-Math.sin(t*.67)*Math.sin(t));
       const heading=Math.atan2(dx,dz);
+      const headingCompass=Math.atan2(dx,-dz);
       a.mesh.position.set(x,y,z);a.mesh.rotation.set(isQuad?.025*Math.sin(t*3):-.035,heading,.10*Math.sin(t*.7));
       if(a.label)a.label.visible=camera.position.distanceTo(a.mesh.position)>220;
       if(a.animate)a.animate(dt,now);
       else for(const rotor of a.rotors)rotor.rotation.y+=dt*(isQuad?95:145);
-      a.disp={x,y,z,hdg:(heading*180/Math.PI+360)%360,bank:0};
+      a.disp={x,y,z,hdg:(headingCompass*180/Math.PI+360)%360,bank:0};
     }
   }
 '''
@@ -194,6 +195,54 @@ patch('function selDisp() { if (String(st.sel).indexOf("aux:") === 0)',
     if (String(st.sel).indexOf("aux:") === 0)''')
 patch('if (["kill", "ingaggio", "avviso", "inject"].includes(e.tipo) || /AIRBORNE|PUSH|ON STATION|BINGO|SCRAMBLE/.test(e.testo)) ticker(e);',
       'if (["kill", "ingaggio", "avviso", "inject"].includes(e.tipo) || /AIRBORNE|PUSH|ON STATION|BINGO|SCRAMBLE/.test(e.testo)) ticker(e); if(/SCRAMBLE/.test(e.testo) && !st.scramble) scrambleStart(e.chi);')
+patch('const eng = APP.engine; const f = eng.flights.find(x => x.id === st.sel); if (!f) return; const sc = APP.sc;',
+      '''const eng = APP.engine; const f = eng.flights.find(x => x.id === st.sel);
+    if(!f){
+      // Fictional observation-drone EO camera overlay. No target acquisition or weapon controls.
+      const drone=(st.uavs||[]).find(u=>u.cfg.id===st.sel);
+      if(drone && drone.disp){
+        const d=drone.disp, agl=Math.max(0,d.y-elev(d.x,d.z));
+        c.save();
+        c.strokeStyle="rgba(220,244,232,.9)";
+        c.fillStyle="rgba(225,247,238,.94)";
+        c.lineWidth=2;
+        c.font="600 14px monospace";
+        c.textAlign="left";
+        c.fillText("CENTURION // UAV EO VIEW · SIMULATED",18,28);
+        c.fillText(drone.cfg.id+"  "+drone.cfg.nome,18,49);
+        c.fillText("AGL "+Math.round(agl)+" m",18,70);
+        c.fillText("HDG "+Math.round(d.hdg)+"°",18,91);
+        c.textAlign="right";
+        c.fillText(Engine.s2hms(APP.engine.t),W-18,28);
+        c.fillText("OBSERVATION ONLY",W-18,49);
+        c.fillText("STABILIZED · 1.0x",W-18,70);
+        c.beginPath();c.arc(W-26,93,4.5,0,Math.PI*2);
+        if(Math.floor(performance.now()/550)%2===0){c.fillStyle="#ff4949";c.fill();}
+        const cx=W/2,cy=H/2, r=Math.max(19,Math.min(W,H)*.036);
+        c.strokeStyle="rgba(232,245,237,.62)";c.beginPath();
+        c.moveTo(cx-r*1.7,cy);c.lineTo(cx-r*.44,cy);
+        c.moveTo(cx+r*.44,cy);c.lineTo(cx+r*1.7,cy);
+        c.moveTo(cx,cy-r*1.7);c.lineTo(cx,cy-r*.44);
+        c.moveTo(cx,cy+r*.44);c.lineTo(cx,cy+r*1.7);
+        c.arc(cx,cy,r*.32,0,Math.PI*2);c.stroke();
+        const m=20;const len=22;
+        c.beginPath();
+        c.moveTo(m,m+len);c.lineTo(m,m);c.lineTo(m+len,m);
+        c.moveTo(W-m-len,m);c.lineTo(W-m,m);c.lineTo(W-m,m+len);
+        c.moveTo(m,H-m-len);c.lineTo(m,H-m);c.lineTo(m+len,H-m);
+        c.moveTo(W-m-len,H-m);c.lineTo(W-m,H-m);c.lineTo(W-m,H-m-len);
+        c.stroke();c.restore();
+      }
+      return;
+    }
+    const sc = APP.sc;''')
+patch('else if (st.cam === "cockpit" && d) { const p = new THREE.Vector3(d.x, d.y, d.z).addScaledVector(fwd, 6).add(new THREE.Vector3(0, 2.0, 0));',
+      '''else if (st.cam === "cockpit" && d) {
+      const sensor=(st.uavs||[]).find(u=>u.cfg.id===st.sel);
+      const p = new THREE.Vector3(d.x, d.y, d.z).addScaledVector(fwd, sensor?1.2:6).add(new THREE.Vector3(0,sensor?-.22:2.0,0));''')
+patch('camera.lookAt(p.clone().addScaledVector(fwd, 5000)); }',
+      'camera.lookAt(p.clone().addScaledVector(fwd, sensor?1400:5000).add(new THREE.Vector3(0,sensor?-Math.min(450,(d.y-elev(d.x,d.z))*.32):0,0))); }')
+
 patch("aggiornaEntita(now); eventi(now); cameraUpdate(dt);",
       "aggiornaEntita(now); eventi(now); uavTick(dt,now); cameraUpdate(dt); if(st.scramble)scrambleTick(dt);")
 patch("terreno(root); statici(); aggiornaSelect(); setCam(opt.cam || (selId ? \"insegui\" : \"orbita\"));",
