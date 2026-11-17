@@ -17,6 +17,7 @@ on:
       - '.github/cockpit/**'
       - '.github/vfx/**'
       - '.github/thermal/**'
+      - '.github/sonic/**'
       - 'model-sources/**'
   workflow_dispatch:
 
@@ -128,6 +129,21 @@ jobs:
               path.write_text(page,encoding='utf-8')
           PY
           node --check extracted/site/js/thermal_camera.js
+          cp .github/sonic/sonic_fx.js extracted/site/js/sonic_fx.js
+          python3 .github/sonic/patch_sonic.py extracted/site
+          python3 -m py_compile .github/sonic/patch_sonic.py
+          python3 - <<'PY'
+          from pathlib import Path
+          file=Path('extracted/site/index.html')
+          text=file.read_text(encoding='utf-8')
+          tag='<script src="js/sonic_fx.js"></script>'
+          anchor='<script src="js/volo.js"></script>'
+          assert anchor in text
+          if tag not in text:
+              text=text.replace(anchor,tag+'\n'+anchor,1)
+              file.write_text(text,encoding='utf-8')
+          PY
+          node --check extracted/site/js/sonic_fx.js
           node --check extracted/site/js/mondo3d.js
           node --check extracted/site/js/volo.js
           node --check extracted/site/js/modelli3d.js
@@ -225,6 +241,7 @@ jobs:
           sed -i 's/centurion2-mobile-hangar-uav-v27/centurion2-mobile-all-flight-v28/g' extracted/site/sw.js
           sed -i 's/centurion2-mobile-all-flight-v28/centurion2-mobile-hd-terrain-v29/g' extracted/site/sw.js
           sed -i 's/centurion2-mobile-hd-terrain-v29/centurion2-mobile-thermal-uav-v30/g' extracted/site/sw.js
+          sed -i 's/centurion2-mobile-thermal-uav-v30/centurion2-mobile-sonic-v31/g' extracted/site/sw.js
           # manifest.json (modelli, audio) network-first: rotations and files change on every deploy
           sed -i 's|const isDati = url => /|const isDati = url => !/manifest[.]json/.test(url) \&\& /|' extracted/site/sw.js
           grep -q 'isDati = url => !/manifest\[\.\]json/.test(url) && /' extracted/site/sw.js
