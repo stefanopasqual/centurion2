@@ -367,7 +367,7 @@ const ACCADEMIA = (() => {
       sempre(s, c) { if (c.lanciPrima == null) c.lanciPrima = s.S.stats.lanci; const e = nemico(s.S, 0); if (e && e.missili.R77 === 0 && !c.r77) { c.r77 = true; c.r77dist = e.pos.distanceTo(s.P.pos); } },
       fallimento: s => { const e = nemico(s.S, 0); if (!e.vivo && R && R.i < 2) return "Su-35 abbattuto prima di lanciare l'AIM-120: in questa lezione il primo colpo è l'AMRAAM, oltre il raggio visivo.";
         return e.vivo && s.P.armi.AIM120 <= 0 && s.P.armi.AIM9X <= 0 && !missiliMiei(s.S).some(m => m.vivo) ? "Missili esauriti." : null; },
-      debrief: c => [c.rLancio ? `Lancio a ${fmt(c.rLancio / 1000, 1)} km (Rmax ${fmt(c.rmax / 1000)} km).` : "", c.fpole ? `F-pole: ${fmt(c.fpole / 1000, 1)} km dal Su-35 al momento dell'impatto.` : "", c.r77 ? `Il Su-35 ha lanciato il suo R-77 a ${fmt(c.r77dist / 1000, 1)} km: sei sopravvissuto.` : "Il Su-35 non ha fatto in tempo a lanciare: chi tira per primo e bene vince."].filter(Boolean),
+      debrief: (c, R) => [c.rLancio ? `Lancio a ${fmt(c.rLancio / 1000, 1)} km (Rmax ${fmt(c.rmax / 1000)} km).` : "", c.fpole ? `F-pole: ${fmt(c.fpole / 1000, 1)} km dal Su-35 al momento dell'impatto.` : "", c.r77 ? `Il Su-35 ha lanciato il suo R-77 a ${fmt(c.r77dist / 1000, 1)} km${R.esito === "ok" ? ": sei sopravvissuto." : "."}` : R.esito === "ok" ? "Il Su-35 non ha fatto in tempo a lanciare: chi tira per primo e bene vince." : ""].filter(Boolean),
       stelle: c => c.r77 ? 2 : 3 },
 
     { id: "A4", modulo: "armi", titolo: "Aria-superficie", sotto: "AGM-65 Maverick su un deposito", durata: "5 min",
@@ -428,7 +428,7 @@ const ACCADEMIA = (() => {
           check: (s, c) => ({ ok: c.dSam > 30000, prog: clamp(c.dSam / 30000, 0, 1), dati: [D("Batteria", fmt(c.dSam / 1000, 1) + " km", c.dSam > 30000, "> 30"), D("Altezza dal suolo", fmt(s.aglFt) + " ft", s.aglFt < 650, "< 650")], msg: s.aglFt >= 650 ? "Giù!" : "Fuori dalla portata e a casa." }) }
       ],
       fallimento: (s, c) => c.ingaggiato ? "La batteria ti ha visto e ha lanciato: eri sopra i 200 m dentro la sua portata." : (() => { const t = bersaglio(s.S, "obiettivo"); return t && t.vivo && s.P.armi.AGM65 <= 0 && !missiliMiei(s.S).some(m => m.vivo) ? "Maverick esauriti." : null; })(),
-      debrief: () => ["La batteria non ti ha mai ingaggiato: il terreno e la bassa quota sono stati la tua protezione.", "In una missione vera l'attacco a bassa quota si coordina con aerei che sopprimono i radar (SEAD) o li accecano con il disturbo."],
+      debrief: (c, R) => [R.esito === "ok" ? "La batteria non ti ha mai ingaggiato: il terreno e la bassa quota sono stati la tua protezione." : c.ingaggiato ? `La batteria ti ha ingaggiato a ${fmt((c.dSam || 0) / 1000, 1)} km: eri sopra i 200 m dal suolo dentro la sua portata. Scendi prima dei 30 km e resta basso fino all'uscita.` : "", "In una missione vera l'attacco a bassa quota si coordina con aerei che sopprimono i radar (SEAD) o li accecano con il disturbo."],
       stelle: (c, R) => R.durata < 420 ? 3 : 2 },
 
     { id: "T2", modulo: "attacco", tipo: "cadet", titolo: "Strategia d'attacco", sotto: "Missione «Il corridoio»: tre decisioni da comandante", durata: "20 min",
@@ -439,14 +439,14 @@ const ACCADEMIA = (() => {
       obiettivo: "Riconoscere il lancio, mettersi al traverso, scendere, usare il chaff e sopravvivere a due missili radar.",
       teoria: [
         ["L'allarme", "Il ricevitore d'allarme radar (RWR) avvisa quando un radar nemico ti illumina e quando parte un missile ('MISSILE LAUNCH'). Da quel momento ogni secondo conta: un missile come l'R-77 vola a 3–4 volte la velocità del suono."],
-        ["Il notch", "Radar e missili radar usano l'effetto Doppler: per non vedere il terreno ignorano ciò che non si avvicina né si allontana. Se voli perpendicolare alla linea di vista del missile (al traverso, 'beam') la tua velocità radiale è quasi nulla e ti confondi con il suolo, soprattutto volando basso: è il notch. Nel simulatore funziona sotto i 1.500 m dal suolo con meno del 15% di velocità verso il missile."],
+        ["Il notch", "Radar e missili radar usano l'effetto Doppler: per non vedere il terreno ignorano ciò che non si avvicina né si allontana. Se voli perpendicolare alla linea di vista del missile (al traverso, 'beam') la tua velocità radiale è quasi nulla e ti confondi con il suolo, soprattutto volando basso: è il notch. Nel simulatore funziona sotto i 1.500 m dal suolo con meno del 15% di velocità verso il missile, cioè con il missile fra 81° e 99° dalla tua direzione: va tenuto con precisione, correggendo la prua mentre il missile si avvicina."],
         ["Chaff e flare", "Il chaff (nuvole di strisce metallizzate) crea falsi echi per i radar; i flare (esche calde) ingannano i missili a infrarossi. Si lanciano quando il missile è vicino (nel simulatore entro 7 km), a raffiche, insieme alla manovra: da soli non bastano."],
         ["Scappare o girare", "Il motore di un missile brucia per pochi secondi, poi il missile plana e perde energia: virando via (drag) e accelerando lo si costringe a inseguire finché non 'muore'. Da vicino serve una virata stretta all'ultimo momento, quando non riesce più a correggere."]
       ],
-      numeri: [["R-77 (AA-12 Adder)", "radar attivo; nel simulatore lancio fra 7 e 26 km"], ["Notch nel simulatore", "sotto 1.500 m dal suolo, velocità radiale < 15%"], ["Contromisure", "60 cariche; efficaci entro 7 km dal missile"], ["Tasti", "C o FLARE per chaff/flare"]],
+      numeri: [["R-77 (AA-12 Adder)", "radar attivo; nel simulatore lancio fra 7 e 26 km"], ["Notch nel simulatore", "sotto 1.500 m dal suolo, missile fra 81° e 99° dalla tua direzione (velocità radiale < 15%)"], ["Contromisure", "60 cariche; efficaci entro 7 km dal missile"], ["Tasti", "C o FLARE per chaff/flare"]],
       setup(S) { const p0 = xz(45.40, 11.80); piazza(S, Object.assign({}, p0, { ft: 9000, kcas: 420, hdg: 90, thr: 0.65 })); armi(S, { colpi: 0, sel: "GUN" });
         piazzaNemico(S, 0, Object.assign(avanti(p0, 90, 34000), { ft: 12000, kt: 480, hdg: 270, missili: { R77: 2 }, cad: 0, nome: "Su-35" })); },
-      sempre(s, c) { const e = nemico(s.S, 0); const inArrivo = missiliControDiMe(s.S); if (c.dot == null) { c.dot = 2; c.rilanci = 0; } c.lanciati = c.dot - e.missili.R77;
+      sempre(s, c, dt) { const e = nemico(s.S, 0); const inArrivo = missiliControDiMe(s.S); if (c.dot == null) { c.dot = 2; c.rilanci = 0; } c.lanciati = c.dot - e.missili.R77;
         if (c.lanciati === 1 && !c.secondo) { c.secondo = true; e.cad = 16; }   // il secondo R-77 arriva circa 16 secondi dopo
         const via = en => ({ hdg: Math.atan2(en.pos.x - s.P.pos.x, -(en.pos.z - s.P.pos.z)), alt: en.pos.y, v: 270, g: 5, stato: "rientro" });
         if (e.vivo && s.vivo && e.missili.R77 === 0 && !inArrivo.length) {
@@ -461,21 +461,22 @@ const ACCADEMIA = (() => {
         const m = inArrivo.sort((a, b) => a.pos.distanceTo(s.P.pos) - b.pos.distanceTo(s.P.pos))[0]; c.m = m || null;
         if (m) { const los = m.pos.clone().sub(s.P.pos).normalize(), v = s.P.vel.clone().normalize(); c.beam = Math.acos(clamp(los.dot(v), -1, 1)) * R2D; c.dm = m.pos.distanceTo(s.P.pos); } else { c.beam = null; c.dm = null; }
         if (c.ch0 == null) { c.ch0 = s.P.chaff; c.chPrev = s.P.chaff; c.chaffUtili = 0; } c.chaffUsati = c.ch0 - s.P.chaff;
-        if (s.P.chaff < c.chPrev && c.dm != null && c.dm < 7000) c.chaffUtili += c.chPrev - s.P.chaff; c.chPrev = s.P.chaff; },
+        if (s.P.chaff < c.chPrev && c.dm != null && c.dm < 7000) c.chaffUtili += c.chPrev - s.P.chaff; c.chPrev = s.P.chaff;
+        if (c.m && c.beam != null && fascia(c.beam, 81, 99) && s.agl < 1500) c.tNotch = (c.tNotch || 0) + (dt || 0); },
       fasi: [
         { titolo: "Allarme", testo: "Vola verso il Su-35 e aspetta l'allarme: lancerà appena sarai sotto i 26 km.",
           check: (s, c) => { const e = nemico(s.S, 0), r = e.pos.distanceTo(s.P.pos); return { ok: c.lanciati > 0, dati: [D("Su-35", fmt(r / 1000, 1) + " km", true, "lancio sotto 26"), D("RWR", e.illumina ? "ILLUMINATO" : "—", true, "")], msg: "Tieni la prua: preparati a virare appena senti MISSILE LAUNCH." }; } },
-        { titolo: "Traverso e quota", testo: "Vira a 90° rispetto al missile (beam) e scendi sotto i 1.500 m dal suolo (5.000 ft): tienilo 3 secondi.", tenere: 3,
-          check: (s, c) => { const b = c.beam != null && fascia(c.beam, 70, 110), basso = s.agl < 1500;
-            return { ok: b && basso, dati: [D("Angolo dal missile", c.beam != null ? fmt(c.beam) + "°" : "—", b, "70–110°"), D("Altezza dal suolo", fmt(s.aglFt) + " ft", basso, "< 5.000"), D("Missile", c.dm != null ? fmt(c.dm / 1000, 1) + " km" : "—", true, "")],
-              msg: !c.m ? (c.rilanci ? "Il Su-35 si riposiziona: aspetta il nuovo lancio." : "Nessun missile in volo ora.") : !b ? (c.beam < 70 ? "Vira di più: il missile deve stare di fianco a te." : "Hai girato troppo: riportalo al traverso.") : !basso ? "Muso giù: sotto i 5.000 ft dal suolo." : "Notch: ti confondi con il terreno." }; } },
+        { titolo: "Traverso e quota", testo: "Vira a 90° rispetto al missile (beam, fra 81° e 99°) e scendi sotto i 1.500 m dal suolo (5.000 ft): tienilo 3 secondi.", tenere: 3,
+          check: (s, c) => { const b = c.beam != null && fascia(c.beam, 81, 99), basso = s.agl < 1500;
+            return { ok: b && basso, dati: [D("Angolo dal missile", c.beam != null ? fmt(c.beam) + "°" : "—", b, "81–99°"), D("Altezza dal suolo", fmt(s.aglFt) + " ft", basso, "< 5.000"), D("Missile", c.dm != null ? fmt(c.dm / 1000, 1) + " km" : "—", true, "")],
+              msg: !c.m ? (c.rilanci ? "Il Su-35 si riposiziona: aspetta il nuovo lancio." : "Nessun missile in volo ora.") : !b ? (c.beam < 81 ? "Vira di più: il missile deve stare di fianco a te." : "Hai girato troppo: riportalo al traverso.") : !basso ? "Muso giù: sotto i 5.000 ft dal suolo." : "Notch: ti confondi con il terreno." }; } },
         { titolo: "Chaff", testo: "Quando un missile è entro 7 km lancia chaff (C o FLARE) almeno 3 volte, restando al traverso.",
           check: (s, c) => ({ ok: c.chaffUtili >= 3, dati: [D("Chaff entro 7 km", c.chaffUtili, c.chaffUtili >= 3, "≥ 3"), D("Missile", c.dm != null ? fmt(c.dm / 1000, 1) + " km" : "—", c.dm != null && c.dm < 7000, "< 7 km")], msg: c.dm != null && c.dm < 7000 ? "ORA: C, C, C!" : !c.m && c.rilanci ? "Il Su-35 si riposiziona: aspetta il nuovo lancio." : "Aspetta che il missile sia entro 7 km." }) },
         { titolo: "Sopravvivi", testo: "Il Su-35 ha due R-77: sopravvivi a entrambi.",
-          check: (s, c) => ({ ok: c.lanciati >= 2 && !missiliControDiMe(s.S).length && s.vivo, dati: [D("Missili lanciati", c.lanciati + " di 2", c.lanciati >= 2, ""), D("In arrivo", missiliControDiMe(s.S).length, !missiliControDiMe(s.S).length, "0")], msg: c.m ? "Traverso, basso, chaff!" : c.lanciati < 2 ? "Aspetta il secondo lancio, pronto a ripetere." : "" }) }
+          check: (s, c) => ({ ok: c.lanciati >= 2 && !missiliControDiMe(s.S).length && s.vivo, dati: [D("Missili lanciati", c.lanciati + " di 2", c.lanciati >= 2, ""), D("In arrivo", missiliControDiMe(s.S).length, !missiliControDiMe(s.S).length, "0"), D("Angolo dal missile", c.beam != null ? fmt(c.beam) + "°" : "—", c.beam == null || fascia(c.beam, 81, 99), "81–99°"), D("Altezza dal suolo", fmt(s.aglFt) + " ft", s.agl < 1500, "< 5.000")], msg: c.m ? "Traverso, basso, chaff!" : c.lanciati < 2 ? "Aspetta il secondo lancio, pronto a ripetere." : "" }) }
       ],
       fallimento: (s, c) => c.esaurito ? "Quattro lanci in più senza riuscire traverso e chaff: rileggi la teoria e riprova." : null,
-      debrief: c => ["Ogni missile è stato sconfitto: notch, quota bassa e chaff insieme funzionano meglio di ciascuno da solo.", `Chaff usati: ${c.chaffUsati || 0} su 60.`, c.rilanci ? `Il Su-35 ha dovuto lanciare ${c.rilanci} ${c.rilanci === 1 ? "missile" : "missili"} in più perché la manovra non era ancora riuscita.` : ""].filter(Boolean),
+      debrief: (c, R) => [R.esito === "ok" ? "Ogni missile è stato sconfitto: notch, quota bassa e chaff insieme funzionano meglio di ciascuno da solo." : "Un missile è arrivato a segno. Nessuna difesa è garantita, ma ognuna aumenta le probabilità: traverso preciso (81–99°), sotto i 5.000 ft dal suolo e chaff entro 7 km, tutti insieme e fino alla fine.", `Tempo al traverso e basso con un missile in volo: ${fmt(c.tNotch || 0)} s.`, `Chaff usati: ${c.chaffUsati || 0} su 60, di cui ${c.chaffUtili || 0} con un missile entro 7 km.`, c.rilanci ? `Il Su-35 ha dovuto lanciare ${c.rilanci} ${c.rilanci === 1 ? "missile" : "missili"} in più perché la manovra non era ancora riuscita.` : ""].filter(Boolean),
       stelle: c => (c.rilanci || 0) === 0 ? ((c.chaffUsati || 0) <= 12 ? 3 : 2) : c.rilanci === 1 ? 2 : 1 },
 
     { id: "D2", modulo: "difesa", titolo: "Difesa aerea", sotto: "CAP sopra Treviso contro due incursori", durata: "7 min", nemici: 2, diff: "recluta",
@@ -633,7 +634,7 @@ const ACCADEMIA = (() => {
   function debrief() {
     if (!R) return; const L = R.L, ok = R.esito === "ok", ov = document.getElementById("volo"); if (!ov) return;
     const w = document.createElement("div"); w.className = "acc-modal"; ov.appendChild(w);
-    let note = []; try { note = L.debrief ? L.debrief(R.c, R) : []; } catch (e) {}
+    let note = []; try { note = (L.debrief ? L.debrief(R.c, R) : []).filter(Boolean); } catch (e) {}
     const idx = LEZIONI.indexOf(L), dopo = LEZIONI.slice(idx + 1).find(x => !x.tipo) || null;
     w.innerHTML = `<div class="acc-card"><div class="acc-kick">${esc(L.id)} · DEBRIEFING</div><h3>${ok ? "Lezione superata" : "Lezione non superata"} · ${esc(L.titolo)}</h3>
       ${ok ? `<div class="acc-stelle">${"★".repeat(R.stelle)}${"☆".repeat(3 - R.stelle)}</div>` : `<p class="acc-ko">${esc(R.motivo)}</p>`}
