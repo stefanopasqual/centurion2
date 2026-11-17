@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>CENTURION2</title>
+<style>
+  html,body{margin:0;min-height:100%;background:#0b121e;color:#edf3ff;font-family:system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif}
+  body{display:flex;justify-content:center;align-items:center;min-height:100vh;padding:20px;box-sizing:border-box}
+  .card{max-width:420px;padding:30px 24px;border:1px solid #38506c;border-radius:18px;background:#172234}
+  h1{font-size:26px;letter-spacing:1px;margin:0 0 8px}p{line-height:1.5;color:#c0ccde}
+</style>
+</head>
+<body>
+<main class="card"><h1>CENTURION2</h1><p>Accesso chiuso.</p></main>
+<script>
+  // dispositivi che avevano l'app: il service worker nuovo cancella cache e chiavi e si disinstalla
+  if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(() => {});
+</script>
+</body>
+</html>
