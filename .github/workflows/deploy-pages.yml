@@ -8,6 +8,7 @@ on:
       - '.github/ef2000/**'
       - '.github/models/**'
       - '.github/maps/**'
+      - '.github/cadet/**'
       - '.github/cockpit/**'
       - '.github/vfx/**'
       - 'model-sources/**'
@@ -66,6 +67,9 @@ jobs:
           node --check extracted/site/js/mondo3d.js
           python3 .github/models/patch_sam_controls.py extracted/site
           python3 .github/maps/patch_maps.py extracted/site
+          python3 .github/cadet/patch_cadet.py extracted/site
+          node --check extracted/site/js/cadet_core.js
+          node --check extracted/site/js/cadet.js
           cp .github/ef2000/viewer.html extracted/site/ef2000/viewer.html
           cp .github/ef2000/launcher.js extracted/site/ef2000/launcher.js
           cp .github/ef2000/home.js extracted/site/ef2000/home.js
@@ -127,14 +131,16 @@ jobs:
           PY
       - name: Refresh offline cache for 3D hangar
         run: |
-          sed -i 's/centurion2-mobile-password-v2/centurion2-mobile-cockpit-nofloat-v22/g; s/centurion2-mobile-hangar-v4/centurion2-mobile-f22-home-v7/g; s/centurion2-mobile-hangar-su35-v5/centurion2-mobile-f22-home-v7/g' extracted/site/sw.js
+          sed -i 's/centurion2-mobile-password-v2/centurion2-mobile-cadet-v24/g; s/centurion2-mobile-hangar-v4/centurion2-mobile-f22-home-v7/g; s/centurion2-mobile-hangar-su35-v5/centurion2-mobile-f22-home-v7/g' extracted/site/sw.js
           # manifest.json (modelli, audio) network-first: rotations and files change on every deploy
           sed -i 's|const isDati = url => /|const isDati = url => !/manifest[.]json/.test(url) \&\& /|' extracted/site/sw.js
           grep -q 'isDati = url => !/manifest\[\.\]json/.test(url) && /' extracted/site/sw.js
-      - name: Keep every file under the 25 MiB hosting limit
+      - name: Compress GLB textures for phones (and keep files under 25 MiB)
         shell: bash
         run: |
-          big=$(find extracted/site -type f -size +24M)
+          # Every GLB above 2 MB: WebP textures, max 2048 px. 4096 px PNG textures
+          # (Typhoon, EA-18G) cost ~250 MB of GPU memory and stall or crash phones.
+          big=$(find extracted/site -type f -name '*.glb' -size +2M)
           if [ -n "$big" ]; then
             npm install --no-save --no-audit --no-fund @gltf-transform/cli@4
             for f in $big; do
