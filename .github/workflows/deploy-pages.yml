@@ -124,6 +124,22 @@ jobs:
           PY
           test -s extracted/site/ef2000/viewer.html
           python3 - <<'PY'
+          from pathlib import Path
+          page=Path('extracted/site/ef2000/viewer.html').read_text(encoding='utf-8')
+          assert "id:'uav-fixed'" in page, 'Fixed-wing drone missing from hangar'
+          assert "id:'uav-quad'" in page, 'Quadcopter missing from hangar'
+          assert "showDrone(m,created)" in page, 'Drone viewer missing'
+          assert "ensureDroneFactory()" in page, 'Mission drone asset loader missing'
+          assert "id:'geran2'" in page, 'Geran-2 missing from hangar'
+          # Browser Three.js import map script is a module. Check the complete script
+          # without requiring CDN modules during a Node syntax-only build.
+          start=page.index('<script type="module">')+len('<script type="module">')
+          end=page.index('</script>',start)
+          Path('/tmp/centurion-hangar-check.mjs').write_text(page[start:end],encoding='utf-8')
+          print('PASS: Drone hangar entries and shared asset loader present')
+          PY
+          node --check /tmp/centurion-hangar-check.mjs
+          python3 - <<'PY'
           import json
           from pathlib import Path
           h=json.loads(Path('extracted/site/models/manifest.json').read_text())
@@ -171,7 +187,8 @@ jobs:
         run: |
           # Force a fresh offline cache for the cinematic model and scene assets.
           sed -i 's/centurion2-mobile-password-v2/centurion2-mobile-cadet-v24/g; s/centurion2-mobile-hangar-v4/centurion2-mobile-f22-home-v7/g; s/centurion2-mobile-hangar-su35-v5/centurion2-mobile-f22-home-v7/g' extracted/site/sw.js
-          sed -i 's/centurion2-mobile-cadet-v24/centurion2-mobile-aar-geran-v27/g' extracted/site/sw.js
+          sed -i 's/centurion2-mobile-cadet-v24/centurion2-mobile-drone-ops-v26/g' extracted/site/sw.js
+          sed -i 's/centurion2-mobile-drone-ops-v26/centurion2-mobile-hangar-uav-v27/g' extracted/site/sw.js
           # manifest.json (modelli, audio) network-first: rotations and files change on every deploy
           sed -i 's|const isDati = url => /|const isDati = url => !/manifest[.]json/.test(url) \&\& /|' extracted/site/sw.js
           grep -q 'isDati = url => !/manifest\[\.\]json/.test(url) && /' extracted/site/sw.js
