@@ -100,13 +100,14 @@ const CADET = (() => {
       <p class="cd-lead">Impari a <b>decidere con informazioni incomplete</b>: priorità, rischi, conseguenze. Non serve conoscere il gergo militare.</p>
       <div class="cd-livelli">
         <div class="cd-livello on"><div class="cd-liv-tit">🎓 Cadetto</div><div class="cd-liv-sub">Missione 01 · Il corridoio · 20 minuti · completamente guidata</div><button class="cd-btn primary" data-inizia>Inizia</button></div>
-        <div class="cd-livello off"><div class="cd-liv-tit">✈ Pilota</div><div class="cd-liv-sub">Più decisioni, una nuova difficoltà per missione</div><span class="cd-pill">in preparazione</span></div>
+        <div class="cd-livello on"><div class="cd-liv-tit">✈ Accademia di volo</div><div class="cd-liv-sub">12 lezioni di volo guidato e 2 missioni complete: volo, armi, attacco, difesa sul Typhoon, con teoria e debriefing</div><button class="cd-btn primary" data-accademia>Apri</button></div>
         <div class="cd-livello"><div class="cd-liv-tit">⭐ Comandante</div><div class="cd-liv-sub">La simulazione completa: due squadre, pianificazione libera</div><button class="cd-btn" data-comandante>Apri</button></div>
       </div>
       <p class="cd-nota">Fisica di volo, aerei, missili e conseguenze sono quelli del simulatore completo: cambia solo il modo di decidere.</p>`);
     aggancia(r);
     r.querySelector("[data-inizia]").onclick = () => { S.scelte = { percorso: null, protezione: null, forza: null }; briefing(0); };
     r.querySelector("[data-comandante]").onclick = chiudi;
+    const acc = r.querySelector("[data-accademia]"); if (acc) acc.onclick = () => { chiudi(); if (typeof ACCADEMIA !== "undefined") ACCADEMIA.apri(); };
   }
 
   /* 1 · briefing narrato */
@@ -359,7 +360,7 @@ const CADET = (() => {
     try { const b = localStorage.getItem("centurion_cadet_backup"); if (b && APP.sc && APP.sc.missione && APP.sc.missione.cadet) { APP.sc = JSON.parse(b); APP.ricostruisci(); } localStorage.removeItem("centurion_cadet_backup"); } catch (e) {}
     const box = document.querySelector("#splash .splash-box"); if (!box || document.getElementById("btn-cadet-splash")) return;
     const b = document.createElement("button"); b.id = "btn-cadet-splash"; b.className = "cd-entry";
-    b.innerHTML = `<span class="cd-entry-ico">🎓</span><span><b>CENTURION CADET · La tua prima missione</b><small>20 minuti, nessuna conoscenza militare: tre decisioni, una missione 3D, il debrief</small></span><span class="cd-entry-go">Inizia ▶</span>`;
+    b.innerHTML = `<span class="cd-entry-ico">🎓</span><span><b>CENTURION CADET · Accademia e prima missione</b><small>Lezioni di volo, armi, attacco e difesa sul Typhoon, poi una missione da comandante: nessuna conoscenza militare richiesta</small></span><span class="cd-entry-go">Inizia ▶</span>`;
     b.onclick = apri; const sub = box.querySelector(".splash-sub"); (sub || box.firstChild).insertAdjacentElement(sub ? "afterend" : "beforebegin", b);
     stile();
   }
