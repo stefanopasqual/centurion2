@@ -127,7 +127,7 @@ jobs:
           PY
       - name: Refresh offline cache for 3D hangar
         run: |
-          sed -i 's/centurion2-mobile-password-v2/centurion2-mobile-cockpit3d-v20/g; s/centurion2-mobile-hangar-v4/centurion2-mobile-f22-home-v7/g; s/centurion2-mobile-hangar-su35-v5/centurion2-mobile-f22-home-v7/g' extracted/site/sw.js
+          sed -i 's/centurion2-mobile-password-v2/centurion2-mobile-cockpit-clean-v21/g; s/centurion2-mobile-hangar-v4/centurion2-mobile-f22-home-v7/g; s/centurion2-mobile-hangar-su35-v5/centurion2-mobile-f22-home-v7/g' extracted/site/sw.js
       - name: Keep every file under the 25 MiB hosting limit
         shell: bash
         run: |
