@@ -14,14 +14,40 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Compile mission patches and check output JavaScript
+      - name: Compile all drone mission patches and exercise actual ZIP source
+        shell: bash
         run: |
-          python3 -m py_compile .github/mission_upgrade/patch_donbass.py .github/mission_upgrade/patch_visuals.py
-          mkdir -p /tmp/centurion-check/site/js
-          unzip -p CENTURION2_GITHUB_MOBILE.zip site/js/missioni.js > /tmp/centurion-check/site/js/missioni.js
-          unzip -p CENTURION2_GITHUB_MOBILE.zip site/js/mondo3d.js > /tmp/centurion-check/site/js/mondo3d.js
+          python3 -m py_compile .github/mission_upgrade/*.py
+          mkdir -p /tmp/centurion-check
+          unzip -q CENTURION2_GITHUB_MOBILE.zip "site/index.html" "site/js/*.js" -d /tmp/centurion-check
+          python3 .github/maps/patch_maps.py /tmp/centurion-check/site
           python3 .github/mission_upgrade/patch_donbass.py /tmp/centurion-check/site
+          python3 .github/mission_upgrade/patch_drone_missions.py /tmp/centurion-check/site
+          python3 .github/mission_upgrade/patch_drone_engine.py /tmp/centurion-check/site
           python3 .github/mission_upgrade/patch_visuals.py /tmp/centurion-check/site
-          node --check /tmp/centurion-check/site/js/missioni.js
-          node --check /tmp/centurion-check/site/js/mondo3d.js
-          node -e 'const fs=require("fs");const m=fs.readFileSync("/tmp/centurion-check/site/js/missioni.js","utf8"); const v=fs.readFileSync("/tmp/centurion-check/site/js/mondo3d.js","utf8");if(!m.includes("DONBASS UAV")||!v.includes("scrambleTick(dt)")||!v.includes("function uavTick(dt,now)"))process.exit(1); console.log("PASS: UAV + scramble sources");'
+          python3 .github/mission_upgrade/patch_drone_runtime.py /tmp/centurion-check/site
+          cp .github/mission_upgrade/realism.js /tmp/centurion-check/site/js/realism.js
+          cp .github/mission_upgrade/znpp.js /tmp/centurion-check/site/js/znpp.js
+          for js in missioni mondo3d engine map realism znpp; do
+            node --check "/tmp/centurion-check/site/js/$js.js"
+          done
+          python3 - <<'PY'
+          from pathlib import Path
+          js=Path("/tmp/centurion-check/site/js")
+          m=(js/"missioni.js").read_text()
+          w=(js/"mondo3d.js").read_text()
+          e=(js/"engine.js").read_text()
+          mp=(js/"map.js").read_text()
+          for id in ["M12","M13","M14","M15"]:
+              assert id in m,id+" mission missing"
+          assert "47.94,36.48" in m
+          assert "34.40" in m
+          assert "sc.znpp" in m
+          assert "identificaDrone(id)" in e
+          assert "uav_identificati" in e
+          assert "m3d-plant-focus" in w
+          assert "CENTURION_PLANT.create()" in w
+          assert "sc.mappa.bounds" in mp
+          assert "scrambleTick(dt)" in w
+          print("PASS: 4 regional scenarios, UAV engine/UI, civilian plant and expanded map")
+          PY

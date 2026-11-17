@@ -74,20 +74,30 @@ jobs:
           python3 .github/maps/patch_maps.py extracted/site
           python3 .github/cadet/patch_cadet.py extracted/site
           python3 .github/mission_upgrade/patch_donbass.py extracted/site
+          python3 .github/mission_upgrade/patch_drone_missions.py extracted/site
+          python3 .github/mission_upgrade/patch_drone_engine.py extracted/site
           cp .github/mission_upgrade/realism.js extracted/site/js/realism.js
+          cp .github/mission_upgrade/znpp.js extracted/site/js/znpp.js
           python3 - <<'PY'
           from pathlib import Path
           index=Path('extracted/site/index.html')
           text=index.read_text(encoding='utf-8')
           marker='<script src="js/mondo3d.js"></script>'
           assert marker in text, "Mondo3D script must be present"
+          plant='<script src="js/znpp.js"></script>'
+          if plant not in text:
+              text=text.replace(marker,plant+'\n'+marker,1)
           realism='<script src="js/realism.js"></script>'
           if realism not in text:
               text=text.replace(marker,realism+'\n'+marker,1)
               index.write_text(text,encoding='utf-8')
           PY
           node --check extracted/site/js/realism.js
+          node --check extracted/site/js/znpp.js
           python3 .github/mission_upgrade/patch_visuals.py extracted/site
+          python3 .github/mission_upgrade/patch_drone_runtime.py extracted/site
+          node --check extracted/site/js/engine.js
+          node --check extracted/site/js/map.js
           node --check extracted/site/js/missioni.js
           node --check extracted/site/js/mondo3d.js
           python3 .github/home/patch_home.py extracted/site
@@ -157,7 +167,7 @@ jobs:
         run: |
           # Force a fresh offline cache for the cinematic model and scene assets.
           sed -i 's/centurion2-mobile-password-v2/centurion2-mobile-cadet-v24/g; s/centurion2-mobile-hangar-v4/centurion2-mobile-f22-home-v7/g; s/centurion2-mobile-hangar-su35-v5/centurion2-mobile-f22-home-v7/g' extracted/site/sw.js
-          sed -i 's/centurion2-mobile-cadet-v24/centurion2-mobile-aar-geran-v26/g' extracted/site/sw.js
+          sed -i 's/centurion2-mobile-cadet-v24/centurion2-mobile-aar-geran-v27/g' extracted/site/sw.js
           # manifest.json (modelli, audio) network-first: rotations and files change on every deploy
           sed -i 's|const isDati = url => /|const isDati = url => !/manifest[.]json/.test(url) \&\& /|' extracted/site/sw.js
           grep -q 'isDati = url => !/manifest\[\.\]json/.test(url) && /' extracted/site/sw.js
