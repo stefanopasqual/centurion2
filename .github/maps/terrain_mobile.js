@@ -58,7 +58,7 @@
     const half=Number.isFinite(opts.half)&&opts.half>0?opts.half:Infinity;
     const levels=(mobile?[[12,1,profile.segmentBase,0.7],
                          [isLow?14:15,1,isLow?28:40,1.5]]:
-                        [[13,2,96,.7],[16,1,56,1.5]]);
+                        [[13,2,96,.7],[15,1,56,1.5]]);
     const group=new T.Group();group.name='CENTURION_HD_REAL_ELEVATION';opts.root.add(group);
     const texLoader=new T.TextureLoader();texLoader.setCrossOrigin('anonymous');
     const tiles=new Map(),queue=[];let active=0,closed=false,lastX=Infinity,lastZ=Infinity,lastTime=0;
