@@ -80,18 +80,19 @@ patch("js/mondo3d.js",
       '''if(st&&st.thermalFx){st.thermalFx.dispose();st.thermalFx=null;}
     if(st&&st.hdTerrain){st.hdTerrain.dispose();st.hdTerrain=null;}''')
 
-# Volo libero: add IR control next to NVG. Night only, UAV only, cockpit POV.
+# Volo libero: accessible IR control for any UAV in day or night.
 patch("js/volo.js",
       'ov.querySelector("#vl-nvgb").onclick = () => nvg();',
       '''ov.querySelector("#vl-nvgb").onclick = () => nvg();
     const irButton=document.createElement("button");
     irButton.id="vl-thermal";
     irButton.className="vl-b sm";
+    irButton.setAttribute("aria-label","Camera termica UAV · bianco caldo / nero caldo");
     irButton.textContent="IR OFF";
-    irButton.title="Termico UAV simulato in notturna · U: bianco caldo / nero caldo";
-    irButton.style.cssText="display:none;min-height:40px;padding:8px 9px;font-weight:750";
+    irButton.title="Camera IR simulata UAV, anche di giorno · U: OFF / WHITE HOT / BLACK HOT";
+    irButton.style.cssText="display:none;position:fixed;top:calc(env(safe-area-inset-top,0px) + 70px);right:12px;z-index:2147483000;min-height:48px;min-width:112px;max-width:40vw;align-items:center;justify-content:center;padding:10px 12px;background:#293944;color:#fff;border:2px solid #b2cee0;border-radius:9px;box-shadow:0 3px 12px #0009;font:800 13px system-ui;pointer-events:auto;touch-action:manipulation";
     irButton.onclick=()=>toggleThermal();
-    ov.querySelector("#vl-nvgb").insertAdjacentElement("afterend",irButton);''')
+    ov.appendChild(irButton);''')
 
 patch("js/volo.js",
       'else if (k === "n") nvg();',
@@ -100,8 +101,7 @@ patch("js/volo.js",
 patch("js/volo.js",
       'function nvg() { if (!S) return; S.nvg = !S.nvg;',
       '''function uavThermalReady(){
-    return !!(S&&S.pl&&S.pl.A&&S.pl.A.drone
-      &&S.cfg&&S.cfg.ora==="notte"&&S.pl.vivo);
+    return !!(S&&S.pl&&S.pl.A&&S.pl.A.drone&&S.pl.vivo);
   }
   function toggleThermal(){
     if(!uavThermalReady()){if(S)S.thermalMode=0;return;}
@@ -116,7 +116,8 @@ patch("js/volo.js",
     const eligible=uavThermalReady();
     if(!eligible)S.thermalMode=0;
     button.style.display=eligible?"inline-flex":"none";
-    button.textContent=S.thermalMode===1?"IR WHITE":S.thermalMode===2?"IR BLACK":"IR OFF";
+    button.textContent=S.thermalMode===1?"IR WHITE HOT":S.thermalMode===2?"IR BLACK HOT":"IR OFF";
+    button.style.background=S.thermalMode?"#476c80":"#293944";
     button.classList.toggle("on",!!S.thermalMode);
     button.setAttribute("aria-pressed",String(!!S.thermalMode));
   }
@@ -129,7 +130,7 @@ patch("js/volo.js",
     if(S&&S.hdTerrain)S.hdTerrain.update(camera.position.x,camera.position.z,performance.now());
     if(S&&S.thermalMode&&S.cam==="cockpit"&&uavThermalReady()){
       if(!S.thermalFx)S.thermalFx=CENTURION_THERMAL.create(renderer);
-      if(S.thermalFx)S.thermalFx.render(scene,camera,S.thermalMode,true);
+      if(S.thermalFx)S.thermalFx.render(scene,camera,S.thermalMode,S.cfg.ora==="notte");
       else renderer.render(scene,camera);
     }else renderer.render(scene,camera);
     disegnaHud();audioFrame();aggiornaUi();
@@ -146,10 +147,15 @@ patch("js/volo.js",
       '''if(S&&S.thermalFx){S.thermalFx.dispose();S.thermalFx=null;}
     if(S&&S.hdTerrain){S.hdTerrain.dispose();S.hdTerrain=null;}''')
 
-# Turn night thermal off when switching back to day.
+# Switching from night to day disables NVG but keeps thermal active.
 patch("js/volo.js",
       'if (!notte && S.nvg) S.nvg = false;',
-      'if(!notte){S.thermalMode=0;if(S.nvg)S.nvg=false;}')
+      'if(!notte&&S.nvg)S.nvg=false;')
+
+# Night UAV sorties enter White Hot immediately; IR may be turned off or inverted.
+patch("js/volo.js",
+      'S.nvg = false;',
+      'S.nvg = false; S.thermalMode = S.pl.A.drone && S.cfg.ora==="notte" ? 1 : 0; thermalButton();')
 
 # Ensure the original NVG masks and the thermal camera cannot be on together.
 # thermalButton forces NVG false; renderer stays at standard exposure when IR active.
@@ -160,4 +166,4 @@ patch("js/mondo3d.js",
       'const on = !!(st.nvg && st.cam === "cockpit");',
       'const on = !!(st.nvg && !st.thermalMode && st.cam === "cockpit");')
 
-print("PASS: simulated UAV infrared night cameras for Free Flight and Mondo3D, with white/black hot.")
+print("PASS: UAV IR White/Black Hot accessible in Free Flight day or night, including independent touch button and night default.")
