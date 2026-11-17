@@ -56,6 +56,8 @@ jobs:
           python3 .github/models/build_models.py --input-dir . --output-dir extracted/site/models --mission-dir extracted/site/modelli
           python3 .github/models/patch_site.py extracted/site
           python3 .github/cockpit/patch_cockpit.py extracted/site
+          python3 .github/cockpit/patch_cockpit3d.py extracted/site
+          node --check extracted/site/js/cockpit3d.js
           python3 .github/vfx/patch_vfx.py extracted/site
           node --check extracted/site/js/volo.js
           python3 .github/models/patch_render.py extracted/site
@@ -125,7 +127,7 @@ jobs:
           PY
       - name: Refresh offline cache for 3D hangar
         run: |
-          sed -i 's/centurion2-mobile-password-v2/centurion2-mobile-cinematic-pbr-v19/g; s/centurion2-mobile-hangar-v4/centurion2-mobile-f22-home-v7/g; s/centurion2-mobile-hangar-su35-v5/centurion2-mobile-f22-home-v7/g' extracted/site/sw.js
+          sed -i 's/centurion2-mobile-password-v2/centurion2-mobile-cockpit3d-v20/g; s/centurion2-mobile-hangar-v4/centurion2-mobile-f22-home-v7/g; s/centurion2-mobile-hangar-su35-v5/centurion2-mobile-f22-home-v7/g' extracted/site/sw.js
       - name: Keep every file under the 25 MiB hosting limit
         shell: bash
         run: |
