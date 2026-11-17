@@ -1,8 +1,14 @@
 site/index.html
 site/assets/apple-touch-icon.png
 site/assets/centurion.ico
+site/assets/favicon-32.png
+site/assets/favicon-48.png
+site/assets/icon-1024.png
 site/assets/icon-192.png
 site/assets/icon-512.png
+site/assets/icon-maskable-1024.png
+site/assets/icon-maskable-512.png
+site/assets/logo-1024.png
 site/assets/sectional_mt_shasta.jpg
 site/assets/icons/f15.png
 site/assets/icons/f16.png

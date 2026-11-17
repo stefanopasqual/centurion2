@@ -102,9 +102,9 @@ class Engine {
     if (p.target && !this.find(this.target, p.target)) { avvisa(f.callsign, `Piano: target "${p.target}" inesistente nello scenario → nessun attacco`); p.target = undefined; p.target2 = undefined; }
     if (p.target2 && !this.find(this.target, p.target2)) { avvisa(f.callsign, `Piano: 2º target "${p.target2}" inesistente → ignorato`); p.target2 = undefined; }
     if (p.cap && !this.find(sc.cap_box, p.cap)) { avvisa(f.callsign, `Piano: CAP "${p.cap}" inesistente nello scenario → ignorata`); p.cap = undefined; }
-    if (p.target) { const t = this.find(this.target, p.target); const t2 = p.target2 && p.target2 !== p.target ? this.find(this.target, p.target2) : null; const gpa = tipo.armi.GBU48 || 0;
-      // due target: metà delle GBU per velivolo sul primo (arrotondata per eccesso), il resto sul secondo
-      wps.push({ lat: t.lat, lon: t.lon, alt: tipo.quota_ft - 10000, nome: t.nome, azione: "attacco", target: t.id, gbu_pa: t2 ? Math.ceil(gpa / 2) : undefined });
+    if (p.target) { const t = this.find(this.target, p.target); const t2 = p.target2 && p.target2 !== p.target ? this.find(this.target, p.target2) : null;
+      // due target: sul primo solo le GBU che servono, tutte le rimanenti restano per il secondo
+      wps.push({ lat: t.lat, lon: t.lon, alt: tipo.quota_ft - 10000, nome: t.nome, azione: "attacco", target: t.id });
       if (t2) wps.push({ lat: t2.lat, lon: t2.lon, alt: tipo.quota_ft - 10000, nome: t2.nome, azione: "attacco", target: t2.id }); }
     else if (p.cap) { const c = this.find(sc.cap_box, p.cap); wps.push({ lat: c.lat, lon: c.lon, alt: tipo.quota_ft, nome: c.nome, azione: "cap", cap: c.id, durata_min: p.cap_min || 30 }); }
     else if (p.stazione && p.stazione.lat) { wps.push({ lat: p.stazione.lat, lon: p.stazione.lon, alt: tipo.quota_ft, nome: "Stazione EA", azione: "cap", cap: "STAZIONE", durata_min: p.cap_min || 40 }); }
@@ -133,6 +133,7 @@ class Engine {
     this.aggiornaInject();
     this.target.forEach(t => { const p = this.inFinestra(t); if (t.finestra && p !== t.presente && !t.distrutto) this.evento("INTEL", p ? `POP-UP: ${t.nome} individuato (finestra fino alle ${t.finestra.a})` : `${t.nome} non più localizzabile (finestra chiusa)`, p ? "inject" : "sistema"); t.presente = p; });
     this.aggiornaSam(dt);
+    this.aggiornaSead();
     // un dato anomalo in una formazione non deve fermare tutta la simulazione
     this.flights.forEach(f => { if (f.distrutto) return; try { this.aggiornaFlight(f, dt); } catch (e) { if (!f._errore) { f._errore = true; console.error(e); this.evento(f.callsign, `Errore nei dati della formazione (${e.message}): resta ferma`, "avviso"); } } });
     this.aggiornaIngaggi(dt);
@@ -239,7 +240,7 @@ class Engine {
       if (this.baseChiusa(f.base)) { if (!f._avvisoChiusa) { f._avvisoChiusa = true; this.evento(f.callsign, `Base ${f.base} chiusa: decollo ritardato`, "avviso"); } return; }
       if (f.n <= 0) return;
       f.wps = this.rottaBlue(f); f.wp_i = 0; f.bombe_sganciate = false; f.aar_fatto = false;
-      f.armi = { ...(this.tipo(f).armi || {}) };
+      f.armi = { ...(this.tipo(f).armi || {}) }; f.gbu_tot = null; f.harm_spesi = 0;
       this.decolla(f, "decollo pianificato"); f.stato = "verso_aar"; f.fase = "Verso il tanker";
     } else { // RED: schedule CAP
       const c = (f.piano && f.piano.cap || []).find(c => this.t >= Engine.hm2s(c.da) && this.t < Engine.hm2s(c.a) && !c._fatto);
@@ -248,7 +249,7 @@ class Engine {
       c._fatto = true; const box = this.find(this.sc.cap_box, c.box);
       if (!box) { this.evento(f.callsign, `Piano RED: box CAP "${c.box}" inesistente nello scenario → turno ignorato`, "avviso"); return; }
       f.wps = [{ lat: box.lat, lon: box.lon, alt: this.tipo(f).quota_ft, nome: box.nome, azione: "cap", cap: box.id, fine: Math.min(Engine.hm2s(c.a), this.t + this.sc.regole.cap_max_min * 60) }]; f.wp_i = 0;
-      f.armi = { ...(this.tipo(f).armi || {}) }; this.pieno(f);
+      f.armi = { ...(this.tipo(f).armi || {}) }; f.gbu_tot = null; f.harm_spesi = 0; this.pieno(f);
       this.decolla(f, `decollo per ${box.nome}`); f.stato = "verso_cap"; f.fase = `Verso ${box.nome}`;
     }
   }
@@ -259,7 +260,7 @@ class Engine {
     if (nemici.length === 0 && !f.scramble) return;
     if (this.baseChiusa(f.base)) return;
     f.scramble = false; f.stato = "scramble"; f.t_prontezza = this.t + (this.tipo(f).prontezza_min || 15) * 60; f.fase = "SCRAMBLE – in preparazione";
-    f.armi = { ...(this.tipo(f).armi || {}) }; this.pieno(f); f.wps = []; f.wp_i = 0;
+    f.armi = { ...(this.tipo(f).armi || {}) }; f.gbu_tot = null; f.harm_spesi = 0; this.pieno(f); f.wps = []; f.wp_i = 0;
     this.evento(f.callsign, `SCRAMBLE ordinato (pronti in ${this.tipo(f).prontezza_min || 15} min)`, "red");
   }
   decolla(f, motivo) {
@@ -300,6 +301,7 @@ class Engine {
     if (GEO.dist(f, pt) < 2) f.orbita.k++;
   }
   liberaTanker(f) {   // la formazione lascia ogni coda e, se stava rifornendo, libera il tanker
+    this.liberaPrenotazione(f);
     this.tanker.forEach(tk => { if (tk.coda.includes(f.id)) tk.coda = tk.coda.filter(x => x !== f.id); if (tk.occupato_da === f.id) tk.occupato_da = null; }); f._minFuel = false;
   }
   avanza(f) {
@@ -384,20 +386,28 @@ class Engine {
       if (this.t < da && da - this.t <= 1800) { f.stato = "attesa_target"; f.hold_until = da; f.orbita = null; f.fase = `In attesa sul target fino alle ${tg.finestra.da}`; this.evento(f.callsign, `${tg.nome} non ancora localizzato: holding fino alle ${tg.finestra.da}`, "avviso"); return; }
       this.evento(f.callsign, `${tg.nome} non presente (finestra ${tg.finestra.da}–${tg.finestra.a}) → nessun attacco, egress`, "avviso"); this.avanza(f); return;
     }
-    const gbu = this.gbuPerAttacco(f, w) * f.n;
-    if (gbu <= 0) { this.evento(f.callsign, `Sul target ${w.nome} ma senza bombe → egress`, "avviso"); this.avanza(f); return; }
+    const disp = this.gbuTot(f);
+    if (disp <= 0) { this.evento(f.callsign, `Sul target ${w.nome} ma senza bombe → egress`, "avviso"); this.avanza(f); return; }
+    // si sganciano solo le GBU che servono: richieste − danni già fatti − bombe già in arrivo da altre formazioni sullo stesso target
+    const tgx = tg || this.find(this.target, w.target); const serve = Math.max(0, tgx.gbu_richieste - tgx.danni - (tgx.prenotate || 0));
+    if (serve <= 0) { this.evento(f.callsign, `${tgx.nome}: già coperto (${tgx.danni}/${tgx.gbu_richieste} GBU${tgx.prenotate ? `, ${tgx.prenotate} in arrivo` : ""}) → nessuno sgancio, ${disp} GBU conservate`, "blue"); this.avanza(f); return; }
+    const gbu = Math.min(disp, serve); f.gbu_attacco = gbu; f.gbu_attacco_tgt = tgx.id; tgx.prenotate = (tgx.prenotate || 0) + gbu;
     f.stato = "attacco"; f.fase = `Sul target ${w.nome}`; f.attacco_fine = this.t + this.sc.regole.tempo_sul_target_min * 60; f.orbita = null;
     // JOKER: se il carburante non basta per tutto il tempo sul target e il rientro, un solo passaggio (1 minuto) e via
     if (this.sc.regole.bingo_auto_rtb) { const bingo = PHYS.bingoMinutes(f, this.rifugi(f), this.tipo(f).tas_crociera_kt, this.vento, 5); const serve = bingo + this.sc.regole.tempo_sul_target_min * 1.5;
       if (f.autonomia < serve) { f.attacco_fine = this.t + 60; f.fase = `Sul target ${w.nome} – passaggio unico (JOKER)`; this.evento(f.callsign, `JOKER – carburante al limite: passaggio unico su ${w.nome}`, "avviso"); } }
     const t = this.find(this.target, w.target); const danniDopo = t.danni + gbu;
-    this.evento(f.callsign, `IN – attacco su ${w.nome} (${this.sc.regole.tempo_sul_target_min} min, ${gbu} GBU-48)`, "blue", { v3d: { flight: f.id, target: t.id, n: f.n, gbu, danni: danniDopo, richieste: t.gbu_richieste, distrutto: danniDopo >= t.gbu_richieste } });
+    this.evento(f.callsign, `IN – attacco su ${w.nome} (${this.sc.regole.tempo_sul_target_min} min, ${gbu} GBU-48${gbu < disp ? ` di ${disp} a bordo: ne servono solo ${gbu}` : ""})`, "blue", { v3d: { flight: f.id, target: t.id, n: f.n, gbu, danni: danniDopo, richieste: t.gbu_richieste, distrutto: danniDopo >= t.gbu_richieste } });
   }
-  /* GBU per velivolo da sganciare su questo waypoint: tutte, oppure la quota del waypoint (piano con due target) */
-  gbuPerAttacco(f, w) { const have = f.armi.GBU48 || 0; return w.gbu_pa != null ? Math.min(have, w.gbu_pa) : have; }
+  /* GBU della formazione: si contano in totale (non per velivolo), così si sgancia esattamente il numero che serve */
+  gbuTot(f) { const max = (f.armi.GBU48 || 0) * f.n; return f.gbu_tot == null ? max : Math.max(0, Math.min(f.gbu_tot, max)); }
+  spendiGbu(f, k) { const tot = Math.max(0, this.gbuTot(f) - k); f.gbu_tot = tot; f.armi.GBU48 = f.n > 0 ? Math.ceil(tot / f.n) : 0; }
+  liberaPrenotazione(f) { if (!f.gbu_attacco) return; const t = this.find(this.target, f.gbu_attacco_tgt); if (t) t.prenotate = Math.max(0, (t.prenotate || 0) - f.gbu_attacco); f.gbu_attacco = 0; f.gbu_attacco_tgt = null; }
   fineAttacco(f) {
-    const w = this.wp(f); const t = this.find(this.target, w.target); const pa = this.gbuPerAttacco(f, w); const gbu = pa * f.n;
-    t.danni += gbu; f.armi.GBU48 = Math.max(0, (f.armi.GBU48 || 0) - pa); f.bombe_sganciate = true; this.score.BLUE.gbu += gbu;
+    const w = this.wp(f); const t = this.find(this.target, w.target); const prenotate = f.gbu_attacco || 0; this.liberaPrenotazione(f);
+    const gbu = Math.min(prenotate, this.gbuTot(f), Math.max(0, t.gbu_richieste - t.danni));   // velivoli persi durante l'attacco o target già completato: si sgancia di meno
+    if (gbu <= 0) { this.evento(f.callsign, `${t.nome}: nessuno sgancio necessario → egress con ${this.gbuTot(f)} GBU`, "blue"); this.avanza(f); return; }
+    t.danni += gbu; this.spendiGbu(f, gbu); f.bombe_sganciate = true; this.score.BLUE.gbu += gbu;
     if (t.gruppo) this.target.forEach(x => { if (x !== t && x.gruppo === t.gruppo) x.danni = Math.max(x.danni, t.danni); });   // stesso bersaglio in movimento: i danni restano
     const pct = Math.min(100, Math.round(t.danni / t.gbu_richieste * 100));
     const v3d = { flight: f.id, target: t.id, n: f.n, gbu, danni: t.danni, richieste: t.gbu_richieste, distrutto: t.danni >= t.gbu_richieste };
@@ -405,9 +415,37 @@ class Engine {
       if (t.gruppo) this.target.forEach(x => { if (x !== t && x.gruppo === t.gruppo && !x.distrutto) { x.distrutto = true; x.t_distrutto = this.t; x.fermato = true; } });
       if (t.sam) this.sopprimiSam(t.sam, t.nome); }
     else this.evento(f.callsign, `PICKLE – ${gbu} GBU-48 su ${t.nome}: danno ${pct}% (${t.danni}/${t.gbu_richieste})`, "blue", { v3d });
-    this.evento(f.callsign, `OFF target – egress`, "blue"); this.avanza(f);
+    const resto = this.gbuTot(f); this.evento(f.callsign, `OFF target – egress${resto ? ` (${resto} GBU ancora a bordo)` : ""}`, "blue"); this.avanza(f);
   }
-  sopprimiSam(id, causa) { const s = this.find(this.sam, id); if (!s || s.soppressa) return; s.soppressa = true; s.missili = 0; s.attivo = false; this.evento(s.nome, `SAM SOPPRESSA – ${causa} distrutto: la batteria non può più guidare missili`, "kill"); }
+  sopprimiSam(id, causa, testo) { const s = this.find(this.sam, id); if (!s || s.soppressa) return; s.soppressa = true; s.missili = 0; s.attivo = false; this.evento(s.nome, testo || `SAM SOPPRESSA – ${causa} distrutto: la batteria non può più guidare missili`, "kill"); }
+  /* ----- SEAD: i Growler lanciano AGM-88 HARM sulle batterie SA-10 che emettono, quando sono entro la gittata -----
+     Valori (regole, modificabili): harm_nm 50 NM (gittata utile da quota; massima ~80 NM, oltre l'anello SA-10 di 40 NM),
+     harm_per_sam 2 (salvo di 2 missili per batteria), velocità media ~1.150 kt (Mach 2): da 50 NM l'impatto arriva in ~2,5 min.
+     Un HARM per bersaglio: nessun salvo su una batteria già colpita o con missili già in volo. */
+  harmDisp(f) { return Math.max(0, (f.armi.HARM || 0) * f.n - (f.harm_spesi || 0)); }
+  aggiornaSead() {
+    const r = this.sc.regole; if (r.harm_auto === false) return;
+    const nm = r.harm_nm != null ? r.harm_nm : 50, salvo = r.harm_per_sam || 2, kt = r.harm_kt || 1150;
+    this.harm = (this.harm || []).filter(h => {
+      if (this.t < h.t_impatto) return true;
+      const s = this.find(this.sam, h.sam);
+      if (s && !s.soppressa) {
+        if (s.attivo) { this.score.BLUE.sam_soppresse = (this.score.BLUE.sam_soppresse || 0) + 1; this.sopprimiSam(s.id, "HARM", `SAM SOPPRESSA – ${h.n} AGM-88 HARM di ${h.da} sul radar: la batteria non può più guidare missili`); }
+        else this.evento(s.nome, `HARM di ${h.da} a vuoto: la batteria aveva il radar spento`, "red");
+      }
+      return false;
+    });
+    this.flights.forEach(f => {
+      if (f.lato !== "BLUE" || f.distrutto || f.alt <= 50 || f.n <= 0 || !(this.tipo(f).armi || {}).HARM) return;
+      if (this.harmDisp(f) <= 0 || (f.ultimo_harm && this.t - f.ultimo_harm < 30)) return;
+      const s = this.sam.filter(x => x.attivo && !x.soppressa && x.missili > 0 && !this.harm.some(h => h.sam === x.id) && GEO.dist(f, x) <= nm).sort((a, b) => GEO.dist(f, a) - GEO.dist(f, b))[0];
+      if (!s) return;
+      const n = Math.min(salvo, this.harmDisp(f)), d = GEO.dist(f, s), tof = d / kt * 3600;
+      f.harm_spesi = (f.harm_spesi || 0) + n; f.ultimo_harm = this.t; this.score.BLUE.harm = (this.score.BLUE.harm || 0) + n;
+      this.harm.push({ sam: s.id, da: f.callsign, n, t_impatto: this.t + tof });
+      this.evento(f.callsign, `MAGNUM – ${n} AGM-88 HARM su ${s.nome} da ${d.toFixed(0)} NM (impatto tra ${Math.max(1, Math.round(tof / 60))} min, restano ${this.harmDisp(f)} HARM)`, "blue");
+    });
+  }
   /* ----- obiettivi di missione (scenario.obiettivi): valutati in diretta e nel debrief ----- */
   valutaObiettivi() {
     const fine = this.finita; const fl = this.flights;
@@ -556,6 +594,7 @@ class Engine {
   }
   perdita(f, n, motivo) {
     n = Math.min(n, f.n); if (n <= 0) return; f.n -= n;
+    if (f.gbu_tot != null) f.gbu_tot = Math.round(f.gbu_tot * f.n / (f.n + n));   // le GBU dei velivoli persi si perdono con loro
     const lato = f.lato; this.score[lato].perdite += n; if (!/FLAMEOUT/.test(motivo)) this.score[lato === "BLUE" ? "RED" : "BLUE"].kills += n;   // il carburante finito non è un abbattimento dell'avversario
     if (f.n <= 0) { this.liberaTanker(f); f.distrutto = true; f.stato = "distrutto"; f.fase = "Distrutta"; f.ingaggio = null; this.ingaggi.filter(i => !i.chiuso && (i.blue === f.id || i.red === f.id)).forEach(i => { i.chiuso = true; const o = this.flights.find(x => x.id === (i.blue === f.id ? i.red : i.blue)); if (o) o.ingaggio = null; });
       this.evento(f.callsign, `Formazione persa: ${motivo}`, "kill"); }
@@ -597,13 +636,14 @@ class Engine {
     // target assign manuale: riassegna un obiettivo a una formazione BLUE in volo (target → gate di uscita → base)
     if (cmd === "target" && arg && f.lato === "BLUE" && f.alt > 50 && !f.distrutto) {
       const t = this.find(this.target, arg); if (!t) return;
-      if ((f.armi.GBU48 || 0) <= 0) { this.evento(f.callsign, `Ordine target ${t.nome} rifiutato: nessuna bomba a bordo`, "avviso"); return; }
+      if (this.gbuTot(f) <= 0) { this.evento(f.callsign, `Ordine target ${t.nome} rifiutato: nessuna bomba a bordo`, "avviso"); return; }
       if (f.stato === "attacco") { this.evento(f.callsign, `Ordine target ${t.nome} rifiutato: già in attacco`, "avviso"); return; }
       const p = f.piano || {}, tipo = this.tipo(f), b = this.base(f.base); const gOut = this.find(this.sc.gate, p.gate_out) || this.find(this.sc.gate, p.gate_in) || this.sc.gate[1];
       f.wps = [{ lat: t.lat, lon: t.lon, alt: tipo.quota_ft - 10000, nome: t.nome, azione: "attacco", target: t.id }, { lat: gOut.lat, lon: gOut.lon, alt: tipo.quota_ft, nome: gOut.nome, azione: "egress" }, { lat: b.lat, lon: b.lon, alt: 0, nome: b.nome, azione: "atterraggio" }];
       this.liberaTanker(f); f.wp_i = 0; f.stato = "verso_target"; f.fase = "Verso il target " + t.nome; f.orbita = null; f.target_commit = null; f.pre_commit = null; f.hold_until = null; f.cap_fine = null;
       f.retask = t.id;   // il piano salvato resta quello del briefing: nel debrief si vede la differenza
-      this.evento(f.callsign, `Ordine: nuovo target ${t.nome} (${(f.armi.GBU48 || 0) * f.n} GBU-48) → egress ${gOut.nome}`, "sistema");
+      const serve = Math.max(0, t.gbu_richieste - t.danni - (t.prenotate || 0)), gb = this.gbuTot(f);
+      this.evento(f.callsign, `Ordine: nuovo target ${t.nome} (${gb} GBU-48 a bordo, ne servono ${serve}${gb > serve ? `: ${gb - serve} restano a bordo` : gb < serve ? `: copertura parziale` : ""}) → egress ${gOut.nome}`, "sistema");
     }
   }
   muoviSam(id, lat, lon) { const s = this.find(this.sam, id); if (s) { s.dest = { lat, lon, da: this.t }; s._moving = false; } }

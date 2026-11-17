@@ -146,6 +146,6 @@ const AUDIO = (() => {
     d.querySelector("#au-test").onclick = () => { const f = APP.engine.flights[0]; suono("rwr"); radio(f ? f.callsign : "TITAN", "fox3", (f ? f.callsign : "Titan") + ", merged, Fox three!", f ? f.lato : "BLUE"); };
     setTimeout(() => document.addEventListener("pointerdown", function h(ev) { if (!d.contains(ev.target) && ev.target.id !== "btn-audio") { d.remove(); document.removeEventListener("pointerdown", h); } }), 0);
   }
-  function badge() { const b = document.getElementById("btn-audio"); if (b) b.textContent = pref.on ? "🔊 Audio" : "🔇 Audio"; }
+  function badge() { const b = document.getElementById("btn-audio"); if (b) b.innerHTML = (pref.on ? "🔊" : "🔇") + '<span class="lbl"> Audio</span>'; }
   return { init, evento, suono, radio, annuncio, pannello, badge, get pref() { return pref; }, get pronte() { return man && Object.keys(man.radio).length; } };
 })();

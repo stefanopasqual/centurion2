@@ -1,6 +1,8 @@
 /* =====================================================================
    APP – stato globale, ciclo di simulazione, navigazione
    ===================================================================== */
+// la home la gestisce l'app (sagoma dell'aereo in alto): lo script home.js del sito non aggiunge più il suo pulsante
+window.__centurionHomeInstalled = true;
 const APP = (() => {
   const $ = s => document.querySelector(s); const $$ = s => [...document.querySelectorAll(s)];
   const A = { sc: null, engine: null, ruolo: "TRAINER", fase: "briefing", sel: null, playing: false, speed: 15, timer: null, noteDebrief: "", vista3dAuto: true };
@@ -19,11 +21,26 @@ const APP = (() => {
     const apriVolo = () => { if (typeof VOLO !== "undefined") VOLO.apri(); };
     const bvs = $("#btn-volo-splash"); if (bvs) bvs.onclick = apriVolo; const bv = $("#btn-volo"); if (bv) bv.onclick = apriVolo;
     // catalogo missioni
+    // sagoma dell'aereo (logo in alto a sinistra) = torna alla schermata iniziale, senza ricaricare la pagina
+    const brand = $("#topbar .brand"); if (brand) { brand.style.cursor = "pointer"; brand.title = "Torna alla schermata iniziale"; brand.onclick = e => { e.preventDefault(); e.stopPropagation(); vaiHome(); }; }
+    // hangar 3D (presente solo sul sito): pulsante compatto nella barra in alto e voce nella schermata iniziale al posto del pulsante flottante
+    const hangar = () => { const l = document.getElementById("ef2000-launcher"); if (l) l.click(); };
+    const mostraHangar = () => { const c = !!document.getElementById("ef2000-launcher"); ["#btn-hangar", "#btn-hangar-splash"].forEach(id => { const b = $(id); if (b) b.classList.toggle("hidden", !c); }); return c; };
+    const bh = $("#btn-hangar"); if (bh) bh.onclick = hangar; const bhs = $("#btn-hangar-splash"); if (bhs) bhs.onclick = hangar;
+    if (!mostraHangar()) { let n = 0; const t = setInterval(() => { if (mostraHangar() || ++n > 20) clearInterval(t); }, 500); }
     const apriMis = () => { if (typeof MISSIONI !== "undefined") MISSIONI.apriCatalogo(); }; const bms = $("#btn-missioni-splash"); if (bms) bms.onclick = apriMis; const bm = $("#btn-missioni"); if (bm) bm.onclick = apriMis;
     try { if (typeof AUDIO !== "undefined") { AUDIO.init(); AUDIO.badge(); const ba = $("#btn-audio"); if (ba) ba.onclick = () => AUDIO.pannello(); } } catch (e) { console.warn("audio non disponibile", e); }
     // app installabile (PWA): service worker per l'uso offline + pulsante "Installa" quando il browser lo permette
     if ("serviceWorker" in navigator && (location.protocol === "https:" || /^(localhost|127\.0\.0\.1)$/.test(location.hostname))) { navigator.serviceWorker.register("sw.js").catch(e => console.warn("service worker", e)); }
-    window.addEventListener("beforeinstallprompt", e => { e.preventDefault(); A._installa = e; const b = $("#btn-installa"); if (b) { b.classList.remove("hidden"); b.onclick = () => { b.classList.add("hidden"); e.prompt(); }; } });
+    // Installa come app: sempre visibile finché l'app non è installata; se il browser non offre l'installazione automatica spiega i passi
+    const installata = () => matchMedia("(display-mode: standalone)").matches || navigator.standalone === true;
+    window.addEventListener("beforeinstallprompt", e => { e.preventDefault(); A._installa = e; });
+    window.addEventListener("appinstalled", () => { const b = $("#btn-installa"); if (b) b.classList.add("hidden"); UI.toast("CENTURION installata come app"); });
+    const bi = $("#btn-installa"); if (bi && !installata()) { bi.classList.remove("hidden"); bi.onclick = () => {
+      if (A._installa) { const ev = A._installa; A._installa = null; ev.prompt(); ev.userChoice && ev.userChoice.then(r => { if (r.outcome === "accepted") bi.classList.add("hidden"); }); return; }
+      const ua = navigator.userAgent; const ios = /iPhone|iPad|iPod/.test(ua) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1); const android = /Android/.test(ua); const firefox = /Firefox/.test(ua);
+      const passi = ios ? "Su iPhone e iPad: apri questa pagina con <b>Safari</b>, tocca <b>Condividi</b> (il quadrato con la freccia) e poi <b>Aggiungi alla schermata Home</b>." : android ? "Su Android: apri il menu <b>⋮</b> di Chrome e scegli <b>Installa app</b> (o <b>Aggiungi a schermata Home</b>)." : firefox ? "Firefox su computer non installa le app web: apri questa pagina con <b>Chrome</b> o <b>Edge</b> e usa l'icona di installazione nella barra degli indirizzi." : "Su computer: in <b>Chrome</b> o <b>Edge</b> usa l'icona di installazione (un monitor con la freccia) a destra nella barra degli indirizzi, oppure il menu <b>⋮ → Installa CENTURION</b>.";
+      UI.toast(`<b>⬇ Installa CENTURION come app</b><br>${passi}<br><small>L'icona sarà la sagoma dell'F-22 nera su fondo bianco.</small>`, 12000, true); }; }
     // pannelli a scomparsa su schermi piccoli (tablet verticale, smartphone)
     const bp = $("#btn-pannello"), bl = $("#btn-log"); if (bp) bp.onclick = () => { $("#left").classList.toggle("open"); $("#right").classList.remove("open"); }; if (bl) bl.onclick = () => { $("#right").classList.toggle("open"); $("#left").classList.remove("open"); };
     $("#map").addEventListener("pointerdown", () => { $("#left").classList.remove("open"); $("#right").classList.remove("open"); });
@@ -55,6 +72,10 @@ const APP = (() => {
     ({ briefing: UI.briefing, piano: UI.piano, esecuzione: UI.esecuzione, debrief: UI.debrief, editor: UI.editor })[f]();
     if (f === "esecuzione" || f === "debrief") { MAPPA.disegnaSam(A.engine.vista(A.ruolo).sam, false); } else if (f === "briefing" || f === "editor") { UI.aggiornaRotteMappa(); MAPPA.disegnaRotte([]); }
     setTimeout(() => MAPPA.map.invalidateSize(), 30);
+  }
+  function vaiHome() {
+    play(false); if (typeof DEMO !== "undefined") DEMO.stop(); if (typeof MISSIONI !== "undefined") MISSIONI.chiudiCatalogo();
+    $("#app").classList.add("hidden"); $("#splash").classList.remove("hidden"); window.scrollTo(0, 0);
   }
   function salva() {
     // postazione squadra in una sessione a più postazioni: il proprio piano va al trainer, lo scenario locale non si salva (è del trainer)

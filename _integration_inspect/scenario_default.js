@@ -90,6 +90,9 @@ const SCENARIO_DEFAULT = {
     prontezza_max_terra: 12,
     sam_velocita_kmh: 10,
     growler_copertura_quadrati: 2,
+    harm_auto: true,               // i Growler lanciano HARM da soli sulle SA-10 che emettono entro la gittata
+    harm_nm: 50,                   // gittata utile AGM-88 da quota (massima ~80 NM): oltre l'anello SA-10 di 40 NM
+    harm_per_sam: 2,               // HARM per salvo su una batteria (salvo andato a segno = batteria soppressa)
     sam_missili_per_aereo: 2,
     fog_of_war: true,
     autonomia_modalita: "regole",  // "regole" (minuti da ROE) | "realistica" (lb/h)

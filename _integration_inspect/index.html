@@ -12,13 +12,15 @@
 <link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
 <link rel="stylesheet" href="vendor/leaflet.css">
 <link rel="stylesheet" href="css/style.css">
-<link rel="icon" href="assets/icon-192.png">
+<link rel="icon" type="image/png" sizes="32x32" href="assets/favicon-32.png">
+<link rel="icon" type="image/png" sizes="48x48" href="assets/favicon-48.png">
+<link rel="icon" type="image/png" sizes="192x192" href="assets/icon-192.png">
 </head>
 <body>
 <!-- ============ SCHERMATA INIZIALE ============ -->
 <div id="splash">
   <div class="splash-box">
-    <img src="assets/icons/f22.png" class="splash-logo" alt="">
+    <img src="assets/logo-1024.png" class="splash-logo" alt="">
     <h1>CENTURION</h1>
     <h2>A Fighter Pilot Day · Simulatore di missione</h2>
     <p class="splash-sub">Scegli come giocate e chi sei. Tutto il resto è guidato passo per passo.</p>
@@ -37,6 +39,7 @@
       <button id="btn-demo-splash" class="link-btn">▶ Guarda la DEMO guidata</button>
       <button id="btn-tour-splash" class="link-btn">? Tour dell'interfaccia (2 min)</button>
       <button id="btn-volo-splash" class="link-btn volo">🕹 FREE FLIGHT · pilota tu</button>
+      <button id="btn-hangar-splash" class="link-btn hidden">✈ HANGAR 3D · i velivoli in dettaglio</button>
       <button id="btn-installa" class="link-btn hidden">⬇ Installa come app</button>
     </div>
     <p class="splash-foot">Mappa reale (Nord California · carta "Mt Shasta Sectional") · fisica di volo reale · dati personalizzabili da Excel</p>
@@ -47,7 +50,7 @@
 <div id="app" class="hidden">
   <header id="topbar">
     <button id="btn-pannello" class="mob-only" title="Pannello della fase">☰</button>
-    <div class="brand"><img src="assets/icons/f22.png" alt=""><span>CENTURION</span><small id="role-badge">TRAINER</small><span id="rete-badge" class="hidden"></span></div>
+    <div class="brand"><img src="assets/logo-1024.png" alt=""><span>CENTURION</span><small id="role-badge">TRAINER</small><span id="rete-badge" class="hidden"></span></div>
     <nav id="fasi">
       <button data-fase="briefing"><span>1</span>Briefing</button>
       <button data-fase="piano"><span>2</span>Piano</button>
@@ -57,12 +60,13 @@
     </nav>
     <div class="top-right">
       <button id="btn-log" class="mob-only" title="Punteggio e log eventi">📜</button>
-      <button id="btn-audio" title="Radio, avvisi sonori e annunci">🔊 Audio</button>
-      <button id="btn-missioni" title="Catalogo missioni: 12 missioni con obiettivi diversi e demo guidata">📋 Missioni</button>
-      <button id="btn-volo" title="Free Flight: pilota un caccia con HUD, missili e cannone">🕹 Volo</button>
-      <button id="btn-demo" title="Demo guidata automatica">▶ Demo</button>
+      <button id="btn-audio" title="Radio, avvisi sonori e annunci">🔊<span class="lbl"> Audio</span></button>
+      <button id="btn-hangar" class="hidden" title="Hangar 3D dei velivoli">✈<span class="lbl"> Hangar</span></button>
+      <button id="btn-missioni" title="Catalogo missioni: 12 missioni con obiettivi diversi e demo guidata">📋<span class="lbl"> Missioni</span></button>
+      <button id="btn-volo" title="Free Flight: pilota un caccia con HUD, missili e cannone">🕹<span class="lbl"> Volo</span></button>
+      <button id="btn-demo" title="Demo guidata automatica">▶<span class="lbl"> Demo</span></button>
       <button id="btn-tour" title="Tour interfaccia">?</button>
-      <button id="btn-ruolo" title="Cambia ruolo o modalità (una postazione / tre postazioni)">⇄ Ruolo</button>
+      <button id="btn-ruolo" title="Cambia ruolo o modalità (una postazione / tre postazioni)">⇄<span class="lbl"> Ruolo</span></button>
     </div>
   </header>
 
