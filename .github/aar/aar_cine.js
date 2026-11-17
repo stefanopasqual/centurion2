@@ -10,16 +10,29 @@ const AAR_CINE = (() => {
   const DURATA = 4000, KEY = "centurion_cine_aar", VEL_REL = 154;   // m/s: 300 kt, velocità tipica di rifornimento
   const V3 = (x, y, z) => new THREE.Vector3(x || 0, y || 0, z || 0);
   const lerp = (a, b, k) => a + (b - a) * k, ease = k => k <= 0 ? 0 : k >= 1 ? 1 : k * k * (3 - 2 * k);
-  // punto di aggancio: frazione della lunghezza dal muso; x positivo = lato sinistro del velivolo (muso +Z, alto +Y)
+  /* Tipo di rifornimento e punto di aggancio di ciascun velivolo, misurati sui riferimenti del suo modello 3D
+     (tettuccio, deriva), non su percentuali della lunghezza. Sistema del modello: muso +Z, alto +Y, x positivo = lato SINISTRO; metri.
+     - F-15E: braccio rigido; ricettacolo (UARRSI) nella radice dell'ala sinistra, dietro uno sportello: il pilota si sposta
+       leggermente a destra per allinearsi (The Aviationist, F-15I; Fighter Sweep, NASA F-15D).
+     - F-16: braccio rigido; ricettacolo sul dorso, a metà fra il bordo posteriore del tettuccio e la base della deriva (Fighter Sweep).
+     - F-22: braccio rigido; ricettacolo sul dorso subito dietro l'abitacolo, coperto da due portelli a farfalla con luci (GlobalSecurity).
+     - EA-18G: sonda e cestello; sonda retrattile sul lato destro del muso, davanti al parabrezza: base e punta sono quelle della
+       sonda estratta modellata nel GLB stesso (nodo f18e_refuelOn), riportate rispetto al tettuccio.
+     - Eurofighter: sonda e cestello; sonda retrattile sul lato destro della fusoliera, davanti al parabrezza (WeaponSpecs).
+     - Su-35: sonda e cestello; sonda retrattile sul lato sinistro del muso (Airforce Technology, Migflug).
+     - Su-57: sonda e cestello; sonda retrattile fuori asse sul muso (TWZ); lato sinistro come il Su-35, non confermato da fonti scritte.
+     Per le sonde: base e punta = [x, y rispetto alla sommità del tettuccio, z rispetto al bordo anteriore del tettuccio]. */
   const RIC = {
-    F16: { metodo: "boom", z: 0.30, x: 0, punto: "il ricettacolo dietro il tettuccio" },
-    F15: { metodo: "boom", z: 0.40, x: 1.15, punto: "il ricettacolo alla radice dell'ala sinistra" },
-    F22: { metodo: "boom", z: 0.36, x: 0, punto: "il ricettacolo dorsale dietro l'abitacolo" },
-    EA18: { metodo: "drogue", z: 0.07, x: -0.72, y: 0.26 },
-    F2000: { metodo: "drogue", z: 0.10, x: -0.6, y: 0.24 }
+    F15: { metodo: "boom", rif: "dietroTettuccio", dz: -1.35, x: 1.6, punto: "il ricettacolo nella radice dell'ala sinistra" },
+    F16: { metodo: "boom", rif: "metaDorso", x: 0, punto: "il ricettacolo sul dorso, fra tettuccio e deriva" },
+    F22: { metodo: "boom", rif: "dietroTettuccio", dz: -1.0, x: 0, portelli: true, punto: "il ricettacolo dietro l'abitacolo, fra i portelli a farfalla" },
+    EA18: { metodo: "drogue", esatta: true, base: [-0.32, -0.92, 0.38], punta: [-0.37, -0.96, 1.60], punto: "la sonda sul lato destro del muso" },
+    F2000: { metodo: "drogue", base: [-0.42, -0.55, 0.15], punta: [-0.55, -0.25, 1.75], punto: "la sonda sul lato destro, davanti al parabrezza" },
+    SU35: { metodo: "drogue", base: [0.45, -0.6, 0.25], punta: [0.6, -0.2, 2.0], punto: "la sonda sul lato sinistro del muso" },
+    SU57: { metodo: "drogue", base: [0.42, -0.55, 0.25], punta: [0.55, -0.2, 1.8], punto: "la sonda sul lato sinistro del muso" }
   };
-  const NOMI = { F16: "F-16C", F15: "F-15E", F22: "F-22A", EA18: "EA-18G", F2000: "Eurofighter" };
-  const ICONA = { F16: "f16", F15: "f15", F22: "f22", EA18: "ea18", F2000: "typhoon" };
+  const NOMI = { F16: "F-16C", F15: "F-15E", F22: "F-22A", EA18: "EA-18G", F2000: "Eurofighter", SU35: "Su-35", SU57: "Su-57" };
+  const ICONA = { F16: "f16", F15: "f15", F22: "f22", EA18: "ea18", F2000: "typhoon", SU35: "su35", SU57: "su57" };
   let abil = true; try { abil = localStorage.getItem(KEY) !== "0"; } catch (e) {}
   let ov = null, renderer = null, scene = null, camera = null, cielo = null, envTex = null, nuvole = [], raf = 0;
   let tanker = null, tankerP = null, pods = [], tubi = [];
@@ -110,39 +123,61 @@ const AAR_CINE = (() => {
     m.position.set(0, 0, 0); m.rotation.set(0, 0, 0); m.updateMatrixWorld(true);
     return m;
   }
+  // riferimenti del modello: tettuccio (per tutti) e deriva (per l'F-16), cercati per nome delle parti
+  function riferimenti(m) {
+    const can = new THREE.Box3(), fin = new THREE.Box3(); m.updateMatrixWorld(true);
+    m.traverse(o => { if (!o.isMesh) return; const nm = ((o.name || "") + " " + ((o.parent && o.parent.name) || "")).toLowerCase();
+      if (/canopy|window_lf/.test(nm)) can.expandByObject(o);
+      if (/vertical.?stabilizer|deriva/.test(nm)) fin.expandByObject(o); });
+    return { can: can.isEmpty() ? null : can, fin: fin.isEmpty() ? null : fin };
+  }
+  const suSuperficie = (m, x, z, box) => { const h = new THREE.Raycaster(V3(x, box.max.y + 5, z), V3(0, -1, 0), 0, box.max.y - box.min.y + 12).intersectObject(m, true)[0]; return h ? h.point.y : null; };
   function puntoAggancio(m, spec) {
-    const box = new THREE.Box3().setFromObject(m), size = box.getSize(V3()), c = box.getCenter(V3()), L = size.z;
-    const z = box.max.z - spec.z * L;
+    const box = new THREE.Box3().setFromObject(m), size = box.getSize(V3()), c = box.getCenter(V3()), L = size.z, rif = riferimenti(m);
     m.userData.muso = V3(0, c.y + 0.15 * size.y, box.max.z);
+    const met = new THREE.MeshStandardMaterial({ color: 0x4f565d, metalness: 0.7, roughness: 0.4 });
     if (spec.metodo === "drogue") {
-      // sonda estratta: la base sta sul fianco destro della fusoliera, all'altezza dell'abitacolo (trovata con un raggio dal lato destro, −X);
-      // la punta sporge 2,1 m in avanti e 0,4 m in alto, come la sonda di un EA-18G o di un Eurofighter
-      // la superficie superiore del muso, accanto al tettuccio, si trova con un raggio dall'alto (il centro del modello è alzato dalle derive)
-      const zB = box.max.z - (spec.z + 0.12) * L, xB = Math.min(-0.5, spec.x * 0.8);
-      const hitB = new THREE.Raycaster(V3(xB, box.max.y + 5, zB), V3(0, -1, 0), 0, size.y + 12).intersectObject(m, true)[0];
-      const a = hitB ? hitB.point.clone().add(V3(-0.04, -0.06, 0)) : V3(spec.x, c.y, zB);
-      const p = a.clone().add(V3(-0.06, 0.42, 2.1));
-      const met = new THREE.MeshStandardMaterial({ color: 0x4f565d, metalness: 0.7, roughness: 0.4 });
-      const d = p.clone().sub(a), asta = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.085, d.length(), 10), met);
+      // sonda estratta: base e punta rispetto al bordo anteriore e alla sommità del tettuccio del modello
+      const ref = rif.can ? { y: rif.can.max.y, z: rif.can.max.z } : { y: c.y + 0.2 * size.y, z: box.max.z - 0.28 * L };
+      const a = V3(spec.base[0], ref.y + spec.base[1], ref.z + spec.base[2]), p = V3(spec.punta[0], ref.y + spec.punta[1], ref.z + spec.punta[2]);
+      const lato = Math.sign(spec.base[0]) || -1;
+      if (!spec.esatta) {   // la base si appoggia sul fianco vero della fusoliera: raggio dall'esterno verso l'asse
+        const h = new THREE.Raycaster(V3(lato * (size.x / 2 + 3), a.y, a.z), V3(-lato, 0, 0), 0, size.x / 2 + 3).intersectObject(m, true)[0];
+        if (h && Math.abs(h.point.x) < Math.abs(a.x) + 0.6) { const dx = h.point.x + lato * 0.03 - a.x; a.x += dx; p.x += dx; }
+      }
+      const d = p.clone().sub(a), asta = new THREE.Mesh(new THREE.CylinderGeometry(0.065, 0.08, d.length(), 10), met);
       asta.position.copy(a).addScaledVector(d, 0.5); asta.quaternion.setFromUnitVectors(V3(0, 1, 0), d.clone().normalize()); m.add(asta);
       const ugello = new THREE.Mesh(new THREE.CylinderGeometry(0.075, 0.06, 0.2, 10), met); ugello.position.copy(p); ugello.quaternion.copy(asta.quaternion); m.add(ugello);
-      // carenatura alla base, sul fianco della fusoliera
-      const car = new THREE.Mesh(new THREE.CapsuleGeometry ? new THREE.CapsuleGeometry(0.11, 0.7, 4, 10) : new THREE.CylinderGeometry(0.11, 0.11, 0.9, 10), new THREE.MeshStandardMaterial({ color: 0xb9c0c6, metalness: 0.3, roughness: 0.6 }));
-      car.rotation.x = Math.PI / 2; car.position.copy(a).add(V3(-0.02, 0, -0.25)); m.add(car);
+      if (!spec.esatta) {   // carenatura della sonda (sull'EA-18G c'è già quella del modello)
+        const car = new THREE.Mesh(new THREE.CapsuleGeometry ? new THREE.CapsuleGeometry(0.1, 0.6, 4, 10) : new THREE.CylinderGeometry(0.1, 0.1, 0.8, 10), new THREE.MeshStandardMaterial({ color: 0xb9c0c6, metalness: 0.3, roughness: 0.6 }));
+        car.rotation.x = Math.PI / 2; car.position.copy(a).add(V3(0, 0, -0.2)); m.add(car);
+      }
+      m.userData.aggancio = { metodo: "drogue", base: a.toArray(), punta: p.toArray(), tettuccio: rif.can ? [rif.can.min.z, rif.can.max.z, rif.can.max.y] : null };
       return p;
     }
-    const ray = new THREE.Raycaster(V3(spec.x, box.max.y + 5, z), V3(0, -1, 0), 0, size.y + 12); const hit = ray.intersectObject(m, true)[0];
-    const p = V3(spec.x, hit ? hit.point.y + 0.03 : box.max.y - size.y * 0.3, z);
-    // portello del ricettacolo aperto e luce
-    const port = new THREE.Mesh(new THREE.BoxGeometry(0.42, 0.04, 0.62), new THREE.MeshStandardMaterial({ color: 0x1b1d20, roughness: 0.9 })); port.position.copy(p); m.add(port);
-    const luce = new THREE.Mesh(new THREE.SphereGeometry(0.06, 8, 6), new THREE.MeshBasicMaterial({ color: 0xfff1b0 })); luce.position.copy(p).add(V3(0, 0.03, -0.45)); m.add(luce);
+    // braccio rigido: punto del ricettacolo sulla superficie superiore del modello
+    let z;
+    if (spec.rif === "metaDorso" && rif.can && rif.fin) z = (rif.can.min.z + rif.fin.max.z) / 2;   // a metà fra tettuccio e base della deriva
+    else if (rif.can) z = rif.can.min.z + (spec.dz || -1);                                         // dietro il bordo posteriore del tettuccio
+    else z = box.max.z - 0.36 * L;
+    const y = suSuperficie(m, spec.x, z, box), p = V3(spec.x, y != null ? y + 0.03 : box.max.y - size.y * 0.3, z);
+    // vano del ricettacolo con la sua luce; sull'F-22 i due portelli a farfalla aperti
+    const vano = new THREE.Mesh(new THREE.BoxGeometry(0.36, 0.05, 0.56), new THREE.MeshStandardMaterial({ color: 0x15171a, roughness: 0.9 })); vano.position.copy(p); m.add(vano);
+    const luce = new THREE.Mesh(new THREE.SphereGeometry(0.05, 8, 6), new THREE.MeshBasicMaterial({ color: 0xfff1b0 })); luce.position.copy(p).add(V3(0, 0.03, -0.4)); m.add(luce);
+    if (spec.portelli) [1, -1].forEach(s => {
+      const pv = new THREE.Group(); pv.position.copy(p).add(V3(s * 0.2, 0, 0)); pv.rotation.z = s * 1.05;
+      const porta = new THREE.Mesh(new THREE.BoxGeometry(0.03, 0.42, 0.58), new THREE.MeshStandardMaterial({ color: 0x9aa1a8, metalness: 0.4, roughness: 0.5 })); porta.position.y = 0.21; pv.add(porta);
+      const l = new THREE.Mesh(new THREE.BoxGeometry(0.035, 0.06, 0.4), new THREE.MeshBasicMaterial({ color: 0xc8ffd8 })); l.position.set(-s * 0.02, 0.33, 0); pv.add(l); m.add(pv);
+    });
+    m.userData.aggancio = { metodo: "boom", ricettacolo: p.toArray(), tettuccio: rif.can ? [rif.can.min.z, rif.can.max.z] : null, deriva: rif.fin ? rif.fin.max.z : null };
     return p;
   }
 
   /* ---------- una scena ---------- */
   async function mostra(r) {
     prepara(); await tankerP; dimensiona();
-    const spec = RIC[r.tipo] || RIC.F16, metodo = r.emergenza ? "drogue" : spec.metodo, specM = metodo === spec.metodo ? spec : Object.assign({}, RIC.EA18);
+    // ogni velivolo usa sempre il suo sistema: F-15E, F-16 e F-22 hanno solo il ricettacolo per il braccio, gli altri solo la sonda
+    const spec = RIC[r.tipo] || RIC.F16, metodo = spec.metodo, specM = spec;
     // via la scena precedente (geometrie dei GLB condivise con le altre viste: si liberano solo i materiali clonati qui)
     if (S.scena) { S.scena.forEach(o => { scene.remove(o); o.traverse(x => { if (x.material) [].concat(x.material).forEach(mm => mm.dispose && mm.dispose()); }); }); S.scena = null; }
     const parti = tanker.userData.parti || {}, boom = parti.boom;
@@ -155,7 +190,9 @@ const AAR_CINE = (() => {
       const piv = boom.localToWorld(V3(0, 0, 0)), tip = boom.localToWorld(V3(0, 0, -16.05)); C = tip;
       m.position.copy(tip).sub(pr); flusso = u => piv.clone().lerp(tip, u);
     } else {
-      const t = tubi[1] || tubi[0]; C = t.aggancio.clone(); tanker.localToWorld(C);   // pod destro (−X)
+      // pod dal lato della sonda: sonda a destra (EA-18G, Eurofighter) → pod destro (−X); a sinistra (Su-35, Su-57) → pod sinistro (+X)
+      const iPod = (spec.base && spec.base[0] > 0) ? 0 : 1; S.iPod = iPod;
+      const t = tubi[iPod] || tubi[0]; C = t.aggancio.clone(); tanker.localToWorld(C);
       m.position.copy(C).sub(pr); flusso = u => tanker.localToWorld(t.curva.getPointAt(u).clone());
     }
     scene.add(m); oggetti.push(m);
@@ -163,7 +200,8 @@ const AAR_CINE = (() => {
     const n = Math.min(3, Math.max(0, (r.n || 1) - 1));
     for (let k = 0; k < n; k++) {
       const w = m.clone(true);
-      if (metodo === "drogue" && k === 0 && tubi[0]) { const C2 = tanker.localToWorld(tubi[0].aggancio.clone()); w.position.copy(C2).sub(pr); }
+      const altro = tubi[1 - (S.iPod || 0)];
+      if (metodo === "drogue" && k === 0 && altro) { const C2 = tanker.localToWorld(altro.aggancio.clone()); w.position.copy(C2).sub(pr); }   // secondo velivolo sull'altro pod
       else { const j = metodo === "drogue" ? k - 1 : k; w.position.set(31 + 15 * j, -5 - 1.5 * j, -16 - 7 * j); }
       scene.add(w); oggetti.push(w);
     }
@@ -176,14 +214,14 @@ const AAR_CINE = (() => {
     // testi
     const q = s => ov.querySelector(s);
     q(".aar-chi").textContent = `${r.callsign} · ${r.n}× ${NOMI[r.tipo] || r.tipo}  ←  ${r.tanker}`;
-    q(".aar-met").textContent = metodo === "boom" ? "Braccio rigido (boom): usato da F-15E, F-16 e F-22" : "Sonda e cestello (probe & drogue): usato da EA-18G ed Eurofighter";
-    const didascalie = [r.emergenza ? "Carburante al minimo: rifornimento d'emergenza dal pod alare" : "In formazione dietro il tanker, a 25.000 piedi",
-      metodo === "boom" ? `L'operatore guida il braccio verso ${spec.punto || "il ricettacolo"}` : "Il pilota infila la sonda nel cestello del tubo",
+    q(".aar-met").textContent = metodo === "boom" ? "Braccio rigido (boom): F-15E, F-16 e F-22 hanno il ricettacolo, non la sonda" : "Sonda e cestello (probe & drogue): EA-18G, Eurofighter, Su-35 e Su-57 hanno la sonda, non il ricettacolo";
+    const didascalie = [r.emergenza ? "Carburante al minimo: rifornimento d'emergenza" : "In formazione dietro il tanker, a 25.000 piedi",
+      metodo === "boom" ? `L'operatore guida il braccio verso ${spec.punto || "il ricettacolo"}` : `Il pilota infila nel cestello ${spec.punto || "la sonda"}`,
       "CONTATTO · travaso del carburante in corso"];
     // camera: inquadratura larga → avvicinamento con zoom → primo piano sul contatto
     const lato = C.x < -1 ? -1 : 1, mezzo = V3(C.x * 0.55, C.y * 0.5, C.z * 0.62);
     // con la sonda si guarda fra cestello e muso del ricevitore, da dietro e un po' più in basso
-    m.updateMatrixWorld(true); const muso = m.localToWorld(m.userData.muso.clone()); S.dbg = { C: C.toArray().map(v => +v.toFixed(2)), pr: pr.toArray().map(v => +v.toFixed(2)), m: m.position.toArray().map(v => +v.toFixed(2)), muso: muso.toArray().map(v => +v.toFixed(2)), punta: m.localToWorld(pr.clone()).toArray().map(v => +v.toFixed(2)) }; const F = metodo === "boom" ? C.clone() : C.clone().lerp(muso, 0.45);
+    m.updateMatrixWorld(true); const muso = m.localToWorld(m.userData.muso.clone()); S.dbg = { C: C.toArray().map(v => +v.toFixed(2)), pr: pr.toArray().map(v => +v.toFixed(2)), m: m.position.toArray().map(v => +v.toFixed(2)), muso: muso.toArray().map(v => +v.toFixed(2)), punta: m.localToWorld(pr.clone()).toArray().map(v => +v.toFixed(2)), aggancio: m.userData.aggancio }; const F = metodo === "boom" ? C.clone() : C.clone().lerp(muso, 0.45);
     const A0 = C.clone().add(V3(lato * 50, -11, -48)), A1 = C.clone().add(V3(lato * 42, -9, -38)), D = F.clone().add(metodo === "boom" ? V3(lato * 7.2, 1.3, -8.2) : V3(lato * 5.6, -1.25, -7.4));
     const vD = D.clone().sub(F), r0 = Math.hypot(vD.x, vD.z), ang0 = Math.atan2(vD.x, vD.z);
     // shader compilati e primo fotogramma disegnato PRIMA di mostrare: i 4 secondi partono da quello che si vede
