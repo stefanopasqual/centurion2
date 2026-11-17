@@ -115,7 +115,11 @@
     if(!root)return null;
     opts=opts||{};
     const mobile=opts.mobile===undefined?innerWidth<900:!!opts.mobile;
-    const count=mobile?3:6;
+    // Densify ONLY Free Flight in max-quality mode; retain lower budgets for
+    // tactical missions and low-memory Android devices.
+    const memory=navigator.deviceMemory||4;
+    const high=opts.quality==="maximum";
+    const count=high?(mobile?(memory<=2?4:memory>=6?7:5):9):(mobile?3:6);
     const rng=seed(987667);
     const group=new T.Group();group.name='SIMULATED_CIVILIAN_GROUND_LIFE';root.add(group);
     const sites=Array.from({length:count},(_,i)=>{
@@ -132,7 +136,7 @@
       const rng2=seed(Math.floor(cx/900)*21731+Math.floor(cz/900)*38639+54321);
       for(let i=0;i<sites.length;i++){
         const a=(i/count)*TAU+rng2()*.3;
-        const r=2300+(i%3)*1050+rng2()*800;
+        const r=high?(1150+(i%3)*730+rng2()*530):(2300+(i%3)*1050+rng2()*800);
         const p=sites[i],x=cx+Math.cos(a)*r,z=cz+Math.sin(a)*r;
         const h=ground(x,z),variation=Math.max(
           Math.abs(ground(x+70,z)-h),Math.abs(ground(x,z+70)-h));
