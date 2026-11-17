@@ -39,8 +39,9 @@ if tag not in html:
 
 V = "js/volo.js"
 # 1) richiamo della lezione a ogni fotogramma (solo con la simulazione in corso)
-patch(V, "S.t += dtR; aggiornaSonic(dtR); aggiornaNemici(dtR);",
-      "S.t += dtR; aggiornaSonic(dtR); aggiornaNemici(dtR); if (S.lezione && S.lezione.tick) { try { S.lezione.tick(dtR, S); } catch (err) { console.warn(\"Accademia\", err); } }",
+# (ancora minima: altre patch inseriscono i loro aggiornamenti accanto, prima o dopo)
+patch(V, "aggiornaNemici(dtR);",
+      "aggiornaNemici(dtR); if (S.lezione && S.lezione.tick) { try { S.lezione.tick(dtR, S); } catch (err) { console.warn(\"Accademia\", err); } }",
       "S.lezione.tick(dtR, S)")
 # 2) guida dei nemici scelta dalla lezione (se non stanno evitando un missile)
 patch(V, 'else { e.stato = "pattuglia"; const c = V3().subVectors(e.casa, e.pos); hdgDes = c.length() > 15000 ? Math.atan2(c.x, -c.z) : e.hdg + 0.15; altDes = e.casa.y; }',

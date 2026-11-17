@@ -1,6 +1,6 @@
 /* =====================================================================
    CENTURION CADET · ACCADEMIA DI VOLO
-   Il percorso del Cadetto: 11 lezioni pratiche nel Free Flight sul Veneto (Eurofighter Typhoon
+   Il percorso del Cadetto: 12 lezioni pratiche nel Free Flight sul Veneto (Eurofighter Typhoon
    della base di Istrana) e 2 missioni conclusive del simulatore.
    - Modulo 1 · Volo: assetto e potenza, virate e fattore di carico, energia e limiti, decollo, atterraggio
    - Modulo 2 · Armi: cannone, AIM-9X (infrarosso), AIM-120 (radar, oltre il raggio visivo), AGM-65 (aria-suolo)
@@ -184,7 +184,7 @@ const ACCADEMIA = (() => {
         ["Velocità d'angolo", "La velocità d'angolo (corner speed) è la velocità minima alla quale si possono tirare i G massimi: sotto, l'ala arriva all'incidenza massima prima dei 9 g; sopra, si vira più largo. Per un caccia moderno è intorno ai 330–360 kt: è la velocità della virata più stretta e più rapida."],
         ["Limiti e corpo umano", "Il controllo di volo non lascia superare +9 g / −3 g né l'incidenza massima (28° nel simulatore). Il pilota indossa la tuta anti-G e fa la manovra di contrazione muscolare: senza, sopra i 5-6 g il sangue lascia il cervello, si perde la vista e poi la coscienza (G-LOC)."]
       ],
-      numeri: [["Limiti strutturali", "+9 g / −3 g"], ["Incidenza massima (simulatore)", "28°"], ["Velocità d'angolo indicativa", "330–360 kt"], ["Postbruciatore", "manetta oltre l'80%: +50% di spinta, consumo più che doppio"]],
+      numeri: [["Limiti strutturali", "+9 g / −3 g"], ["Incidenza massima (simulatore)", "28°"], ["Velocità d'angolo indicativa", "330–360 kt"], ["Postbruciatore", "manetta oltre l'80%: +50% di spinta (da 60 a 90 kN per motore), consumo circa triplo"]],
       setup(S) { piazza(S, { lat: 45.45, lon: 11.75, ft: 10000, kcas: 400, hdg: 70, thr: 0.7 }); armi(S, { colpi: 0, sel: "GUN" }); },
       fasi: [
         { titolo: "Salita", testo: "Sali a 15.000 ft senza scendere sotto i 250 kt: manetta piena (postbruciatore) e muso su di 15–25°.",
@@ -290,12 +290,14 @@ const ACCADEMIA = (() => {
           check: s => ({ ok: s.arma === "GUN", dati: [D("Arma", s.arma, s.arma === "GUN", "GUN")], msg: "Tasto X o ARMA." }) },
         { titolo: "Insegui", testo: "Portati in coda al bersaglio entro 900 m, dentro la sua virata, e restaci 2 secondi.", tenere: 2,
           check: s => { const e = nemico(s.S, 0), d = e.pos.distanceTo(s.P.pos), asp = aspetto(s, e), ok = d < 900 && asp < 60;
-            return { ok, dati: [D("Distanza", fmt(d) + " m", d < 900, "< 900"), D("In coda", fmt(asp) + "°", asp < 60, "< 60°")], msg: d > 900 ? "Taglia dentro la sua virata per accorciare." : asp >= 60 ? "Spostati dietro di lui." : "In posizione." }; } },
+            return { ok: ok || !e.vivo, dati: [D("Distanza", fmt(d) + " m", d < 900, "< 900"), D("In coda", fmt(asp) + "°", asp < 60, "< 60°")], msg: d > 900 ? "Taglia dentro la sua virata per accorciare." : asp >= 60 ? "Spostati dietro di lui." : "In posizione." }; } },
         { titolo: "Fuoco", testo: "Metti il pipper sul bersaglio e spara raffiche brevi (barra spaziatrice o FUOCO) fino ad abbatterlo.",
           check: s => { const e = nemico(s.S, 0), d = e.pos.distanceTo(s.P.pos);
             return { ok: !e.vivo, dati: [D("Distanza", fmt(d) + " m", fascia(d, 300, 900), "300–900"), D("Colpi rimasti", s.P.colpi, s.P.colpi > 0, ""), D("A segno", s.S.stats.colpi, true, "")], msg: d < 300 ? "Troppo vicino: rischi l'urto con i rottami." : d > 900 ? "Troppo lontano per il cannone." : "Pipper sul bersaglio, raffica breve." }; } }
       ],
-      fallimento: s => { const e = nemico(s.S, 0); return e && e.vivo && s.P.colpi <= 0 ? "Munizioni finite: con raffiche più brevi e più vicino si spreca meno." : null; },
+      sempre(s, c) { if (c.lanciPrima == null) c.lanciPrima = s.S.stats.lanci; },
+      fallimento: (s, c) => { if (c.lanciPrima != null && s.S.stats.lanci > c.lanciPrima) return "Hai lanciato un missile: in questa lezione si spara solo con il cannone (GUN).";
+        const e = nemico(s.S, 0); return e && e.vivo && s.P.colpi <= 0 ? "Munizioni finite: con raffiche più brevi e più vicino si spreca meno." : null; },
       debrief: (c, R) => { const sp = c.colpi0 - R.S.pl.colpi, a = R.S.stats.colpi; return [`Colpi sparati ${sp}, a segno ${a} (${fmt(sp ? 100 * a / sp : 0)}%).`, "Anche al poligono la maggior parte dei colpi va a vuoto: conta la posizione prima della mira, poi raffiche brevi con il pipper fermo sul bersaglio."]; },
       stelle: (c, R) => { const sp = c.colpi0 - R.S.pl.colpi, p = sp ? R.S.stats.colpi / sp : 0; return p >= 0.15 ? 3 : p >= 0.08 ? 2 : 1; } },
 
@@ -307,8 +309,8 @@ const ACCADEMIA = (() => {
         ["La zona di lancio", "Troppo vicino il missile non fa in tempo ad armarsi e a manovrare (minimo circa 400 m); troppo lontano finisce l'energia. La portata cresce con la quota e con la velocità di avvicinamento: in coda a un bersaglio che si allontana è molto più corta che frontalmente. Nel simulatore va da 3 a 18 km."],
         ["Contromisure", "Il bersaglio può lanciare flare, esche più calde del motore, e virare. I sensori a immagine li riconoscono meglio dei vecchi missili, ma non sempre: per questo si lancia da vicino e da dietro, dove il calore degli scarichi è massimo."]
       ],
-      numeri: [["AIM-9X", "lunghezza 3 m, massa 85 kg, sensore IR a immagine, ugello orientabile"], ["Portata nel simulatore", "minimo 0,4 km; massimo 3–18 km secondo quota e avvicinamento"], ["Chiamata radio", "«FOX TWO»"], ["Bersaglio", "Su-35 disarmato 5 km davanti, in volo rettilineo; lancia flare se minacciato"]],
-      setup(S) { const p0 = xz(45.22, 12.42); piazza(S, Object.assign({}, p0, { ft: 15000, kcas: 350, hdg: 60, thr: 0.65 })); armi(S, { AIM120: 2, AIM9X: 2, sel: "AIM120" });
+      numeri: [["AIM-9X", "lunghezza 3 m, massa 85 kg, sensore IR a immagine, ugello orientabile"], ["Portata nel simulatore", "minimo 0,4 km; massimo 3–18 km secondo quota e avvicinamento"], ["Chiamata radio", "«FOX TWO»"], ["Carico", "2 AIM-9X e cannone scarico, come in un tiro d'addestramento"], ["Bersaglio", "Su-35 disarmato 5 km davanti, in volo rettilineo; lancia flare se minacciato"]],
+      setup(S) { const p0 = xz(45.22, 12.42); piazza(S, Object.assign({}, p0, { ft: 15000, kcas: 350, hdg: 60, thr: 0.65 })); armi(S, { AIM9X: 2, colpi: 0, sel: "GUN" });
         piazzaNemico(S, 0, Object.assign(avanti(p0, 60, 5000), { ft: 15000, kt: 330, hdg: 60, nome: "Bersaglio (Su-35)", guida: dritto(15000 / FT, 170) })); },
       fasi: [
         { titolo: "Seleziona l'AIM-9X", testo: "Premi ARMA (tasto X) finché compare AIM-9X.", check: s => ({ ok: s.arma === "AIM9X", dati: [D("Arma", s.arma, s.arma === "AIM9X", "AIM-9X")], msg: "Tasto X o ARMA." }) },
@@ -343,7 +345,7 @@ const ACCADEMIA = (() => {
           check: s => { const e = nemico(s.S, 0), r = e.pos.distanceTo(s.P.pos), ok = s.arma === "AIM120" && !!(s.lock && s.lock.ok && s.lock.t === e);
             return { ok, dati: [D("Arma", s.arma, s.arma === "AIM120", "AIM-120"), D("Distanza", fmt(r / 1000) + " km", r < 80000, "< 80"), D("Aggancio", s.lock && s.lock.ok ? "LOCK" : "—", ok, "LOCK")], msg: s.arma !== "AIM120" ? "ARMA fino a AIM-120." : "LOCK (tasto T) con il bersaglio davanti." }; } },
         { titolo: "Lancio in portata", testo: "Lancia quando la distanza è inferiore a Rmax: FOX THREE.",
-          check: (s, c) => { const e = nemico(s.S, 0), r = e.pos.distanceTo(s.P.pos), z = VOLO._acc.dlz("AIM120", r, s.lock && s.lock.vc), lanciato = missiliMiei(s.S, "AIM120").length > 0 || s.S.stats.lanci > (c.lanciPrima || 0);
+          check: (s, c) => { const e = nemico(s.S, 0), r = e.pos.distanceTo(s.P.pos), z = VOLO._acc.dlz("AIM120", r, s.lock && s.lock.vc), lanciato = missiliMiei(s.S, "AIM120").length > 0 || s.P.armi.AIM120 < 4;
             if (lanciato && c.rLancio == null) { c.rLancio = r; c.rmax = z.rmax; }
             return { ok: lanciato, dati: [D("Distanza", fmt(r / 1000, 1) + " km", r < z.rmax, `Rmax ${fmt(z.rmax / 1000)} km`), D("Aggancio", s.lock && s.lock.ok ? "LOCK" : "—", !!(s.lock && s.lock.ok), "")], msg: r > z.rmax ? "Fuori portata: aspetta di entrare in Rmax." : "In portata: FUOCO." }; } },
         { titolo: "Crank", testo: "Vira di 40–60° rispetto alla direzione del Su-35 e tienilo lì per 8 secondi, mentre il missile vola.", tenere: 8,
@@ -354,7 +356,8 @@ const ACCADEMIA = (() => {
             const minaccia = missiliControDiMe(s.S).length > 0; return { ok: !e.vivo, dati: [D("Su-35", e.vivo ? "in volo" : "abbattuto", !e.vivo, ""), D("Missile nemico", minaccia ? "IN ARRIVO" : "nessuno", !minaccia, "")], msg: minaccia ? "MISSILE: vira a 90° dal missile, scendi, chaff!" : e.vivo && !missiliMiei(s.S).some(m => m.vivo) ? "Mancato: riaggancia e rilancia." : "Il missile è in volo." }; } }
       ],
       sempre(s, c) { if (c.lanciPrima == null) c.lanciPrima = s.S.stats.lanci; const e = nemico(s.S, 0); if (e && e.missili.R77 === 0 && !c.r77) { c.r77 = true; c.r77dist = e.pos.distanceTo(s.P.pos); } },
-      fallimento: s => { const e = nemico(s.S, 0); return e.vivo && s.P.armi.AIM120 <= 0 && s.P.armi.AIM9X <= 0 && !missiliMiei(s.S).some(m => m.vivo) ? "Missili esauriti." : null; },
+      fallimento: s => { const e = nemico(s.S, 0); if (!e.vivo && R && R.i < 2) return "Su-35 abbattuto prima di lanciare l'AIM-120: in questa lezione il primo colpo è l'AMRAAM, oltre il raggio visivo.";
+        return e.vivo && s.P.armi.AIM120 <= 0 && s.P.armi.AIM9X <= 0 && !missiliMiei(s.S).some(m => m.vivo) ? "Missili esauriti." : null; },
       debrief: c => [c.rLancio ? `Lancio a ${fmt(c.rLancio / 1000, 1)} km (Rmax ${fmt(c.rmax / 1000)} km).` : "", c.fpole ? `F-pole: ${fmt(c.fpole / 1000, 1)} km dal Su-35 al momento dell'impatto.` : "", c.r77 ? `Il Su-35 ha lanciato il suo R-77 a ${fmt(c.r77dist / 1000, 1)} km: sei sopravvissuto.` : "Il Su-35 non ha fatto in tempo a lanciare: chi tira per primo e bene vince."].filter(Boolean),
       stelle: c => c.r77 ? 2 : 3 },
 
@@ -382,7 +385,8 @@ const ACCADEMIA = (() => {
         { titolo: "Bersaglio distrutto", testo: "Vira via e aspetta l'impatto.",
           check: s => { const t = bersaglio(s.S, "obiettivo"); return { ok: !t.vivo, dati: [D("Deposito", t.vivo ? "intatto" : "distrutto", !t.vivo, "")], msg: t.vivo && !missiliMiei(s.S).some(m => m.vivo) ? "Riaggancia e rilancia il secondo." : "Missile in volo." }; } }
       ],
-      fallimento: s => { const t = bersaglio(s.S, "obiettivo"); return t.vivo && s.P.armi.AGM65 <= 0 && !missiliMiei(s.S).some(m => m.vivo) ? "Maverick esauriti." : null; },
+      fallimento: s => { const t = bersaglio(s.S, "obiettivo"); if (!t.vivo && R && R.i < 3) return "Deposito distrutto senza lanciare il Maverick: in questa lezione si attacca con l'AGM-65 da fuori portata delle difese.";
+        return t.vivo && s.P.armi.AGM65 <= 0 && !missiliMiei(s.S).some(m => m.vivo) ? "Maverick esauriti." : null; },
       debrief: c => [c.rLancio ? `Lancio a ${fmt(c.rLancio / 1000, 1)} km (portata massima a quella quota: ${fmt(c.rmax / 1000, 1)} km).` : "", "Lanciare da lontano tiene l'aereo fuori dalle difese ravvicinate del bersaglio."].filter(Boolean),
       stelle: (c, R) => R.S.pl.armi.AGM65 >= 1 ? 3 : 2 },
 
@@ -416,7 +420,7 @@ const ACCADEMIA = (() => {
       ],
       fallimento: (s, c) => c.ingaggiato ? "La batteria ti ha visto e ha lanciato: eri sopra i 200 m dentro la sua portata." : (() => { const t = bersaglio(s.S, "obiettivo"); return t && t.vivo && s.P.armi.AGM65 <= 0 && !missiliMiei(s.S).some(m => m.vivo) ? "Maverick esauriti." : null; })(),
       debrief: () => ["La batteria non ti ha mai ingaggiato: il terreno e la bassa quota sono stati la tua protezione.", "In una missione vera l'attacco a bassa quota si coordina con aerei che sopprimono i radar (SEAD) o li accecano con il disturbo."],
-      stelle: (c, R) => R.durata < 360 ? 3 : 2 },
+      stelle: (c, R) => R.durata < 420 ? 3 : 2 },
 
     { id: "T2", modulo: "attacco", tipo: "cadet", titolo: "Strategia d'attacco", sotto: "Missione «Il corridoio»: tre decisioni da comandante", durata: "20 min",
       obiettivo: "Pianificare un attacco con bombardieri, scorta e disturbatore, poi vedere le conseguenze nel debriefing." },
@@ -483,7 +487,7 @@ const ACCADEMIA = (() => {
       sempre(s, c) { const ves = xz(TESSERA.lat, TESSERA.lon); c.dMin = Math.min(...s.S.nemici.filter(e => e.vivo).map(e => distXZ(e.pos, ves)), 1e9); },
       fasi: [
         { titolo: "Commit e aggancio", testo: "Gli incursori arrivano da nord-est. Vai verso di loro e agganciane uno con il radar (AIM-120, LOCK).",
-          check: (s, c) => { const ok = s.arma === "AIM120" && !!(s.lock && s.lock.ok && s.S.nemici.includes(s.lock.t));
+          check: (s, c) => { const ok = (s.arma === "AIM120" && !!(s.lock && s.lock.ok && s.S.nemici.includes(s.lock.t))) || s.S.nemici.some(e => !e.vivo);
             return { ok, dati: [D("Incursore più vicino a Venezia", fmt(c.dMin / 1000) + " km", c.dMin > 15000, "> 15"), D("Aggancio", ok ? "LOCK" : "—", ok, "")], msg: "Rotta verso nord-est, poi LOCK." }; } },
         { titolo: "Primo abbattimento", testo: "Lancia e abbatti il primo incursore.",
           check: (s, c) => ({ ok: s.S.nemici.filter(e => !e.vivo).length >= 1, dati: [D("Abbattuti", s.S.nemici.filter(e => !e.vivo).length + " di 2", false, ""), D("Più vicino a Venezia", fmt(c.dMin / 1000) + " km", c.dMin > 15000, "> 15")], msg: "FUOCO in portata, poi il secondo." }) },
@@ -581,17 +585,27 @@ const ACCADEMIA = (() => {
   }
 
   /* ---------- pannello in volo ---------- */
-  let pan = null;
+  let pan = null, posAscolto = false;
+  // Posto del pannello: fra la scala di beccheggio e il radar del visore, sopra la quota, con la stessa
+  // geometria del Free Flight (js/volo.js: sc = min(W, H) / 560 fra 0,75 e 1,6; radar di raggio 62·sc a destra).
+  function posPannello() {
+    if (!pan) return; const W = innerWidth, H = innerHeight, sc = clamp(Math.min(W, H) / 560, 0.75, 1.6);
+    const sx = W / 2 + 88 * sc + 6, dx = W - 138 * sc - 8, top = Math.round(52 * sc + 6), giu = Math.round(H / 2 - 36 * sc - 6);
+    const larg = Math.min(400, dx - sx), alt = giu - top;
+    if (larg >= 200 && alt >= 110) { pan.style.cssText = `left:auto;right:${Math.round(W - dx)}px;top:${top}px;width:${Math.round(larg)}px;max-height:${alt}px`; pan.classList.toggle("compatto", larg < 300 || alt < 200); }
+    else { pan.style.cssText = ""; pan.classList.add("compatto"); }   // schermi molto piccoli: posizione predefinita
+  }
   function pannello(forza) {
     if (!R) return; const ov = document.getElementById("volo"); if (!ov) return;
     if (!pan || !pan.isConnected) { pan = document.createElement("div"); pan.id = "acc-pan"; ov.appendChild(pan); stile();
+      posPannello(); if (!posAscolto) { posAscolto = true; addEventListener("resize", () => posPannello()); }
       pan.addEventListener("click", e => { const b = e.target.closest("[data-acc]"); if (!b) return; const a = b.dataset.acc;
-        if (a === "min") pan.classList.toggle("min"); else if (a === "teoria") teoriaInVolo(); else if (a === "esci") { if (confirm("Uscire dalla lezione?")) esci(); } else if (a === "voce") { voce = !voce; try { localStorage.setItem(KEY_VOCE, voce ? "1" : "0"); } catch (x) {} if (!voce) try { speechSynthesis.cancel(); } catch (x) {} pannello(true); } }); }
+        if (a === "min") pan.classList.toggle("min"); else if (a === "testo") { R.tTesto = R.S.t; pannello(true); } else if (a === "teoria") teoriaInVolo(); else if (a === "esci") { if (confirm("Uscire dalla lezione?")) esci(); } else if (a === "voce") { voce = !voce; try { localStorage.setItem(KEY_VOCE, voce ? "1" : "0"); } catch (x) {} if (!voce) try { speechSynthesis.cancel(); } catch (x) {} pannello(true); } }); }
     const L = R.L, F = L.fasi[R.i], r = R.r || {}, n = L.fasi.length;
     const prog = F.tenere ? R.hold / F.tenere : r.prog != null ? r.prog : null;
     pan.innerHTML = `<div class="acc-ph"><span class="acc-code">${esc(L.id)}</span><b>${esc(L.titolo)}</b><span class="acc-sp"></span><button data-acc="voce" title="Voce">${voce ? "🔊" : "🔇"}</button><button data-acc="teoria" title="Teoria">📖</button><button data-acc="min" title="Riduci">▾</button><button data-acc="esci" title="Esci dalla lezione">✕</button></div>
       <div class="acc-pb">${R.finita ? `<div class="acc-esito ${R.esito}">${R.esito === "ok" ? "✔ LEZIONE SUPERATA" : "✖ " + esc(R.motivo || "")}</div>` : `
-        <div class="acc-fase">Fase ${R.i + 1} di ${n} · <b>${esc(F.titolo)}</b></div><div class="acc-testo">${esc(F.testo)}</div>
+        <div class="acc-fase" data-acc="testo">Fase ${R.i + 1} di ${n} · <b>${esc(F.titolo)}</b></div>${!pan.classList.contains("compatto") || R.S.t - Math.max(R.tFase, R.tTesto || -1e9) < 10 ? `<div class="acc-testo">${esc(F.testo)}</div>` : ""}
         ${(r.dati || []).map(d => `<div class="acc-dato ${d.ok ? "ok" : "ko"}"><span>${esc(d.n)}</span><b>${esc(d.v)}</b>${d.obj ? `<small>${esc(d.obj)}</small>` : ""}</div>`).join("")}
         ${prog != null ? `<div class="acc-bar"><i style="width:${Math.round(clamp(prog, 0, 1) * 100)}%"></i></div>${F.tenere ? `<small class="acc-hold">${fmt(Math.min(R.hold, F.tenere), 1)} / ${F.tenere} s</small>` : ""}` : ""}
         ${r.msg ? `<div class="acc-msg">${esc(r.msg)}</div>` : ""}${R.fuori ? `<div class="acc-msg warn">Stai uscendo dall'area addestrativa: vira verso l'interno.</div>` : ""}`}</div>`;
@@ -709,6 +723,7 @@ const ACCADEMIA = (() => {
     #acc-pan .acc-bar{margin-top:6px;height:7px}#acc-pan .acc-hold{color:#aab7c6}
     #acc-pan .acc-msg{margin-top:5px;padding:5px 7px;border-radius:7px;background:#16324f;color:#d6ecff}#acc-pan .acc-msg.warn{background:#5a2a12;color:#ffd7b8}
     #acc-pan .acc-esito{font-weight:800;font-size:15px;padding:4px 0}#acc-pan .acc-esito.ok{color:#7dffb0}#acc-pan .acc-esito.ko{color:#ffb38a}
+    #acc-pan.compatto{font-size:12px}#acc-pan.compatto .acc-ph{padding:4px 6px}#acc-pan.compatto .acc-ph b{font-size:12px}#acc-pan.compatto button{height:24px;min-width:26px;font-size:12px}#acc-pan.compatto .acc-pb{padding:4px 7px 6px}#acc-pan.compatto .acc-testo{font-size:12px;margin:2px 0 4px}#acc-pan.compatto .acc-dato small{min-width:44px}#acc-pan.compatto .acc-msg{padding:3px 6px}
     #acc-toast{position:absolute;left:50%;top:22%;transform:translateX(-50%);z-index:6;background:#1e8449ee;color:#fff;font:800 16px "Segoe UI",Roboto,Arial,sans-serif;padding:8px 16px;border-radius:999px;opacity:0;pointer-events:none}
     #acc-toast.on{animation:accT 2.2s ease}@keyframes accT{0%{opacity:0}10%{opacity:1}75%{opacity:1}100%{opacity:0}}
     .acc-modal{position:absolute;inset:0;z-index:8;background:#060c14d9;display:flex;align-items:center;justify-content:center;padding:12px;overflow:auto}
