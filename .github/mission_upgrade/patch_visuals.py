@@ -19,9 +19,9 @@ patch("const sc = APP.sc; TERRA.lat0 = 41.0; TERRA.lon0 = -122.8;",
 
 visuals=r'''
   /* --- Reusable cinematic scramble. Visual-only: does not fake an engine takeoff. --- */
-  function scrambleStart() {
+  function scrambleStart(selected) {
     if(!st || !APP.sc || !APP.sc.basi || !APP.sc.basi.length) return;
-    const f=APP.engine.flights.find(f=>f.lato==="BLUE")||APP.engine.flights[0];
+    const f=APP.engine.flights.find(f=>f.id===selected || f.callsign===selected)||APP.engine.flights.find(f=>f.lato==="BLUE")||APP.engine.flights[0];
     const b=APP.sc.basi.find(b=>f && b.id===f.base)||APP.sc.basi[0];
     const pos=toXZ(b.lat,b.lon), ground=elev(pos.x,pos.z);
     const root=new THREE.Group();root.position.set(pos.x,ground+2.5,pos.z);
@@ -45,6 +45,14 @@ visuals=r'''
     doorway.position.set(32,4.4,-140.8);root.add(doorway);
     const plane=new THREE.Group();root.add(plane);
     plane.position.set(0,3.2,-155);
+    const wheels=new THREE.Group();plane.add(wheels);
+    const tireMat=matStd(0x13191c,{roughness:1});
+    for(const [gx,gz] of [[0,2.0],[-1.3,-1.4],[1.3,-1.4]]){
+      const strut=new THREE.Mesh(new THREE.CylinderGeometry(.07,.09,1.45,8),matStd(0x8c969b));
+      strut.position.set(gx,-1.02,gz);wheels.add(strut);
+      const tire=new THREE.Mesh(new THREE.CylinderGeometry(.48,.48,.22,12),tireMat);
+      tire.rotation.z=Math.PI/2;tire.position.set(gx,-1.83,gz);wheels.add(tire);
+    }
     const meshHolder=new THREE.Group();plane.add(meshHolder);
     // Fallback appears immediately; licensed real GLB replaces it asynchronously.
     meshHolder.add(VISTA3D.jetFallback(0x737c84));
@@ -92,6 +100,8 @@ visuals=r'''
     else if(t>=9)z=-5+Math.min(1,(t-9)/3.2)*170;
     c.plane.position.set(0,3.2+Math.max(0,t-9)*Math.max(0,t-9)*4,z);
     c.plane.rotation.x=t>9?-Math.min(.21,(t-9)*.055):0;
+    if(c.plane.children[0])c.plane.children[0].visible=t<10.4;
+    c.root.position.y=elev(c.root.position.x,c.root.position.z)+2.5;
     c.light.intensity=t<2.2?.25:t<4.5?2.1:3.2;
     c.light.position.z=z-7;
     const root=c.root, target=root.localToWorld(c.plane.position.clone());
@@ -173,6 +183,8 @@ patch('function selDisp() { if (String(st.sel).indexOf("aux:") === 0)',
     const drone=(st.uavs||[]).find(u=>u.cfg.id===st.sel);
     if(drone)return drone.disp;
     if (String(st.sel).indexOf("aux:") === 0)''')
+patch('if (["kill", "ingaggio", "avviso", "inject"].includes(e.tipo) || /AIRBORNE|PUSH|ON STATION|BINGO|SCRAMBLE/.test(e.testo)) ticker(e);',
+      'if (["kill", "ingaggio", "avviso", "inject"].includes(e.tipo) || /AIRBORNE|PUSH|ON STATION|BINGO|SCRAMBLE/.test(e.testo)) ticker(e); if(/SCRAMBLE/.test(e.testo) && !st.scramble) scrambleStart(e.chi);')
 patch("aggiornaEntita(now); eventi(now); cameraUpdate(dt);",
       "aggiornaEntita(now); eventi(now); uavTick(dt,now); cameraUpdate(dt); if(st.scramble)scrambleTick(dt);")
 patch("terreno(root); statici(); aggiornaSelect(); setCam(opt.cam || (selId ? \"insegui\" : \"orbita\"));",
