@@ -101,6 +101,14 @@ const ACCADEMIA = (() => {
   // guida dei bersagli: volo livellato o virata costante (radianti, metri, m/s)
   const dritto = (alt, v) => e => ({ hdg: e.hdgFisso != null ? e.hdgFisso : (e.hdgFisso = e.hdg), alt, v, g: 3, stato: "addestramento" });
   const virata = (alt, v, g, verso) => e => ({ hdg: e.hdg + (verso || 1) * 0.6, alt, v, g, stato: "addestramento" });
+  // circuito d'addestramento al tiro: tratti rettilinei di tDritto secondi alternati a virate di 180° a g costanti
+  const circuito = (alt, v, g, verso, tDritto) => (e, k) => {
+    const t = k.S.t; if (!e.cir) e.cir = { fase: "dritto", t0: t + 10, h0: e.hdg };   // il primo tratto dura 10 s in più
+    const c = e.cir;
+    if (c.fase === "dritto") { if (t - c.t0 > tDritto) { c.fase = "virata"; c.h0 = e.hdg; } return { hdg: c.h0, alt, v, g: 3, stato: "addestramento" }; }
+    if (Math.abs(angd(c.h0 * R2D, e.hdg * R2D)) > 172) { c.fase = "dritto"; c.t0 = t; c.h0 = e.hdg; }
+    return { hdg: e.hdg + (verso || 1) * 0.6, alt, v, g, stato: "addestramento" };
+  };
 
   /* ======================================================================
      LE LEZIONI
@@ -173,8 +181,8 @@ const ACCADEMIA = (() => {
             if (inc && a) c.giro2 += Math.abs(dh); return { ok: c.giro2 >= 180, prog: c.giro2 / 180, dati: [D("Lato", giusto ? "giusto" : "rovescia", giusto, c.verso1 > 0 ? "sinistra" : "destra"), D("Inclinazione", fmt(Math.abs(s.roll)) + "°", fascia(Math.abs(s.roll), 40, 50), "40–50"), D("Quota", fmt(s.ft) + " ft", a, "9.500–10.500"), D("Giro", fmt(c.giro2) + "°", c.giro2 >= 180, "180°")],
               msg: !giusto ? "Rolla dall'altra parte passando per le ali livellate." : !inc ? "45° di inclinazione." : "Bene: stessa virata, lato opposto." }; } }
       ],
-      debrief: c => [`Fattore di carico medio nella virata a 45°: ${fmt(c.gT ? c.gSom / c.gT : 0, 2)} g (teorico 1,41).`, "Più inclinazione stringe la virata ma chiede più G e più portanza: per questo la barra va tenuta un poco indietro. A 60° servirebbero 2 g, a 75° quasi 4."],
-      stelle: (c, R) => (c.gT && Math.abs(c.gSom / c.gT - 1.41) < 0.3 ? 1 : 0) + (R.durata < 260 ? 2 : R.durata < 380 ? 1 : 0) || 1 },
+      debrief: c => [`Fattore di carico medio nella virata a 45°: ${fmt(c.gT ? c.gSom / c.gT : 0, 2)} g (teorico 1,41; nel simulatore di solito 1,6–1,8, perché in virata l'aereo derapa un poco e parte della portanza va persa).`, "Più inclinazione stringe la virata ma chiede più G e più portanza: per questo la barra va tenuta un poco indietro. A 60° servirebbero 2 g, a 75° quasi 4."],
+      stelle: (c, R) => (c.gT && Math.abs(c.gSom / c.gT - 1.55) < 0.35 ? 1 : 0) + (R.durata < 260 ? 2 : R.durata < 380 ? 1 : 0) || 1 },
 
     { id: "V3", modulo: "volo", titolo: "Energia e limiti", sotto: "Salita, picchiata, virata a 5 g", durata: "7 min",
       obiettivo: "Capire come quota e velocità si scambiano e quanta energia costa una virata stretta.",
@@ -280,11 +288,12 @@ const ACCADEMIA = (() => {
         ["Il Mauser BK-27", "Il Typhoon ha un cannone revolver Mauser BK-27 da 27 mm: 1.700 colpi al minuto, circa 1.025 m/s alla volata, 150 colpi a bordo, cioè 5 secondi di fuoco. Si spara a raffiche brevi, mezzo secondo alla volta."],
         ["Tempo di volo e anticipo", "I proiettili impiegano circa un secondo per fare 1.000 m: nel frattempo il bersaglio si sposta e i colpi cadono per gravità. Il mirino a calcolo d'anticipo (il 'pipper' nel visore) mostra dove passeranno: lo si porta sul bersaglio, lo si tiene fermo (tracking) e si spara. Distanza utile 300–900 m."],
         ["Inseguimento", "Per sparare a un aereo in virata bisogna stare dentro la sua virata con il muso in anticipo (lead pursuit). Con il muso indietro (lag) i colpi passano dietro; con troppa velocità si finisce davanti a lui (overshoot) e i ruoli si invertono."],
-        ["Il bersaglio", "In addestramento si spara a bersagli trainati o a droni. Qui l'avversario simulato è un Su-35 disarmato che vira in piano a 1,5 g a circa 320 kt: un bersaglio cooperativo, come negli esercizi di tracking. Per seguirlo basta una virata di circa 45°."]
+        ["Il bersaglio", "In addestramento si spara a bersagli trainati o a droni. Qui l'avversario simulato è un Su-35 disarmato che vola un circuito a circa 320 kt: tratti rettilinei di 25 secondi e virate di 180° a destra a 1,5 g, come un bersaglio cooperativo. Sul tratto dritto la mira è più facile; in virata serve più anticipo. Si parte dalla posizione classica d'esercitazione ('perch'): 1,8 km dietro, 1.000 ft più alti e 30° fuori dalla sua coda. Da lì si entra nella sua virata, si scende verso la sua coda usando la quota in più e si chiude fino a 500–900 m."]
       ],
-      numeri: [["Cannone", "Mauser BK-27 · 27 mm · 1.700 colpi/min · 150 colpi"], ["Velocità alla volata", "circa 1.025 m/s"], ["Distanza di tiro", "300–900 m (simulatore: fino a 1.200 m)"], ["Bersaglio", "Su-35 disarmato in virata a 1,5 g, circa 320 kt"]],
-      setup(S, c) { piazza(S, { lat: 45.30, lon: 12.55, ft: 15000, kcas: 300, hdg: 45, thr: 0.6 }); armi(S, { AIM120: 2, AIM9X: 2, sel: "AIM120" });
-        const e = piazzaNemico(S, 0, Object.assign(avanti(xz(45.30, 12.55), 45, 900), { ft: 15000, kt: 320, hdg: 45, hp: 3, nome: "Bersaglio (Su-35)", guida: virata(15000 / FT, 165, 1.5, 1) })); c.colpi0 = S.pl.colpi; },
+      numeri: [["Cannone", "Mauser BK-27 · 27 mm · 1.700 colpi/min · 150 colpi"], ["Velocità alla volata", "circa 1.025 m/s"], ["Distanza di tiro", "300–900 m (simulatore: fino a 1.200 m)"], ["Bersaglio", "Su-35 disarmato, circa 320 kt: tratti dritti di 25 s e virate di 180° a destra a 1,5 g"], ["Partenza", "perch: 1,8 km dietro, 1.000 ft più alto, 30° fuori dalla sua coda"]],
+      setup(S, c) { const t0 = avanti(xz(45.30, 12.55), 45, 1800), p0 = avanti(t0, 255, 1800);   // perch: 1,8 km dietro, 30° fuori dalla coda (lato esterno della virata)
+        piazza(S, Object.assign({}, p0, { ft: 16000, kcas: 300, hdg: 45, thr: 0.6 })); armi(S, { AIM120: 2, AIM9X: 2, sel: "AIM120" });
+        piazzaNemico(S, 0, Object.assign({}, t0, { ft: 15000, kt: 320, hdg: 45, hp: 3, nome: "Bersaglio (Su-35)", guida: circuito(15000 / FT, 165, 1.5, 1, 25) })); c.colpi0 = S.pl.colpi; },
       fasi: [
         { titolo: "Seleziona il cannone", testo: "Premi ARMA (tasto X) finché nel visore compare GUN.",
           check: s => ({ ok: s.arma === "GUN", dati: [D("Arma", s.arma, s.arma === "GUN", "GUN")], msg: "Tasto X o ARMA." }) },
