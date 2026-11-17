@@ -287,7 +287,7 @@ const CADET = (() => {
     S.coda.push({ titolo, cosa, perche, segue, poi }); if (!S.cardAperta) prossimaCard();
   }
   function prossimaCard() {
-    const c = S.coda.shift(); const w = document.getElementById("cd-cardwrap"); if (!c || !w) { S.cardAperta = false; if (w) w.innerHTML = ""; if (S.attiva && !S.fine && !APP.playing) APP.play(true); return; }
+    const c = S.coda.shift(); const w = document.getElementById("cd-cardwrap"); if (!c || !w) { S.cardAperta = false; if (w) w.innerHTML = ""; if (S.attiva && !S.fine && !APP.playing && !(typeof AAR_CINE !== "undefined" && AAR_CINE.attiva)) APP.play(true); return; }
     S.cardAperta = true; APP.play(false); if (c.segue) segui(c.segue);
     w.innerHTML = `<div class="cd-card"><div class="cd-card-t">${esc(c.titolo)} <small>${S.eng ? Engine.s2hm(S.eng.t) : ""}</small></div><p><b>Cosa succede.</b> ${esc(c.cosa)}</p><p><b>${c.poi ? "E adesso." : "Perché."}</b> ${esc(c.perche)}</p><div class="cd-az"><span class="cd-sp"></span><button class="cd-btn primary" data-cont>${c.poi ? "Vai al debrief ▶" : "Continua ▶"}</button></div></div>`;
     parla(`${c.titolo}. ${c.cosa} ${c.perche}`);

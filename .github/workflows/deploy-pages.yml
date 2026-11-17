@@ -9,6 +9,7 @@ on:
       - '.github/models/**'
       - '.github/maps/**'
       - '.github/cadet/**'
+      - '.github/aar/**'
       - '.github/home/**'
       - '.github/mission_upgrade/**'
       - '.github/cockpit/**'
@@ -67,6 +68,8 @@ jobs:
           node --check extracted/site/js/volo.js
           node --check extracted/site/js/vista3d.js
           node --check extracted/site/js/mondo3d.js
+          python3 .github/aar/patch_aar.py extracted/site
+          node --check extracted/site/js/aar_cine.js
           python3 .github/models/patch_sam_controls.py extracted/site
           python3 .github/maps/patch_maps.py extracted/site
           python3 .github/cadet/patch_cadet.py extracted/site
@@ -93,6 +96,8 @@ jobs:
           node --check extracted/site/js/znpp.js
           python3 .github/mission_upgrade/patch_visuals.py extracted/site
           python3 .github/mission_upgrade/patch_drone_runtime.py extracted/site
+          python3 .github/mission_upgrade/patch_geran.py extracted/site
+          node --check extracted/site/js/geran.js
           node --check extracted/site/js/engine.js
           node --check extracted/site/js/map.js
           node --check extracted/site/js/missioni.js
@@ -125,6 +130,7 @@ jobs:
           assert "id:'uav-quad'" in page, 'Quadcopter missing from hangar'
           assert "showDrone(m,created)" in page, 'Drone viewer missing'
           assert "ensureDroneFactory()" in page, 'Mission drone asset loader missing'
+          assert "id:'geran2'" in page, 'Geran-2 missing from hangar'
           # Browser Three.js import map script is a module. Check the complete script
           # without requiring CDN modules during a Node syntax-only build.
           start=page.index('<script type="module">')+len('<script type="module">')
@@ -153,10 +159,12 @@ jobs:
               'F16':[0,180,0], 'F22':[0,180,0], 'F15':[0,-90,0], 'F2000':[0,-90,0],
               'SU57':[0,-90,0], 'SU35':[0,-90,0], 'EA18':[0,-90,0]
           }
+          if Path('model-sources/geran2.glb').is_file():
+              expected_rotations['GERAN2']=[0,180,0]
           for aircraft, rotation in expected_rotations.items():
               assert aircraft in m, f'{aircraft} missing from mission'
               assert m[aircraft].get('rot') == rotation, f'{aircraft} crooked chase orientation: {m[aircraft].get("rot")} != {rotation}'
-          print('PASS: 7 aircraft axis calibrations preserved (nose +Z / up +Y)')
+          print(f'PASS: {len(expected_rotations)} model axis calibrations preserved (nose +Z / up +Y)')
           print('Hangar models:',len([v for v in h['models'] if v['status']=='ready']))
           print('Mission aircraft:', sorted(m))
           expected={'typhoon':'F2000','f15e':'F15','su57':'SU57','ea18':'EA18','f22':'F22'}
