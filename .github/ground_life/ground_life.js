@@ -85,7 +85,7 @@
       column(g,mats.steel,2.35,1.3,sx,22.4,sz);
       for(let i=0;i<3;i++){
         const puff=ball(g,mats.smoke,sx,25+i*4,sz,
-          [2+i*1.8,1.5+i*1.5,2+i*1.8]);smoke.push({m:puff,phase:i*.8+k});
+          [2+i*1.8,1.5+i*1.5,2+i*1.8]);smoke.push({m:puff,baseX:sx,phase:i*.8+k});
       }
     }
     return smoke;
@@ -175,7 +175,7 @@
         for(const smoke of p.smokestacks){
           const age=(secs*.30+smoke.phase)%3;
           smoke.m.position.y=25+age*8;
-          smoke.m.position.x=p.smokestacks[0].m.position.x+Math.sin(secs*.2)*age;
+          smoke.m.position.x=smoke.baseX+Math.sin(secs*.2+smoke.phase)*age;
           smoke.m.material.opacity=.19;
           smoke.m.scale.setScalar(2+age*1.5);
         }
