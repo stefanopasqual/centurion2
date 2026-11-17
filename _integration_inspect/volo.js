@@ -69,7 +69,8 @@ const VOLO = (() => {
         <button id="vl-flare" class="vl-b">FLARE</button>
         <div id="vl-pedali"><button id="vl-pedsx" class="vl-b sm">◀ PED</button><button id="vl-freno" class="vl-b sm">FRENO</button><button id="vl-peddx" class="vl-b sm">PED ▶</button></div>
       </div>
-      <div id="vl-top"><button id="vl-pausa" class="vl-b sm" title="Pausa">⏸</button><button id="vl-cam" class="vl-b sm" title="Telecamera">🎥</button><button id="vl-carrello" class="vl-b sm" title="Carrello">GEAR</button><button id="vl-nvgb" class="vl-b sm" title="Visore notturno (tasto N)">NVG</button><button id="vl-aiuto" class="vl-b sm" title="Istruzioni">?</button><button id="vl-esci" class="vl-b sm" title="Esci">✕</button></div>
+      <div id="vl-top"><button id="vl-pausa" class="vl-b sm" title="Pausa">⏸</button><button id="vl-cam" class="vl-b sm" title="Telecamera">🎥</button><button id="vl-carrello" class="vl-b sm" title="Carrello">GEAR</button><button id="vl-ora" class="vl-b sm" title="Giorno / notte (tasto L)">🌙</button><button id="vl-nvgb" class="vl-b sm" title="Visore notturno (tasto N)">NVG</button><button id="vl-aiuto" class="vl-b sm" title="Istruzioni">?</button><button id="vl-esci" class="vl-b sm" title="Esci">✕</button></div>
+      <button id="vl-eject" class="vl-b" title="Seggiolino eiettabile: premi due volte (tasto Z)"><span>EJECT</span></button>
       <div id="vl-menu" class="vl-schermo"></div>`;
     document.body.appendChild(ov);
     canvas = ov.querySelector("#vl-canvas"); hudC = ov.querySelector("#vl-hud"); hud = hudC.getContext("2d");
@@ -81,8 +82,10 @@ const VOLO = (() => {
     ov.querySelector("#vl-cam").onclick = () => cambiaCam();
     ov.querySelector("#vl-carrello").onclick = () => carrello();
     ov.querySelector("#vl-nvgb").onclick = () => nvg();
+    ov.querySelector("#vl-ora").onclick = () => cambiaOra();
     ov.querySelector("#vl-aiuto").onclick = () => { pausa(true, true); };
     ov.querySelector("#vl-esci").onclick = () => chiudi();
+    ov.querySelector("#vl-eject").addEventListener("pointerdown", e => { e.preventDefault(); eietta(); });
   }
   function attivo() { return !!(ov && !ov.classList.contains("hidden")); }
   function ridimensiona() {
@@ -144,7 +147,9 @@ const VOLO = (() => {
   }
   function tastoPremuto(k, e) {
     if (!S) return; if (e.repeat) return;
-    if (k === " ") fuocoPremuto(); else if (k === "t") blocca(); else if (k === "x") cambiaArma(); else if (k === "c") contromisure(); else if (k === "g") carrello(); else if (k === "v") cambiaCam(); else if (k === "p" || k === "escape") pausa(!S.pausa); else if (k === "h") pausa(true, true); else if (k === "n") nvg();
+    if (k === " ") fuocoPremuto(); else if (k === "t") blocca(); else if (k === "x") cambiaArma(); else if (k === "c") contromisure(); else if (k === "g") carrello(); else if (k === "v") cambiaCam(); else if (k === "p" || k === "escape") pausa(!S.pausa); else if (k === "h") pausa(true, true);
+    // L: giorno/notte, tranne nella vista casco del cockpit 3D, dove L serve a guardare a destra
+    else if (k === "l" && S.cam !== "helmet") cambiaOra(); else if (k === "n") nvg(); else if (k === "z") eietta();
   }
 
   /* ---------- audio sintetizzato ---------- */
@@ -222,6 +227,18 @@ const VOLO = (() => {
   }
   // luci delle città e delle basi (si vedono anche a occhio nudo, con il visore diventano punti brillanti)
   const CITTA = [[40.586, -122.39, 220], [40.178, -122.236, 90], [40.80, -124.16, 160], [41.756, -124.20, 70], [42.22, -121.78, 150], [41.735, -122.634, 60], [41.42, -122.386, 40], [41.31, -122.31, 50], [40.448, -122.297, 60], [40.867, -124.08, 70], [40.416, -120.653, 60], [40.882, -121.66, 30], [41.487, -120.542, 30], [41.21, -122.27, 30], [40.74, -122.94, 25]];
+  // cielo, sole/luna e luci di ambiente si possono rifare in volo: giorno e notte si cambiano senza ricominciare
+  function montaCielo() {
+    if (S.cieloObj) S.cieloObj.forEach(o => { scene.remove(o); o.traverse(x => { if (x.geometry) x.geometry.dispose(); }); });
+    const prima = new Set(scene.children); cieloBase(); S.cieloObj = scene.children.filter(o => !prima.has(o));
+  }
+  function cambiaOra() {
+    if (!S) return; const notte = S.cfg.ora !== "notte"; S.cfg.ora = notte ? "notte" : "giorno"; montaCielo();
+    if (notte && !S.luci) { luciCitta(S.root); quotaLuci(); } if (S.luci) S.luci.p.visible = notte;
+    [S.pl.obj, ...S.nemici.map(e => e.obj)].forEach(o => { if (!o) return; if (notte && !o.userData.nav) luciNav(o, o === S.pl.obj ? 5 : 7.5, o === S.pl.obj ? 15 : 21); if (o.userData.nav) o.userData.nav.visible = notte; });
+    const p = pref(); p.ora = S.cfg.ora; salvaPref(p); suono("click"); messaggio(notte ? "NOTTE · NVG: tasto N" : "GIORNO", 2);
+    if (!notte && S.nvg) S.nvg = false;
+  }
   function luciCitta(root) {
     const pts = []; CITTA.forEach(([lat, lon, n]) => { const c = toXZ(lat, lon); const R = 900 + n * 14; for (let i = 0; i < n; i++) { const a = Math.random() * Math.PI * 2, d = Math.pow(Math.random(), 0.7) * R; pts.push([c.x + Math.cos(a) * d, c.z + Math.sin(a) * d, Math.random()]); } });
     (APP.sc.basi || []).forEach(b => { const c = toXZ(b.lat, b.lon); for (let i = 0; i < 24; i++) pts.push([c.x + (Math.random() - 0.5) * 1800, c.z + (Math.random() - 0.5) * 900, 1]); });
@@ -244,7 +261,8 @@ const VOLO = (() => {
     if (!NVG_RUM.ctx) { const c = ov.querySelector("#vl-nvg-rumore"); NVG_RUM.ctx = c.getContext("2d"); NVG_RUM.img = NVG_RUM.ctx.createImageData(c.width, c.height); }
     const px = NVG_RUM.img.data; for (let i = 0; i < px.length; i += 4) { const v = Math.random() * 255; px[i] = v * 0.6; px[i + 1] = v; px[i + 2] = v * 0.6; px[i + 3] = 255; } NVG_RUM.ctx.putImageData(NVG_RUM.img, 0, 0);
   }
-  function cielo() {
+  function cielo() { montaCielo(); }   // il cielo si monta tenendo traccia degli oggetti, così giorno/notte si può cambiare in volo
+  function cieloBase() {
     if (S.cfg.ora === "notte") return cieloNotte();
     const m = (APP.sc && APP.sc.meteo) || {}; const ora = 14.5, giorno = m.giorno || 165, lat = TERRA.lat0;
     const decl = 23.44 * Math.sin(2 * Math.PI * (284 + giorno) / 365) * D2R, H = (ora - 12.5) * 15 * D2R, φ = lat * D2R;
@@ -275,7 +293,7 @@ const VOLO = (() => {
       root.add(g); S.terra.push({ id: t.id, nome: t.nome, tipo: "terra", sotto: "obiettivo", obj: g, pos: V3(q.x, 0, q.z), vel: V3(), vivo: true, hp: 2, raggio: 60, x: q.x, z: q.z }); });
     (sc.sam || []).forEach(s => { const q = toXZ(s.lat, s.lon); const g = new THREE.Group(); for (let i = 0; i < 3; i++) { const tr = edificio(12, 3.2, 3, 0x5b6447); tr.position.set(i * 25 - 25, 0, 0); const tubi = new THREE.Mesh(new THREE.BoxGeometry(10, 2.2, 2.6), matStd(0x6d7552)); tubi.position.set(i * 25 - 25, 4.5, 0); tubi.rotation.z = 0.5; g.add(tr, tubi); }
       const rad = edificio(6, 6, 6, 0x4f5640); rad.position.set(0, 0, 30); const ant = new THREE.Mesh(new THREE.BoxGeometry(9, 6, 0.6), matStd(0x8a8f7a)); ant.position.set(0, 10, 30); g.add(rad, ant); root.add(g);
-      S.terra.push({ id: s.id, nome: s.nome || "SA-10", tipo: "terra", sotto: "sam", obj: g, pos: V3(q.x, 0, q.z), vel: V3(), vivo: true, hp: 1, raggio: 35, x: q.x, z: q.z, missili: 4, cad: 12 + Math.random() * 12, antenna: ant }); });
+      S.terra.push({ id: s.id, nome: s.nome || "SA-10", tipo: "terra", sotto: "sam", obj: g, pos: V3(q.x, 0, q.z), vel: V3(), vivo: true, hp: 1, raggio: 35, gittata: Math.min(35000, (s.raggio_nm || 40) * 1852), x: q.x, z: q.z, missili: 4, cad: 12 + Math.random() * 12, antenna: ant }); });
     posizionaTerra();
   }
   function posizionaTerra() { quotaLuci(); (S.terra || []).forEach(t => { const y = elev(t.x, t.z); t.pos.y = y + 6; t.obj.position.set(t.x, y, t.z); }); if (S.pista) { const p = S.pista; let y = 0; for (let k = -0.5; k <= 0.5; k += 0.25) y = Math.max(y, elev(p.x + p.ux * p.L * k, p.z + p.uz * p.L * k)); p.y = y + 0.4; S.pistaMesh.position.y = p.y; } }
@@ -297,6 +315,193 @@ const VOLO = (() => {
     const dist = camera.position.distanceTo(pos); suono("esplosione", clamp(1.2 - dist / 20000, 0.15, 1));
   }
 
+  /* ---------- effetti: esplosioni in aria e al suolo, relitti in fiamme, eiezione ---------- */
+  const rndDir = (ySu) => V3(Math.random() - 0.5, Math.random() - 0.5 + (ySu || 0), Math.random() - 0.5).normalize();
+  function initEffetti() {
+    const fx = S.fx = { detriti: [], relitti: [], anelli: [], segni: [], scossa: 0, lampo: 0, lampoCol: "255,70,40", luceT: 0, luceT0: 1, luceI: 0 };
+    // una sola luce per i lampi, creata all'avvio: aggiungere luci a scena avviata ricompila gli shader (scatto)
+    fx.luce = new THREE.PointLight(0xffb468, 0, 2500, 2); scene.add(fx.luce);
+    fx.geoDet = new THREE.BoxGeometry(1, 0.22, 0.7); fx.matDet = matStd(0x2d2b29); fx.matDetC = matStd(0x55524c);
+  }
+  function flashLuce(pos, i, dur) { const fx = S.fx; if (!fx) return; fx.luce.position.copy(pos); fx.luce.intensity = fx.luceI = i; fx.luceT = fx.luceT0 = dur; }
+  function scuoti(pos, forza) { const fx = S.fx; if (!fx) return; const d = camera.position.distanceTo(pos); fx.scossa = Math.max(fx.scossa, forza * clamp(1.15 - d / 2500, 0.04, 1)); if (d < 400) { fx.lampo = Math.max(fx.lampo, 0.3 * forza * (1 - d / 400)); fx.lampoCol = "255,236,200"; } }
+  function lampoRosso(a) { if (!S.fx) return; S.fx.lampo = Math.max(S.fx.lampo, a); S.fx.lampoCol = "255,40,30"; }
+  /* esplosione in volo: lampo, palla di fuoco che si trascina con l'inerzia, fumo nero, schegge incandescenti che cadono, rottami */
+  function esplosioneAria(pos, vel, k) {
+    k = k || 1; const v0 = (vel || V3()).clone().multiplyScalar(0.35);
+    for (let i = 0; i < 4; i++) emetti(pos, { luce: true, col: 0xfff4d6, vel: v0, vita: 0.16 + i * 0.06, s0: 28 * k, s1: 95 * k, a0: 1, drag: 1 });
+    for (let i = 0; i < 24; i++) emetti(pos, { luce: true, col: [0xffd27a, 0xff9a3c, 0xff6a1a][i % 3], vel: rndDir().multiplyScalar((22 + Math.random() * 60) * k).add(v0), vita: 0.7 + Math.random() * 0.9, s0: 9 * k, s1: 46 * k, a0: 1, drag: 2.2 });
+    for (let i = 0; i < 18; i++) emetti(pos, { col: i % 3 ? 0x2a2623 : 0x4a443e, vel: rndDir(0.2).multiplyScalar((8 + Math.random() * 26) * k).addScaledVector(v0, 0.6), vita: 4 + Math.random() * 3, s0: 13 * k, s1: 90 * k, a0: 0.8, drag: 0.7, su: 2.5 });
+    for (let i = 0; i < 16; i++) emetti(pos, { luce: true, col: 0xffc463, vel: rndDir(0.3).multiplyScalar((60 + Math.random() * 110) * k).add(v0), vita: 1 + Math.random() * 1.2, s0: 2.6, s1: 0.8, a0: 1, drag: 0.5, su: -9 });
+    detriti(pos, vel || V3(), Math.round(7 * k), true);
+    flashLuce(pos, 1.6 * k, 0.45); scuoti(pos, 0.9 * k);
+    suono("esplosione", clamp(1.25 - camera.position.distanceTo(pos) / 15000, 0.15, 1));
+  }
+  /* impatto al suolo: fungo di fuoco, polvere e terra radiali, colonna di fumo, onda d'urto, bruciatura sul terreno */
+  function esplosioneSuolo(pos, k, opt) {
+    k = k || 1; opt = opt || {}; const y = quotaSuolo(pos.x, pos.z); const p = V3(pos.x, y + 2, pos.z);
+    for (let i = 0; i < 4; i++) emetti(p, { luce: true, col: 0xfff2cf, vita: 0.2 + i * 0.07, s0: 40 * k, s1: 150 * k, a0: 1, drag: 1 });
+    for (let i = 0; i < 28; i++) emetti(p, { luce: true, col: [0xffcf6a, 0xff8f30, 0xff5a12][i % 3], vel: V3((Math.random() - 0.5) * 70, 25 + Math.random() * 90, (Math.random() - 0.5) * 70).multiplyScalar(k), vita: 0.9 + Math.random() * 1.1, s0: 14 * k, s1: 62 * k, a0: 1, drag: 1.5, su: 7 });
+    for (let i = 0; i < 26; i++) { const a = i / 26 * Math.PI * 2; emetti(p, { col: i % 2 ? 0x8a7a63 : 0x6f6252, vel: V3(Math.cos(a), 0.08 + Math.random() * 0.1, Math.sin(a)).multiplyScalar((45 + Math.random() * 35) * k), vita: 2.5 + Math.random() * 1.8, s0: 8 * k, s1: 45 * k, a0: 0.6, drag: 1.4, su: 1 }); }
+    for (let i = 0; i < 16; i++) emetti(p, { col: 0x1f1c1a, vel: V3((Math.random() - 0.5) * 20, 14 + Math.random() * 32, (Math.random() - 0.5) * 20).multiplyScalar(k), vita: 6 + Math.random() * 4, s0: 20 * k, s1: 140 * k, a0: 0.78, drag: 0.4, su: 5 });
+    detriti(p, V3(0, 45 * k, 0), Math.round(10 * k), true);
+    const fx = S.fx;
+    if (fx) {
+      const anello = new THREE.Mesh(new THREE.RingGeometry(0.86, 1, 56), new THREE.MeshBasicMaterial({ color: 0xfff1d8, transparent: true, opacity: 0.55, side: THREE.DoubleSide, depthWrite: false })); anello.rotation.x = -Math.PI / 2; anello.position.set(p.x, y + 3, p.z); scene.add(anello); fx.anelli.push({ m: anello, t: 0, dur: 0.7, r: 230 * k });
+      const segno = new THREE.Mesh(new THREE.CircleGeometry(16 * k, 28), new THREE.MeshBasicMaterial({ color: 0x14100d, transparent: true, opacity: 0.8, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -4 })); segno.rotation.x = -Math.PI / 2; segno.position.set(p.x, y + 1.5, p.z); scene.add(segno); fx.segni.push(segno); if (fx.segni.length > 12) { const s = fx.segni.shift(); scene.remove(s); s.geometry.dispose(); }
+    }
+    if (opt.incendio !== false) S.incendi.push({ pos: p.clone(), t: opt.durataFuoco || 45 });
+    flashLuce(p, 2.2 * k, 0.7); scuoti(p, 1.3 * k);
+    suono("esplosione", clamp(1.35 - camera.position.distanceTo(p) / 15000, 0.2, 1));
+  }
+  /* rottami: pezzi che volano via, cadono con la gravità, ruotano e lasciano una scia di fumo */
+  function detriti(pos, vel, n, fumo) {
+    const fx = S.fx; if (!fx) return;
+    for (let i = 0; i < n; i++) { const m = new THREE.Mesh(fx.geoDet, i % 3 ? fx.matDet : fx.matDetC); const s = 0.6 + Math.random() * 2.4; m.scale.set(s, s * (0.6 + Math.random()), s); m.position.copy(pos); scene.add(m);
+      fx.detriti.push({ m, vel: vel.clone().multiplyScalar(0.55).add(rndDir(0.35).multiplyScalar(30 + Math.random() * 70)), w: V3(Math.random() * 9 - 4.5, Math.random() * 9 - 4.5, Math.random() * 9 - 4.5), t: 0, vita: 7 + Math.random() * 4, fumo: fumo && i % 2 === 0, e: 0 }); }
+  }
+  /* relitto: l'aereo colpito (o abbandonato dopo l'eiezione) che cade avvitandosi, in fiamme, fino all'impatto */
+  function creaRelitto(obj, pos, vel, opt) {
+    opt = opt || {}; const r = { obj, pos: pos.clone(), vel: vel.clone(), Q: obj.quaternion.clone(), w: V3((Math.random() - 0.5) * 0.7, (Math.random() - 0.5) * 0.5, (opt.rollio || 2.4) * (Math.random() < 0.5 ? -1 : 1)), fuoco: opt.fuoco !== false, giocatore: !!opt.giocatore, t: 0, e: 0, pop: 0.6 + Math.random(), k: opt.k || 1 };
+    obj.visible = true; S.fx.relitti.push(r); return r;
+  }
+  const _wq = new THREE.Quaternion();
+  function aggiornaEffetti(dt) {
+    const fx = S.fx; if (!fx) return;
+    if (fx.luceT > 0) { fx.luceT -= dt; fx.luce.intensity = fx.luceI * Math.max(0, fx.luceT / fx.luceT0); } else fx.luce.intensity = 0;
+    fx.lampo *= Math.exp(-dt * 2.2);
+    fx.anelli = fx.anelli.filter(a => { a.t += dt; const k = a.t / a.dur; a.m.scale.setScalar(1 + a.r * Math.sqrt(k)); a.m.material.opacity = 0.55 * (1 - k); if (k >= 1) { scene.remove(a.m); a.m.geometry.dispose(); return false; } return true; });
+    fx.detriti = fx.detriti.filter(d => { d.t += dt; d.vel.y -= G * dt; d.vel.multiplyScalar(1 - 0.35 * dt); d.m.position.addScaledVector(d.vel, dt); d.m.rotation.x += d.w.x * dt; d.m.rotation.y += d.w.y * dt; d.m.rotation.z += d.w.z * dt;
+      if (d.fumo && (d.e -= dt) <= 0) { d.e = 0.07; emetti(d.m.position, { col: 0x2c2825, vita: 2.2, s0: 2, s1: 12, a0: 0.55, drag: 0.6, su: 1.5 }); if (d.t < 2) emetti(d.m.position, { luce: true, col: 0xff8a2a, vita: 0.25, s0: 2.5, s1: 1, a0: 0.9 }); }
+      const suolo = quotaSuolo(d.m.position.x, d.m.position.z); if (d.m.position.y < suolo + 0.4) { if (!d.aTerra) { d.aTerra = true; emetti(d.m.position, { col: 0x7d705e, vita: 1.5, s0: 4, s1: 18, a0: 0.5, su: 1 }); } d.m.position.y = suolo + 0.4; d.vel.set(0, 0, 0); d.w.set(0, 0, 0); }
+      if (d.t > d.vita) { scene.remove(d.m); return false; } return true; });
+    fx.relitti = fx.relitti.filter(r => { r.t += dt;
+      r.vel.multiplyScalar(1 - 0.12 * dt); r.vel.y -= G * 0.85 * dt; r.pos.addScaledVector(r.vel, dt);
+      const wl = r.w.length(); if (wl > 1e-6) { _wq.setFromAxisAngle(r.w.clone().normalize(), wl * dt); r.Q.multiply(_wq); } r.obj.position.copy(r.pos); r.obj.quaternion.copy(r.Q);
+      if (r.fuoco && (r.e -= dt) <= 0) { r.e = 0.04; const pv = r.vel.clone().multiplyScalar(0.15); emetti(r.pos, { luce: true, col: Math.random() < 0.5 ? 0xff9a3c : 0xff6a1a, vel: pv.clone().add(rndDir().multiplyScalar(4)), vita: 0.45, s0: 7 * r.k, s1: 15 * r.k, a0: 1, drag: 1 }); emetti(r.pos, { col: 0x2b2724, vel: pv, vita: 5.5, s0: 6 * r.k, s1: 45 * r.k, a0: 0.7, drag: 0.5, su: 2 }); }
+      if (r.fuoco && (r.pop -= dt) <= 0) { r.pop = 1.2 + Math.random() * 2; emetti(r.pos, { luce: true, col: 0xffd27a, vita: 0.3, s0: 10, s1: 26, a0: 1 }); detriti(r.pos, r.vel, 1, true); }
+      const suolo = quotaSuolo(r.pos.x, r.pos.z);
+      if (r.pos.y < suolo + 3) { r.obj.visible = false; esplosioneSuolo(r.pos, r.giocatore ? 1.3 : 1.05); if (r.giocatore && S.seq) S.seq.impatto = S.t; return false; }
+      if (r.t > 120) { r.obj.visible = false; return false; } return true; });
+    aggiornaEiezione(dt);
+    aggiornaSequenza(dt);
+  }
+
+  /* sequenze che chiudono il volo: abbattuto (relitto in fiamme, finestra per l'eiezione), schianto, eiezione con paracadute */
+  // all'inizio di una sequenza la vista passa all'esterno: se il cockpit 3D aveva nascosto la carlinga per la vista interna, si rimette il modello completo
+  function vistaEsterna() {
+    const P = S.pl; S.cam = "chase";
+    if (P.obj && window.CENTURION_COCKPIT) { try { CENTURION_COCKPIT.setView(P.obj, S.cfg.aereo, false); CENTURION_COCKPIT.draw("chase"); } catch (e) {} }
+  }
+  // dopo l'eiezione il relitto resta senza tettuccio e senza pilota
+  function svuotaAbitacolo(obj) { if (!obj) return; obj.traverse(o => { if (!o.isMesh) return; const n = (o.name || "") + " " + (o.parent && o.parent.name || ""); if (/canopy|pilotbody|pilothead|pilothelmet|pilot_mesh|occupant/i.test(n)) o.visible = false; }); }
+  function colpoGiocatore(danno, m) {
+    const P = S.pl; if (!P.vivo) return; P.hp -= danno; const da = m ? ARMI[m.tipo].nome : "fuoco nemico";
+    const pe = P.pos.clone().add(rndDir().multiplyScalar(12));
+    if (P.hp > 0) { esplosioneAria(pe, P.vel, 0.6); lampoRosso(0.45); S.fx.scossa = Math.max(S.fx.scossa, 1.4); P.danno = true; messaggio("COLPITO · INCENDIO MOTORE · niente postbruciatore", 3.5, "warn"); voce("engine fire"); return; }
+    P.vivo = false; vistaEsterna(); esplosioneAria(pe, P.vel, 1.25); lampoRosso(0.7); S.fx.scossa = Math.max(S.fx.scossa, 2.2);
+    const r = creaRelitto(P.obj, P.pos, P.vel, { fuoco: true, giocatore: true, rollio: 2.6, k: 1.2 }); P.relitto = r;
+    S.seq = { tipo: "abbattuto", t: 0, motivo: "Colpito da " + da };
+    const dir = P.vel.clone().setY(0); if (dir.lengthSq() < 1) dir.set(0, 0, -1); dir.normalize(); S.seqCam = { tipo: "segui", bersaglio: () => r.pos, off: dir.multiplyScalar(-55).add(V3(0, 18, 0)) };
+    messaggio("EJECT! EJECT! · premi EJECT (tasto Z)", 5, "warn"); voce("you are hit. eject. eject");
+  }
+  function schianto(motivo) {
+    const P = S.pl; if (!P.vivo) return; P.vivo = false; vistaEsterna(); P.obj.visible = false; esplosioneSuolo(P.pos, 1.4); lampoRosso(0.5);
+    // telecamera sopra e dietro il punto d'impatto, alzata finché nessun rilievo copre la vista
+    const dir = P.vel.clone().setY(0); if (dir.lengthSq() < 1) dir.set(0, 0, -1); dir.normalize(); const fuoco = P.pos.clone(); const c = fuoco.clone().addScaledVector(dir, -360); c.y = Math.max(quotaSuolo(c.x, c.z), fuoco.y) + 120;
+    for (let i = 1; i < 8; i++) { const k = i / 8; const x = c.x + (fuoco.x - c.x) * k, z = c.z + (fuoco.z - c.z) * k, yl = c.y + (fuoco.y - c.y) * k, s = quotaSuolo(x, z) + 12; if (yl < s) c.y += (s - yl) / (1 - k); }
+    S.seqCam = { tipo: "fissa", pos: c, guarda: () => fuoco }; camera.position.copy(c);
+    fineMissione("SCHIANTO", motivo);
+  }
+  function eietta() {
+    if (!S || S.pausa || S.fine || S.eiez) return; const P = S.pl;
+    const finestra = S.seq && S.seq.tipo === "abbattuto" && S.seq.t < 10 && !S.seq.impatto;
+    if (!P.vivo && !finestra) return;
+    // a velivolo integro serve una seconda pressione entro 2 s (niente eiezioni accidentali); da abbattuto basta una
+    if (P.vivo && !(S.ejArm != null && S.t - S.ejArm < 2)) { S.ejArm = S.t; messaggio("EJECT ARMATO · premi di nuovo per lanciarti", 2, "warn"); suono("click"); return; }
+    let r = P.relitto;
+    if (P.vivo) { P.vivo = false; vistaEsterna(); r = creaRelitto(P.obj, P.pos, P.vel, { fuoco: !!P.danno, giocatore: true, rollio: 0.35 }); r.w.x = -0.12; P.relitto = r; S.seq = { tipo: "eiezione", t: 0, motivo: P.danno ? "Velivolo danneggiato abbandonato" : "Velivolo abbandonato in volo" }; }
+    else { S.seq.tipo = "eiezione"; S.seq.motivo = S.seq.motivo + " · eiezione riuscita"; }
+    // assi del velivolo nell'istante dell'eiezione: quelli del relitto (che può essere in vite), non dell'ultimo assetto pilotato
+    assi(r.Q); const su = _up.clone(), avanti = _fwd.clone(), dx = _rt.clone();
+    // il seggiolino parte dal posto del pilota: punto di vista del cockpit 3D se disponibile, altrimenti posizione tipica
+    let ab = r.pos.clone().addScaledVector(su, 1.1).addScaledVector(avanti, 5.5);
+    if (window.CENTURION_COCKPIT && P.obj) { try { r.obj.position.copy(r.pos); r.obj.quaternion.copy(r.Q); const occhio = CENTURION_COCKPIT.cameraEye(P.obj, S.cfg.aereo); if (occhio && occhio.distanceTo(r.pos) < 25) ab = occhio.clone().addScaledVector(su, -0.95); } catch (e) {} }
+    svuotaAbitacolo(r.obj);
+    const loc = ab.clone().sub(r.pos).applyQuaternion(r.Q.clone().invert());   // posizione del seggiolino nel sistema del velivolo
+    // tettuccio: vola via verso l'alto e indietro, rotolando
+    const tet = new THREE.Mesh(new THREE.SphereGeometry(0.85, 14, 8, 0, Math.PI * 2, 0, Math.PI / 2), new THREE.MeshStandardMaterial({ color: 0x9fb4c6, transparent: true, opacity: 0.45, roughness: 0.15, metalness: 0.3, side: THREE.DoubleSide })); tet.scale.set(0.75, 0.55, 2.1);
+    tet.position.copy(ab).addScaledVector(su, 0.5); tet.up.copy(su); tet.lookAt(tet.position.clone().add(avanti)); scene.add(tet);
+    // seggiolino ACES II con il pilota: si muove lungo l'asse verticale dell'aereo
+    const seg = new THREE.Group(); const sed = new THREE.Mesh(new THREE.BoxGeometry(0.7, 1.15, 0.65), matStd(0x2f3336)); sed.position.set(0, 0.2, -0.15); seg.add(sed);
+    const pil = new THREE.Group(); const corpo = new THREE.Mesh(new THREE.CylinderGeometry(0.21, 0.25, 0.95, 10), matStd(0x56653a)); corpo.position.y = 0.62; const casco = new THREE.Mesh(new THREE.SphereGeometry(0.17, 12, 10), matStd(0xd9d8cf)); casco.position.y = 1.22; const visiera = new THREE.Mesh(new THREE.SphereGeometry(0.12, 10, 8, 0, Math.PI), matStd(0x1d2a33)); visiera.position.set(0, 1.21, 0.08); pil.add(corpo, casco, visiera); pil.position.z = 0.1; seg.add(pil);
+    seg.position.copy(ab); seg.up.copy(su); seg.lookAt(ab.clone().add(avanti)); scene.add(seg);
+    S.eiez = { t: 0, fase: "tettuccio", r, su, avanti, loc, tet, tetVel: P.vel.clone().multiplyScalar(0.92).addScaledVector(su, 22).addScaledVector(avanti, -4), tetW: V3(2 + Math.random() * 2, Math.random(), Math.random()), seg, sed, pil, pos: ab.clone(), vel: P.vel.clone(), e: 0 };
+    // inquadratura ravvicinata di lato: si vedono tettuccio, razzo del seggiolino e il velivolo che si allontana
+    const offCam = dx.clone().multiplyScalar(13).addScaledVector(avanti, -9).add(V3(0, 3.5, 0)); S.seqCam = { tipo: "segui", bersaglio: () => S.eiez.pos, off: offCam, k: 9, guardaY: 0.6 };
+    camera.position.copy(ab).add(offCam);
+    suono("flare"); voce("eject"); messaggio("EJECTION", 2.5, "warn");
+  }
+  function creaParacadute() {
+    const g = new THREE.Group(); const R = 4.4, th = Math.PI * 0.42, seg = 24;
+    const geo = new THREE.SphereGeometry(R, seg, 8, 0, Math.PI * 2, 0, th); const col = []; const pa = geo.attributes.position;
+    for (let i = 0; i < pa.count; i++) { const a = Math.atan2(pa.getZ(i), pa.getX(i)); const spic = Math.floor(((a + Math.PI) / (Math.PI * 2)) * 12) % 2; const c = new THREE.Color(spic ? 0xf26a1b : 0xf4f1ea); col.push(c.r, c.g, c.b); }
+    geo.setAttribute("color", new THREE.Float32BufferAttribute(col, 3));
+    const vela = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({ vertexColors: true, side: THREE.DoubleSide, roughness: 0.95 })); vela.scale.y = 0.72; vela.position.y = 7.2; g.add(vela);
+    const lp = []; const rb = R * Math.sin(th), yb = 7.2 + R * Math.cos(th) * 0.72; for (let i = 0; i < 12; i++) { const a = i / 12 * Math.PI * 2; lp.push(Math.cos(a) * rb, yb, Math.sin(a) * rb, 0, 1.45, 0); }
+    const lg = new THREE.BufferGeometry(); lg.setAttribute("position", new THREE.Float32BufferAttribute(lp, 3)); g.add(new THREE.LineSegments(lg, new THREE.LineBasicMaterial({ color: 0xd8d8d8, transparent: true, opacity: 0.8 })));
+    return { g, vela };
+  }
+  function aggiornaEiezione(dt) {
+    const E = S.eiez; if (!E) return; E.t += dt;
+    // tettuccio
+    if (E.tet) { E.tetVel.multiplyScalar(1 - 1.2 * dt); E.tetVel.y -= G * dt; E.tet.position.addScaledVector(E.tetVel, dt); E.tet.rotation.x += E.tetW.x * dt; E.tet.rotation.y += E.tetW.y * dt; if (E.t > 8 || E.tet.position.y < quotaSuolo(E.tet.position.x, E.tet.position.z)) { scene.remove(E.tet); E.tet = null; } }
+    // fino allo sparo il seggiolino resta solidale con il velivolo (anche se il relitto sta ruotando); il razzo spinge lungo l'asse verticale del velivolo in quell'istante
+    if (E.fase === "tettuccio") { E.pos.copy(E.loc).applyQuaternion(E.r.Q).add(E.r.pos); E.vel.copy(E.r.vel); E.seg.position.copy(E.pos);
+      if (E.t >= 0.3) { assi(E.r.Q); E.su.copy(_up); E.avanti.copy(_fwd); E.seg.up.copy(E.su); E.seg.lookAt(E.pos.clone().add(E.avanti)); E.fase = "razzo"; E.vel.addScaledVector(E.su, 15); suono("lancio", 0.8); } }
+    else if (E.fase === "razzo" || E.fase === "seggiolino") {
+      if (E.fase === "razzo") { E.vel.addScaledVector(E.su, 125 * dt); if ((E.e -= dt) <= 0) { E.e = 0.02; const coda = E.pos.clone().addScaledVector(E.su, -0.6); emetti(coda, { luce: true, col: 0xffb347, vel: E.su.clone().multiplyScalar(-40), vita: 0.25, s0: 2.2, s1: 1, a0: 1, drag: 3 }); emetti(coda, { col: 0xcfcac2, vel: E.su.clone().multiplyScalar(-10), vita: 2.5, s0: 1.5, s1: 10, a0: 0.6, drag: 1 }); } if (E.t > 0.75) E.fase = "seggiolino"; }
+      const v = E.vel.length(); E.vel.addScaledVector(E.vel, -0.0028 * v * dt); E.vel.y -= G * dt; E.pos.addScaledVector(E.vel, dt);
+      E.seg.position.copy(E.pos); E.seg.rotateX(-0.9 * dt);
+      if (E.t > 1.8) { // separazione dal seggiolino e apertura del paracadute
+        E.fase = "paracadute"; E.tApre = E.t; const pc = creaParacadute(); E.para = pc; const pg = pc.g; pg.position.copy(E.pos); scene.add(pg);
+        E.seg.remove(E.pil); E.pil.position.set(0, 0, 0); E.pil.rotation.set(0, 0, 0); pg.add(E.pil);
+        E.sedVel = E.vel.clone().add(rndDir().multiplyScalar(4)); E.drift = V3((Math.random() - 0.5) * 3, 0, (Math.random() - 0.5) * 3);
+        S.seqCam = { tipo: "orbita", bersaglio: () => E.pos, ang: Math.atan2(E.vel.x, E.vel.z) + Math.PI * 0.6, r: 30, h: 7 };
+        messaggio("PARACADUTE APERTO", 2.5, "call"); suono("flare", 0.6);
+      }
+    } else if (E.fase === "paracadute" || E.fase === "a terra") {
+      const k = Math.min(1, (E.t - E.tApre) / 1.1); E.para.vela.scale.set(0.15 + 0.85 * k, 0.72 * (0.3 + 0.7 * k), 0.15 + 0.85 * k);
+      // seggiolino che cade per conto suo
+      if (E.seg) { E.sedVel.y -= G * dt; E.sedVel.multiplyScalar(1 - 0.4 * dt); E.seg.position.addScaledVector(E.sedVel, dt); E.seg.rotateZ(1.5 * dt); if (E.seg.position.y < quotaSuolo(E.seg.position.x, E.seg.position.z) || E.t > 30) { scene.remove(E.seg); E.seg = null; } }
+      if (E.fase === "paracadute") {
+        const tgt = V3(E.drift.x, -6.8, E.drift.z); E.vel.lerp(tgt, Math.min(1, dt * (k < 1 ? 2.2 : 1.2))); E.pos.addScaledVector(E.vel, dt);
+        E.para.g.position.copy(E.pos); E.para.g.rotation.z = Math.sin(E.t * 1.3) * 0.1 * k; E.para.g.rotation.x = Math.cos(E.t * 0.9) * 0.06 * k; E.para.g.rotation.y += dt * 0.15;
+        const suolo = quotaSuolo(E.pos.x, E.pos.z); if (E.pos.y < suolo + 0.9) { E.fase = "a terra"; E.tTerra = E.t; E.pos.y = suolo + 0.9; messaggio("A TERRA · pilota salvo", 3, "call"); emetti(E.pos, { col: 0x8a7d68, vita: 1.6, s0: 3, s1: 14, a0: 0.5 }); }
+      } else { const q = Math.min(1, (E.t - E.tTerra) / 1.5); E.para.vela.position.y = 7.2 * (1 - q) + 0.6 * q; E.para.vela.rotation.z = q * 1.2; E.para.g.position.copy(E.pos); }
+    }
+  }
+  function aggiornaSequenza(dt) {
+    const Q = S.seq; if (!Q || Q.chiusa) return; Q.t += dt;
+    const chiudi = (titolo, motivo) => { Q.chiusa = true; fineMissione(titolo, motivo); };
+    if (Q.tipo === "abbattuto") { if (Q.impatto && S.t - Q.impatto > 1.5) chiudi("ABBATTUTO", Q.motivo + " · pilota non eiettato"); else if (Q.t > 12) chiudi("ABBATTUTO", Q.motivo + " · pilota non eiettato"); }
+    else if (Q.tipo === "eiezione") { const E = S.eiez; if (E && ((E.fase === "a terra" && E.t - E.tTerra > 2.5) || E.t > 16)) chiudi("EIETTATO", Q.motivo + " · pilota salvo sotto il paracadute"); }
+  }
+  /* telecamera delle sequenze (relitto, schianto, eiezione) e scossa della camera */
+  function cameraSequenza(dt) {
+    const C = S.seqCam; if (!C) return false; camera.up.set(0, 1, 0); camera.fov = 60;
+    if (C.tipo === "segui") { const b = C.bersaglio(); _cp.copy(b).add(C.off); const s = quotaSuolo(_cp.x, _cp.z) + (C.k ? 4 : 25); if (_cp.y < s) _cp.y = s; camera.position.lerp(_cp, Math.min(1, dt * (C.k || 3))); camera.lookAt(V3(b.x, b.y + (C.guardaY || 0), b.z)); }
+    else if (C.tipo === "fissa") { if (C.segueA != null && S.eiez && S.eiez.t > C.segueA) { C.pos.addScaledVector(S.eiez.vel, dt * 0.85); } camera.position.lerp(C.pos, Math.min(1, dt * 4)); camera.lookAt(C.guarda()); }
+    else if (C.tipo === "orbita") { const b = C.bersaglio(); C.ang += dt * 0.22; _cp.set(b.x + Math.sin(C.ang) * C.r, b.y + C.h, b.z + Math.cos(C.ang) * C.r); const s = quotaSuolo(_cp.x, _cp.z) + 3; if (_cp.y < s) _cp.y = s; camera.position.lerp(_cp, Math.min(1, dt * 2.5)); camera.lookAt(V3(b.x, b.y + 4.5, b.z)); }
+    camera.updateProjectionMatrix(); return true;
+  }
+  function scossaCamera(dt) {
+    const fx = S.fx; if (!fx || fx.scossa < 0.01) return; const a = fx.scossa;
+    camera.position.add(V3((Math.random() - 0.5) * a * 1.6, (Math.random() - 0.5) * a * 1.6, (Math.random() - 0.5) * a * 1.6)); camera.rotateZ((Math.random() - 0.5) * a * 0.035); camera.rotateX((Math.random() - 0.5) * a * 0.02);
+    fx.scossa *= Math.exp(-dt * 3.2);
+  }
+  function disegnaLampo() { const fx = S && S.fx; if (!fx || fx.lampo < 0.01) return; const W = hudC.width, H = hudC.height; const gr = hud.createRadialGradient(W / 2, H / 2, Math.min(W, H) * 0.15, W / 2, H / 2, Math.max(W, H) * 0.7); gr.addColorStop(0, `rgba(${fx.lampoCol},${(fx.lampo * 0.35).toFixed(3)})`); gr.addColorStop(1, `rgba(${fx.lampoCol},${Math.min(0.85, fx.lampo).toFixed(3)})`); hud.save(); hud.fillStyle = gr; hud.fillRect(0, 0, W, H); hud.restore(); }
+
   /* ---------- velivoli ---------- */
   function modello(icona, tipoId, col, numero) { const g = new THREE.Group(); const att = new THREE.Group(); g.add(att); att.add(VISTA3D.jetFallback(col != null ? col : 0x6b7280)); VISTA3D.modelloPromise(icona, col, { tipoId, numero, callsign: numero }).then(m => { if (!S) return; while (att.children.length) att.remove(att.children[0]); att.add(m); g.userData.mdl = m; }); scene.add(g); return g; }
   function creaGiocatore() {
@@ -307,14 +512,18 @@ const VOLO = (() => {
   function partenza() {
     const P = S.pl; const sc = APP.sc;
     if (S.cfg.partenza === "pista") { const p = S.pista; const hdg = p.hdg * D2R; P.pos = V3(p.x - p.ux * (p.L / 2 - 120), p.y + 2.2, p.z - p.uz * (p.L / 2 - 120)); P.vel = V3(); P.Q = quatDaAssetto(hdg, 0, 0); P.aTerra = true; P.carrello = true; S.thr = 0; }
-    else { const b = S.pista; const tg = sc.target[0] || sc.mappa.bullseye; const a = toXZ(tg.lat, tg.lon); const dir = V3(a.x - b.x, 0, a.z - b.z).normalize(); P.pos = V3(b.x + dir.x * 40000, 6100, b.z + dir.z * 40000); const hdg = Math.atan2(dir.x, -dir.z); P.vel = V3(Math.sin(hdg), 0, -Math.cos(hdg)).multiplyScalar(250); P.Q = quatDaAssetto(hdg, 2 * D2R, 0); P.aTerra = false; P.carrello = false; S.thr = 0.62; }
-    P.M = 0; P.agl = 0; P.qbar = 0; P.nInt = 0; P.p = 0; P.q = 0; P.r = 0; P.spinta = S.thr; P.ab = 0; P.vivo = true; P.nz = 1; P.gMax = 1; P.alpha = 0; P.V = P.vel.length(); P.acc = V3(0, 0, 0); P.aN = 0; P.hp = 1;
+    else { const b = S.pista; const tg = sc.target[0] || sc.mappa.bullseye; const a = toXZ(tg.lat, tg.lon); const dir = V3(a.x - b.x, 0, a.z - b.z).normalize(); P.pos = V3(b.x + dir.x * 40000, 6100, b.z + dir.z * 40000); const hdg = Math.atan2(dir.x, -dir.z); P.vel = V3(Math.sin(hdg), 0, -Math.cos(hdg)).multiplyScalar(250); P.Q = quatDaAssetto(hdg, 2 * D2R, 0); P.aTerra = false; P.carrello = false; S.thr = 0.62;
+      // mappe geografiche (area 100×100 km compressa): partenza a 45 km dal primo target, dal lato della base amica, prua sul target (fuori dagli anelli SA-10)
+      if (sc.mappa5) { const via = V3(b.x - a.x, 0, b.z - a.z); const L = Math.min(45000, via.length() || 45000); if (via.length() < 1) via.set(-1, 0, 0); via.normalize(); P.pos = V3(a.x + via.x * L, sc.mappa5.quotaInizioM || 4000, a.z + via.z * L); const h2 = Math.atan2(-via.x, via.z); P.vel = V3(Math.sin(h2), 0, -Math.cos(h2)).multiplyScalar(250); P.Q = quatDaAssetto(h2, 2 * D2R, 0); } }
+    P.M = 0; P.agl = 0; P.qbar = 0; P.nInt = 0; P.p = 0; P.q = 0; P.r = 0; P.spinta = S.thr; P.ab = 0; P.vivo = true; P.nz = 1; P.gMax = 1; P.alpha = 0; P.V = P.vel.length(); P.acc = V3(0, 0, 0); P.aN = 0; P.hp = 2; P.danno = false; P.relitto = null;
   }
   function creaNemici(n) {
     const sc = APP.sc; const P = S.pl; const tipi = ["SU35", "SU57"]; const centro = sc.target.length ? toXZ(sc.target[0].lat, sc.target[0].lon) : { x: P.pos.x + 60000, z: P.pos.z };
     const versoNemico = V3(centro.x - P.pos.x, 0, centro.z - P.pos.z); const dist = versoNemico.length(); versoNemico.normalize();
     for (let i = 0; i < n; i++) {
-      const tipo = tipi[i % 2]; const d = Math.min(dist, S.cfg.partenza === "pista" ? 110000 : 55000) + (i % 3) * 6000; const lat = (i - (n - 1) / 2) * 7000;
+      const tipo = tipi[i % 2];
+      // mappe geografiche (area 100×100 km con partenza al centro): i nemici partono a ~32 km, fuori portata immediata ma dentro l'area; altrimenti verso il primo target
+      const d = (sc.mappa5 && S.cfg.partenza !== "pista" ? 32000 : Math.min(dist, S.cfg.partenza === "pista" ? 110000 : 55000)) + (i % 3) * 6000; const lat = (i - (n - 1) / 2) * 7000;
       const pos = V3(P.pos.x + versoNemico.x * d - versoNemico.z * lat, 6500 + (i % 3) * 1200, P.pos.z + versoNemico.z * d + versoNemico.x * lat);
       const hdg = Math.atan2(-versoNemico.x, versoNemico.z); const col = 0x8a3a3a;
       const e = { id: "BANDIT" + (i + 1), nome: (tipo === "SU35" ? "Su-35" : "Su-57") + " #" + (i + 1), tipo: "aria", tipoId: tipo, pos, vel: V3(), hdg, gam: 0, V: S.diff.vNem, bank: 0, vivo: true, hp: 6, raggio: 10, missili: { R77: 4, R73: 2 }, cad: 15 + Math.random() * 20, stato: "pattuglia", casa: pos.clone(), flare: 30, obj: modello(tipo === "SU35" ? "su35" : "su57", tipo, col, String(i + 11)) };
@@ -332,7 +541,7 @@ const VOLO = (() => {
     assi(P.Q); _qi.copy(P.Q).invert(); _vb.copy(P.vel).applyQuaternion(_qi);
     const alpha = V > 5 ? Math.atan2(-_vb.y, _vb.z) : 0; const slip = V > 5 ? Math.atan2(-_vb.x, _vb.z) : 0; P.alpha = alpha; P.M = M; P.V = V; P.qbar = qbar;
     // motore: manetta 0-80% = militare, 80-100% = postbruciatore; inerzia del motore
-    const thr = S.thr; const milT = thr <= 0.8 ? 0.05 + 0.95 * thr / 0.8 : 1, abT = thr > 0.8 ? (thr - 0.8) / 0.2 : 0;
+    const thr = P.danno ? Math.min(S.thr, 0.72) : S.thr; const milT = thr <= 0.8 ? 0.05 + 0.95 * thr / 0.8 : 1, abT = thr > 0.8 ? (thr - 0.8) / 0.2 : 0;
     P.spinta += (milT - P.spinta) * Math.min(1, dt / 1.4); P.ab += (abT - P.ab) * Math.min(1, dt / 0.6); if (P.fuel <= 0) { P.spinta = 0; P.ab = 0; }
     const lapse = Math.pow(at.rho / 1.225, 0.7) * (1 + 0.25 * Math.min(M, 2)); const T = (A.Tmil * P.spinta + (A.Tab - A.Tmil) * P.ab) * lapse;
     P.fuel = Math.max(0, P.fuel - (A.Tmil * P.spinta * 2.2e-5 + (A.Tab - A.Tmil) * P.ab * 5.5e-5) * lapse * dt);
@@ -380,7 +589,6 @@ const VOLO = (() => {
     if (Vn < 1 && !S.fermoAvvisato && S.t > 5) { S.fermoAvvisato = true; messaggio("FERMO · manetta avanti per il decollo", 3); }
     if (Vn > 1) S.fermoAvvisato = false;
   }
-  function schianto(motivo) { const P = S.pl; if (!P.vivo) return; P.vivo = false; P.obj.visible = false; esplosione(P.pos.clone(), true); fineMissione("SCHIANTO", motivo); }
 
   /* ---------- nemici (intelligenza artificiale) ---------- */
   function aggiornaNemici(dt) {
@@ -408,9 +616,9 @@ const VOLO = (() => {
       // illuminazione radar (RWR)
       const angP = Math.acos(clamp(toP.clone().normalize().dot(e.vel.clone().normalize()), -1, 1)) * R2D; e.illumina = P.vivo && dist < 40000 && angP < 35;
     });
-    // SA-10 attivi: tirano su chi vola sopra i 200 m dal suolo entro 35 km
-    if (S.cfg.sam && P.vivo) S.terra.filter(t => t.sotto === "sam" && t.vivo).forEach(t => { t.cad -= dt; const d = t.pos.distanceTo(P.pos); t.illumina = d < 45000 && P.agl > 200; if (t.antenna) t.antenna.rotation.y += dt * 1.5;
-      if (t.cad <= 0 && t.missili > 0 && d < 35000 && P.agl > 200) { t.missili--; t.cad = (30 + Math.random() * 15) * S.diff.cad; lancia("SA10", t, P); avvisoMissile(t); } });
+    // SA-10 attivi: tirano su chi vola sopra i 200 m dal suolo entro la gittata (35 km; ridotta in proporzione sulle mappe geografiche compresse)
+    if (S.cfg.sam && P.vivo) S.terra.filter(t => t.sotto === "sam" && t.vivo).forEach(t => { t.cad -= dt; const d = t.pos.distanceTo(P.pos), gt = t.gittata || 35000; t.illumina = d < gt * 1.3 && P.agl > 200; if (t.antenna) t.antenna.rotation.y += dt * 1.5;
+      if (t.cad <= 0 && t.missili > 0 && d < gt && P.agl > 200) { t.missili--; t.cad = (30 + Math.random() * 15) * S.diff.cad; lancia("SA10", t, P); avvisoMissile(t); } });
   }
   function avvisoMissile(da) { S.rwrMissile = 4; suono("missile"); messaggio("MISSILE LAUNCH", 2, "warn"); }
 
@@ -487,20 +695,21 @@ const VOLO = (() => {
   function detona(m, tg, fattore) {
     esplosione(m.pos.clone(), false); fineMissile(m);
     if (tg.esca) return; // un flare ha ingannato il missile: nessun danno
-    if (Math.random() < m.pk * fattore) colpito(tg, m.da === S.pl ? (tg.tipo === "terra" ? 1 : 99) : 99, m);
+    // sul giocatore: 3 colpi su 10 lo danneggiano senza abbatterlo (incendio motore), gli altri sono fatali
+    if (Math.random() < m.pk * fattore) colpito(tg, m.da === S.pl ? (tg.tipo === "terra" ? 1 : 99) : tg === S.pl ? (Math.random() < 0.3 ? 1 : 2) : 99, m);
     else if (m.da === S.pl) messaggio("MANCATO", 1.2, "warn");
   }
   function fineMissile(m) { m.vivo = false; scene.remove(m.mesh); if (S.ultimoMissile === m) setTimeout(() => { if (S && S.cam === "missile") S.cam = S.camPrima || "cockpit"; }, 1500); }
   function colpito(t, danno, m) {
     if (!t.vivo) return; t.hp -= danno;
-    if (t === S.pl) { if (t.hp <= 0) { t.vivo = false; t.obj.visible = false; esplosione(t.pos.clone(), true); fineMissione("ABBATTUTO", "Colpito da " + (m ? ARMI[m.tipo].nome : "fuoco nemico")); } return; }
+    if (t === S.pl) { t.hp += danno; colpoGiocatore(danno, m); return; }   // colpoGiocatore applica il danno con le sue animazioni
     if (t.hp <= 0) distruggi(t, m ? "colpito da " + ARMI[m.tipo].sigla : "colpito dal cannone"); else if (m && m.da === S.pl) messaggio("COLPITO · bersaglio danneggiato", 1.5, "call");
   }
   function distruggi(t, come) {
-    t.vivo = false; esplosione(t.pos.clone(), true);
-    if (t.tipo === "aria") { t.obj.visible = false; S.stats.kill++; const n = S.stats.kill; messaggio(`SPLASH ${["ONE", "TWO", "THREE", "FOUR", "FIVE", "SIX"][n - 1] || n}!`, 2.5, "call"); voce("splash " + (["one", "two", "three", "four", "five", "six"][n - 1] || n)); S.stats.punti += 100;
+    t.vivo = false;
+    if (t.tipo === "aria") { esplosioneAria(t.pos, t.vel, 1.1); creaRelitto(t.obj, t.pos, t.vel && t.vel.lengthSq() > 1 ? t.vel : V3(Math.sin(t.hdg || 0), 0, -Math.cos(t.hdg || 0)).multiplyScalar(t.V || 220), { fuoco: true, rollio: 2.2 }); S.stats.kill++; const n = S.stats.kill; messaggio(`SPLASH ${["ONE", "TWO", "THREE", "FOUR", "FIVE", "SIX"][n - 1] || n}!`, 2.5, "call"); voce("splash " + (["one", "two", "three", "four", "five", "six"][n - 1] || n)); S.stats.punti += 100;
       for (let i = 0; i < 8; i++) emetti(t.pos, { col: 0x222222, vel: t.vel.clone().multiplyScalar(0.3).add(V3(0, -20 * i, 0)), vita: 5, s0: 10, s1: 50, a0: 0.7, drag: 0.4 }); }
-    else { S.stats.terra++; S.stats.punti += t.sotto === "sam" ? 150 : 120; messaggio(t.sotto === "sam" ? "SA-10 DISTRUTTO" : "SHACK! " + t.nome.split(" ")[0] + " colpito", 2.5, "call"); t.obj.traverse(o => { if (o.isMesh) o.material = matStd(0x2a2522); }); t.obj.scale.y = 0.35; S.incendi.push({ pos: t.pos.clone(), t: 25 }); }
+    else { esplosioneSuolo(t.pos, t.sotto === "sam" ? 1 : 0.85, { incendio: false }); S.stats.terra++; S.stats.punti += t.sotto === "sam" ? 150 : 120; messaggio(t.sotto === "sam" ? "SA-10 DISTRUTTO" : "SHACK! " + t.nome.split(" ")[0] + " colpito", 2.5, "call"); t.obj.traverse(o => { if (o.isMesh) o.material = matStd(0x2a2522); }); t.obj.scale.y = 0.35; S.incendi.push({ pos: t.pos.clone(), t: 25 }); }
     if (S.lock && S.lock.t === t) S.lock = null;
     if (S.nemici.length && S.nemici.every(e => !e.vivo) && !S.ondataFinita) { S.ondataFinita = true; setTimeout(() => messaggio("CIELO LIBERO · ⏸ → Nuova ondata", 4, "call"), 2600); }
   }
@@ -532,7 +741,9 @@ const VOLO = (() => {
   const CAMS = ["cockpit", "chase", "missile"];
   function cambiaCam() { if (!S) return; let i = CAMS.indexOf(S.cam); let n = CAMS[(i + 1) % CAMS.length]; if (n === "missile" && !(S.ultimoMissile && S.ultimoMissile.vivo)) n = "cockpit"; if (n === "missile") S.camPrima = S.cam; S.cam = n; messaggio({ cockpit: "CAMERA · COCKPIT", chase: "CAMERA · ESTERNA", missile: "CAMERA · MISSILE" }[n], 1); }
   const _cp = V3(), _cu = V3(0, 1, 0);
-  function aggiornaCamera(dt) {
+  function aggiornaCamera(dt) { if (!cameraSequenza(dt)) aggiornaCameraBase(dt); scossaCamera(dt); }
+  function aggiornaCameraBase(dt) {
+    // durante le sequenze (relitto, eiezione) questa funzione non viene chiamata: comanda cameraSequenza
     const P = S.pl; assi(P.Q); const vis = S.cam !== "cockpit" || !P.vivo; if (P.obj) P.obj.visible = P.vivo && vis;
     if (S.cam === "missile" && S.ultimoMissile && S.ultimoMissile.vivo) { const m = S.ultimoMissile; const vh = m.vel.clone().normalize(); _cp.copy(m.pos).addScaledVector(vh, -18).add(V3(0, 3, 0)); camera.position.lerp(_cp, Math.min(1, dt * 8)); camera.up.set(0, 1, 0); camera.lookAt(m.pos.clone().addScaledVector(vh, 60)); camera.fov = 60; camera.updateProjectionMatrix(); return; }
     if (S.cam === "cockpit" && P.vivo) { camera.position.copy(P.pos).addScaledVector(_up, 1.1).addScaledVector(_fwd, 5.5); camera.quaternion.copy(P.Q).multiply(new THREE.Quaternion().setFromAxisAngle(V3(0, 1, 0), Math.PI)); const sh = Math.max(0, P.nz - 6) * 0.02 + (P.aTerra ? Math.min(0.02, P.V / 4000) : 0); if (sh) camera.rotateX((Math.random() - 0.5) * sh); camera.fov = mobile() ? 62 : 60; camera.updateProjectionMatrix(); return; }
@@ -547,6 +758,11 @@ const VOLO = (() => {
   function proietta(v) { _p.copy(v).project(camera); if (_p.z > 1 || _p.z < -1) return null; return { x: (_p.x + 1) / 2 * hudC.width, y: (1 - _p.y) / 2 * hudC.height }; }
   function disegnaHud() {
     const W = hudC.width, H = hudC.height, g = hud; g.clearRect(0, 0, W, H); if (!S) return; const P = S.pl; const sc = clamp(Math.min(W, H) / 560, 0.75, 1.6); const verde = "#5dff8f", rosso = "#ff4d4d";
+    // sequenze (abbattuto, schianto, eiezione): niente HUD, solo inquadratura cinematografica con bande e messaggio
+    if (!P.vivo && S.seqCam) { const bh = H * 0.075; g.fillStyle = "rgba(0,0,0,0.85)"; g.fillRect(0, 0, W, bh); g.fillRect(0, H - bh, W, bh);
+      if (S.msg && S.t < S.msg.fine) { g.textAlign = "center"; g.textBaseline = "middle"; g.font = `800 ${21 * sc}px Consolas, monospace`; g.shadowColor = "rgba(0,0,0,0.9)"; g.shadowBlur = 4; g.fillStyle = S.msg.cls === "warn" ? "#ffb04d" : verde; g.fillText(S.msg.t, W / 2, H * 0.2); g.shadowBlur = 0; }
+      const E = S.eiez; if (E) { g.textAlign = "left"; g.font = `600 ${12 * sc}px Consolas, monospace`; g.fillStyle = "#e6e6e6"; const q = Math.max(0, Math.round((E.pos.y - quotaSuolo(E.pos.x, E.pos.z)) / 0.3048)); g.fillText(`PILOTA · ${q} ft dal suolo · ${Math.round(E.vel.length() * 1.944)} kt`, 14 * sc, H - bh / 2); }
+      return; }
     g.save(); g.strokeStyle = verde; g.fillStyle = verde; g.lineWidth = 1.6 * sc; g.font = `600 ${13 * sc}px Consolas, "Courier New", monospace`; g.shadowColor = "rgba(0,0,0,0.85)"; g.shadowBlur = 3; g.textBaseline = "middle";
     const cx = W / 2, cy = H / 2; assi(P.Q); const theta = Math.asin(clamp(_fwd.y, -1, 1)) * R2D, phi = Math.atan2(-_rt.y, _up.y), hdg = (Math.atan2(_fwd.x, -_fwd.z) * R2D + 360) % 360; const ck = S.cam === "cockpit";
     const ppd = H / camera.fov;
@@ -622,14 +838,17 @@ const VOLO = (() => {
       if (P.vivo && P.ab > 0.3 && S.cam !== "cockpit" && (S.abT = (S.abT || 0) - dtR) <= 0) { S.abT = 0.05; assi(P.Q); emetti(V3().copy(P.pos).addScaledVector(_fwd, -9), { luce: true, col: 0xff9a3c, vita: 0.15, s0: 3, s1: 1.5, a0: 0.8 }); }
       S.incendi.forEach(f => { f.t -= dtR; if ((f.e = (f.e || 0) - dtR) <= 0 && f.t > 0) { f.e = 0.25; emetti(f.pos, { col: 0x2b2725, vel: V3(4, 18, 0), vita: 6, s0: 25, s1: 120, a0: 0.6, su: 4, drag: 0.1 }); emetti(f.pos, { luce: true, col: 0xff7a1a, vita: 0.6, s0: 20, s1: 30, a0: 0.8 }); } }); S.incendi = S.incendi.filter(f => f.t > 0);
       if (S.oggettiSporchi && (S.posT = (S.posT || 0) - dtR) <= 0) { S.posT = 1; S.oggettiSporchi = false; posizionaTerra(); }
+      // motore colpito: fiamme e fumo dallo scarico
+      if (P.vivo && P.danno && (S.dnT = (S.dnT || 0) - dtR) <= 0) { S.dnT = 0.05; assi(P.Q); const sc = V3().copy(P.pos).addScaledVector(_fwd, -8); const pv = P.vel.clone().multiplyScalar(0.2); emetti(sc, { luce: true, col: Math.random() < 0.5 ? 0xff9a3c : 0xff6a1a, vel: pv, vita: 0.35, s0: 4, s1: 9, a0: 0.95, drag: 1 }); emetti(sc, { col: 0x2e2a27, vel: pv, vita: 4.5, s0: 4, s1: 30, a0: 0.6, drag: 0.5, su: 1.5 }); }
     }
+    if (!S.pausa) aggiornaEffetti(dtR);
     aggiornaParticelle(S.pausa ? 0 : dtR); aggiornaCamera(dtR); if (S.cupola) S.cupola.position.copy(camera.position); if (S.sole && S.sunDir) S.sole.position.copy(camera.position).addScaledVector(S.sunDir, 1.2e6);
   }
   /* collaudo: fa avanzare la simulazione a passo fisso senza disegnare (pannello nascosto, prove automatiche) */
   const TEST = { in: null };
   function simula(sec, inp, ogni) { if (!S) return null; TEST.in = inp || null; const log = []; const n = Math.round(sec * 60); for (let i = 0; i < n; i++) { aggiorna(1 / 60); if (ogni && i % Math.round(ogni * 60) === 0) log.push(fotografia()); if (!S || S.fine) break; } TEST.in = null; if (S) { renderer.render(scene, camera); disegnaHud(); } return log; }
   function fotografia() { if (!S) return null; const P = S.pl; assi(P.Q); return { t: +S.t.toFixed(1), kt: Math.round(P.V * KT), ft: Math.round(P.pos.y * FT), agl: Math.round((P.agl || 0) * FT), g: +P.nz.toFixed(2), a: +(P.alpha * R2D).toFixed(1), M: +(P.M || 0).toFixed(2), pitch: +(Math.asin(clamp(_fwd.y, -1, 1)) * R2D).toFixed(1), roll: +(Math.atan2(-_rt.y, _up.y) * R2D).toFixed(0), hdg: Math.round((Math.atan2(_fwd.x, -_fwd.z) * R2D + 360) % 360), fuel: Math.round(P.fuel), terra: P.aTerra, vivo: P.vivo }; }
-  function aggiornaUi() { if (!S) return; aggiornaNvg(); const liv = ov.querySelector("#vl-manetta-liv"); liv.style.height = (S.thr * 100) + "%"; liv.classList.toggle("ab", S.thr > 0.8); ov.querySelector("#vl-carrello").classList.toggle("on", S.pl.carrello); ov.querySelector("#vl-arma").textContent = ARMI[S.arma].sigla; ov.querySelector("#vl-lock").classList.toggle("on", !!(S.lock && S.lock.ok)); }
+  function aggiornaUi() { if (!S) return; disegnaLampo(); aggiornaNvg(); const bo = ov.querySelector("#vl-ora"); const nt = S.cfg.ora === "notte"; if (bo._n !== nt) { bo._n = nt; bo.textContent = nt ? "☀" : "🌙"; bo.title = nt ? "Passa al giorno (tasto L)" : "Passa alla notte (tasto L)"; } const liv = ov.querySelector("#vl-manetta-liv"); liv.style.height = (S.thr * 100) + "%"; liv.classList.toggle("ab", S.thr > 0.8); ov.querySelector("#vl-carrello").classList.toggle("on", S.pl.carrello); ov.querySelector("#vl-arma").textContent = ARMI[S.arma].sigla; ov.querySelector("#vl-lock").classList.toggle("on", !!(S.lock && S.lock.ok)); }
   function carrello() { if (!S || !S.pl.vivo) return; const P = S.pl; if (P.aTerra) { messaggio("A TERRA: CARRELLO BLOCCATO", 1.2, "warn"); return; } if (!P.carrello && P.V * KT > 300) { messaggio("TROPPO VELOCE PER IL CARRELLO (max 300 kt)", 1.5, "warn"); return; } P.carrello = !P.carrello; suono("click"); messaggio(P.carrello ? "GEAR DOWN" : "GEAR UP", 1.2); }
 
   /* ---------- schermate: menu iniziale, pausa/istruzioni, fine ---------- */
@@ -643,8 +862,10 @@ const VOLO = (() => {
         <li><b>ARMA</b> cambia arma: AIM-120 (radar, lungo raggio), AIM-9X (infrarosso, corto raggio), GUN, AGM-65 (aria-suolo).</li>
         <li><b>FLARE</b> lancia flare e chaff: usali quando senti "MISSILE".</li>
         <li><b>PED</b> pedaliere (timone), <b>FRENO</b> aerofreno in volo / freni ruote a terra, <b>GEAR</b> carrello, <b>🎥</b> cockpit / esterna / missile.</li>
-        <li><b>NVG</b> (in alto, o tasto <b>N</b>): visore notturno. Si vede dal cockpit: immagine verde intensificata, grana del tubo e campo visivo circolare. Nella missione notturna senza visore si vedono solo luci di città, piste e luci di navigazione.</li></ul></div>
-      <div><h4>⌨ Tastiera</h4><ul><li><b>↑ ↓ ← →</b> o <b>W S A D</b>: cloche (↑ picchia, ↓ cabra) · <b>Q E</b>: timone</li><li><b>Shift / Ctrl</b> (o R / F): manetta · <b>Spazio</b>: fuoco · <b>T</b>: lock · <b>X</b>: arma · <b>C</b>: flare</li><li><b>G</b>: carrello · <b>B</b>: freno · <b>V</b>: camera · <b>N</b>: visore NVG · <b>P</b> o <b>Esc</b>: pausa · <b>H</b>: aiuto</li></ul>
+        <li><b>🌙 / ☀</b> (in alto, o tasto <b>L</b> fuori dalla vista casco): passa dal giorno alla notte e viceversa durante il volo. <b>NVG</b> (in alto, o tasto <b>N</b>): visore notturno. Si vede dal cockpit: immagine verde intensificata, grana del tubo e campo visivo circolare. Nella missione notturna senza visore si vedono solo luci di città, piste e luci di navigazione.</li>
+        <li><b>EJECT</b> (in alto a destra, o tasto <b>Z</b>): seggiolino eiettabile. A velivolo integro va premuto <b>due volte</b> entro 2 secondi; se sei stato abbattuto basta una volta, finché il relitto non tocca terra. Salta il tettuccio, parte il razzo del seggiolino, poi si apre il paracadute.</li>
+        <li><b>Colpi subiti</b>: un missile può abbattere l'aereo (esplosione, relitto in fiamme che precipita) oppure danneggiarlo: incendio al motore, niente postbruciatore. Un secondo colpo è fatale.</li></ul></div>
+      <div><h4>⌨ Tastiera</h4><ul><li><b>↑ ↓ ← →</b> o <b>W S A D</b>: cloche (↑ picchia, ↓ cabra) · <b>Q E</b>: timone</li><li><b>Shift / Ctrl</b> (o R / F): manetta · <b>Spazio</b>: fuoco · <b>T</b>: lock · <b>X</b>: arma · <b>C</b>: flare</li><li><b>G</b>: carrello · <b>B</b>: freno · <b>V</b>: camera · <b>N</b>: visore NVG · <b>L</b>: giorno/notte · <b>Z</b> (due volte): eiezione · <b>P</b> o <b>Esc</b>: pausa · <b>H</b>: aiuto</li></ul>
         <h4>🎮 Gamepad</h4><ul><li>Stick sinistro: cloche · grilletti: manetta · dorsali: timone · A: fuoco · Y: lock · X: arma · B: flare · Select: camera · Start: pausa</li></ul>
         <h4>🧭 Come si combatte</h4><ul><li>Il <b>diamante</b> è un contatto; il <b>quadrato</b> è il bersaglio scelto, diventa verde con il lock. A destra la barra <b>DLZ</b>: spara quando il triangolo è tra i due segni e compare <b>SHOOT</b>.</li>
         <li>Il cerchio con il punto è il <b>velocity vector</b>: dove sta andando davvero l'aereo. A forte incidenza è sotto il muso.</li>
@@ -677,15 +898,16 @@ const VOLO = (() => {
     if (!S || S.fine) return; S.pausa = on; const m = ov.querySelector("#vl-menu");
     if (!on) { m.classList.add("hidden"); S.menu = false; clock.getDelta(); return; } S.menu = true;
     m.innerHTML = `<div class="vl-card"><div class="vl-titolo"><span>⏸</span><div><h2>PAUSA</h2><small>${S.pl.A.nome} · ${S.stats.kill} abbattimenti · ${S.stats.terra} bersagli a terra · ${S.stats.punti} punti</small></div></div>
-      ${aiuto ? istruzioniHtml() : ""}<div class="vl-azioni"><button class="vl-go" id="vl-riprendi">RIPRENDI ▶</button><button class="vl-sec" id="vl-ondata">Nuova ondata di avversari</button><button class="vl-sec" id="vl-aiuto2">Istruzioni</button><button class="vl-sec" id="vl-ricomincia">Ricomincia</button><button class="vl-sec" id="vl-menu-i">Cambia velivolo / opzioni</button><button class="vl-sec" id="vl-esci2">Esci</button></div></div>`;
+      ${aiuto ? istruzioniHtml() : ""}<div class="vl-azioni"><button class="vl-go" id="vl-riprendi">RIPRENDI ▶</button><button class="vl-sec" id="vl-orap">${S.cfg.ora === "notte" ? "☀ Passa al giorno" : "🌙 Passa alla notte (NVG)"}</button><button class="vl-sec" id="vl-ondata">Nuova ondata di avversari</button><button class="vl-sec" id="vl-aiuto2">Istruzioni</button><button class="vl-sec" id="vl-ricomincia">Ricomincia</button><button class="vl-sec" id="vl-menu-i">Cambia velivolo / opzioni</button><button class="vl-sec" id="vl-esci2">Esci</button></div></div>`;
     m.classList.remove("hidden");
     m.querySelector("#vl-riprendi").onclick = () => pausa(false); m.querySelector("#vl-aiuto2").onclick = () => pausa(true, true);
-    m.querySelector("#vl-ondata").onclick = () => { creaNemici(Math.max(2, S.cfg.nemici || 2)); S.ondataFinita = false; pausa(false); messaggio("NUOVA ONDATA IN ARRIVO", 2.5, "warn"); };
+    m.querySelector("#vl-orap").onclick = () => { cambiaOra(); pausa(false); }; m.querySelector("#vl-ondata").onclick = () => { creaNemici(Math.max(2, S.cfg.nemici || 2)); S.ondataFinita = false; pausa(false); messaggio("NUOVA ONDATA IN ARRIVO", 2.5, "warn"); };
     m.querySelector("#vl-ricomincia").onclick = () => { m.classList.add("hidden"); avvia(S.cfg); }; m.querySelector("#vl-menu-i").onclick = () => { distruggiScena(); menuIniziale(); }; m.querySelector("#vl-esci2").onclick = () => chiudi();
   }
   function fineMissione(titolo, motivo) {
-    if (!S || S.fine) return; S.fine = true; if (titolo === "ABBATTUTO") voce("you are hit"); setTimeout(() => { if (!S) return; S.pausa = true; const m = ov.querySelector("#vl-menu"); S.menu = true; const st = S.stats; const minuti = (S.t / 60).toFixed(1);
-      m.innerHTML = `<div class="vl-card"><div class="vl-titolo"><span>${titolo === "SCHIANTO" ? "💥" : "🎯"}</span><div><h2>${titolo}</h2><small>${motivo}</small></div></div>
+    // un volo ricominciato nel frattempo non riceve la schermata finale del precedente
+    if (!S || S.fine) return; S.fine = true; const volo = S; setTimeout(() => { if (!S || S !== volo) return; S.pausa = true; const m = ov.querySelector("#vl-menu"); S.menu = true; const st = S.stats; const minuti = (S.t / 60).toFixed(1);
+      m.innerHTML = `<div class="vl-card"><div class="vl-titolo"><span>${titolo === "SCHIANTO" ? "💥" : titolo === "EIETTATO" ? "🪂" : "🎯"}</span><div><h2>${titolo}</h2><small>${motivo}</small></div></div>
         <table class="vl-tab"><tr><td>Tempo di volo</td><td>${minuti} min</td></tr><tr><td>Abbattimenti</td><td>${st.kill}</td></tr><tr><td>Bersagli a terra</td><td>${st.terra}</td></tr><tr><td>Missili lanciati</td><td>${st.lanci}</td></tr><tr><td>Colpi di cannone a segno</td><td>${st.colpi}</td></tr><tr><td>G massimi</td><td>${S.pl.gMax.toFixed(1)}</td></tr><tr><td><b>Punti</b></td><td><b>${st.punti}</b></td></tr></table>
         <div class="vl-azioni"><button class="vl-go" id="vl-ancora">VOLA ANCORA ▶</button><button class="vl-sec" id="vl-menu-f">Cambia velivolo / opzioni</button><button class="vl-sec" id="vl-esci3">Esci</button></div></div>`;
       m.classList.remove("hidden"); m.querySelector("#vl-ancora").onclick = () => { m.classList.add("hidden"); avvia(S.cfg); }; m.querySelector("#vl-menu-f").onclick = () => { distruggiScena(); menuIniziale(); }; m.querySelector("#vl-esci3").onclick = () => chiudi(); }, 2800);
@@ -697,7 +919,7 @@ const VOLO = (() => {
     distruggiScena(); ov.querySelector("#vl-menu").classList.add("hidden"); if (!renderer) { renderer = new THREE.WebGLRenderer({ canvas, antialias: !mobile(), powerPreference: "high-performance", logarithmicDepthBuffer: true }); if (THREE.sRGBEncoding !== undefined && renderer.outputEncoding !== undefined) renderer.outputEncoding = THREE.sRGBEncoding; renderer.toneMapping = THREE.ACESFilmicToneMapping; }
     renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, mobile() ? 1 : 1.5)); scene = new THREE.Scene(); camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 1, 3e6); ridimensiona();
     S = { cfg: Object.assign({}, cfg), diff: DIFF[cfg.diff] || DIFF.veterano, t: 0, pl: { pos: V3(), vel: V3(), Q: new THREE.Quaternion(), tipo: "aria", raggio: 10, vivo: true }, nemici: [], missili: [], proiettili: [], flares: [], incendi: [], terra: [], arma: "AIM120", lock: null, cam: "cockpit", thr: 0.6, in: { sx: 0, sy: 0, rud: 0 }, stats: { kill: 0, terra: 0, lanci: 0, colpi: 0, punti: 0 }, pausa: false, fine: false, menu: false };
-    const root = new THREE.Group(); scene.add(root); pista(root); partenza(); cielo(); terreno(root); bersagliTerra(root); particelle(); if (cfg.ora === "notte") luciCitta(root); creaGiocatore(); creaNemici(cfg.nemici || 0);
+    const root = new THREE.Group(); scene.add(root); pista(root); partenza(); cielo(); terreno(root); bersagliTerra(root); S.root = root; particelle(); initEffetti(); if (cfg.ora === "notte") luciCitta(root); creaGiocatore(); creaNemici(cfg.nemici || 0);
     const tg = new THREE.BufferGeometry(); tg.setAttribute("position", new THREE.BufferAttribute(new Float32Array(600 * 3), 3)); S.traccianti = new THREE.LineSegments(tg, new THREE.LineBasicMaterial({ color: 0xffe08a, transparent: true, opacity: 0.9 })); S.traccianti.frustumCulled = false; scene.add(S.traccianti);
     if (!(S.pl.armi.AIM120 > 0)) S.arma = S.pl.armi.AIM9X > 0 ? "AIM9X" : "GUN";
     ov.classList.toggle("touch", mobile()); clock = new THREE.Clock(); cancelAnimationFrame(raf); animate();
@@ -711,5 +933,5 @@ const VOLO = (() => {
     dom(); if (typeof APP !== "undefined" && APP.play) APP.play(false); ov.classList.remove("hidden"); document.body.classList.add("volo-aperto"); ridimensiona(); menuIniziale();
   }
   function chiudi() { if (!ov) return; cancelAnimationFrame(raf); raf = 0; distruggiScena(); TILT.on = false; if (AU) { try { AU.gm.gain.value = 0; AU.gt.gain.value = 0; } catch (e) {} } ov.classList.add("hidden"); document.body.classList.remove("volo-aperto"); try { if (document.fullscreenElement) document.exitFullscreen(); } catch (e) {} }
-  return { apri, chiudi, AEREI, ARMI, simula, fotografia, avvia: c => avvia(Object.assign(pref(), c || {})), fuoco: () => fuocoPremuto(), lock: () => blocca(), arma: a => { if (S) { S.arma = a; S.lock = null; } }, flare: () => contromisure(), carrello: () => carrello(), get attivo() { return attivo(); }, get stato() { return S; }, get debug() { return S && { t: S.t, V: S.pl.V, kt: S.pl.V * KT, alt: S.pl.pos.y, agl: S.pl.agl, nz: S.pl.nz, alpha: S.pl.alpha * R2D, M: S.pl.M, fuel: S.pl.fuel, aTerra: S.pl.aTerra, vivo: S.pl.vivo, nemici: S.nemici.map(e => ({ id: e.id, vivo: e.vivo, dist: Math.round(e.dist || 0), stato: e.stato })), missili: S.missili.length, terreno: TERRA.caricate + "/" + TERRA.totale, lock: S.lock && { t: S.lock.t.id, ok: S.lock.ok, r: Math.round(S.lock.r || 0) }, arma: S.arma, stats: S.stats }; } };
+  return { apri, chiudi, AEREI, ARMI, simula, fotografia, avvia: c => avvia(Object.assign(pref(), c || {})), fuoco: () => fuocoPremuto(), lock: () => blocca(), arma: a => { if (S) { S.arma = a; S.lock = null; } }, flare: () => contromisure(), carrello: () => carrello(), eject: () => eietta(), colpisciMe: (danno) => { if (S && S.pl.vivo) colpito(S.pl, danno == null ? 2 : danno, null); }, get attivo() { return attivo(); }, get stato() { return S; }, get debug() { return S && { t: S.t, V: S.pl.V, kt: S.pl.V * KT, alt: S.pl.pos.y, agl: S.pl.agl, nz: S.pl.nz, alpha: S.pl.alpha * R2D, M: S.pl.M, fuel: S.pl.fuel, aTerra: S.pl.aTerra, vivo: S.pl.vivo, nemici: S.nemici.map(e => ({ id: e.id, vivo: e.vivo, dist: Math.round(e.dist || 0), stato: e.stato })), missili: S.missili.length, terreno: TERRA.caricate + "/" + TERRA.totale, lock: S.lock && { t: S.lock.t.id, ok: S.lock.ok, r: Math.round(S.lock.r || 0) }, arma: S.arma, stats: S.stats }; } };
 })();
