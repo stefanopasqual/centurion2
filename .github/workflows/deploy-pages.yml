@@ -147,6 +147,23 @@ jobs:
               file.write_text(page,encoding='utf-8')
           PY
           python3 .github/aero/patch_aero.py extracted/site
+          node --check .github/aero/fdm6.js
+          node .github/aero/test_fdm6.cjs
+          cp .github/aero/fdm6.js extracted/site/js/fdm6.js
+          python3 .github/aero/patch_fdm6.py extracted/site
+          python3 -m py_compile .github/aero/patch_fdm6.py
+          python3 - <<'PY'
+          from pathlib import Path
+          file=Path('extracted/site/index.html')
+          page=file.read_text(encoding='utf-8')
+          tag='<script src="js/fdm6.js"></script>'
+          anchor='<script src="js/volo.js"></script>'
+          assert anchor in page
+          if tag not in page:
+              page=page.replace(anchor,tag+'\n'+anchor,1)
+              file.write_text(page,encoding='utf-8')
+          PY
+          node --check extracted/site/js/fdm6.js
           node --check extracted/site/js/aero_core.js
           python3 -m py_compile .github/aero/patch_aero.py
           python3 -m py_compile .github/sonic/patch_sonic.py
@@ -261,6 +278,7 @@ jobs:
           sed -i 's/centurion2-mobile-hd-terrain-v29/centurion2-mobile-thermal-uav-v30/g' extracted/site/sw.js
           sed -i 's/centurion2-mobile-thermal-uav-v30/centurion2-mobile-sonic-v31/g' extracted/site/sw.js
           sed -i 's/centurion2-mobile-sonic-v31/centurion2-mobile-aero-v32/g' extracted/site/sw.js
+          sed -i 's/centurion2-mobile-aero-v32/centurion2-mobile-fdm6-v33/g' extracted/site/sw.js
           # manifest.json (modelli, audio) network-first: rotations and files change on every deploy
           sed -i 's|const isDati = url => /|const isDati = url => !/manifest[.]json/.test(url) \&\& /|' extracted/site/sw.js
           grep -q 'isDati = url => !/manifest\[\.\]json/.test(url) && /' extracted/site/sw.js
