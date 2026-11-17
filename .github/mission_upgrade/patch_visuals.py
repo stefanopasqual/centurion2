@@ -29,10 +29,12 @@ visuals=r'''
     const strip=new THREE.Mesh(new THREE.PlaneGeometry(38,420),
       new THREE.MeshStandardMaterial({color:0x333b43,roughness:0.94,metalness:0.01}));
     strip.rotation.x=-Math.PI/2;root.add(strip);
+    if(window.CENTURION_REALISM)strip.visible=false;
     const mid=new THREE.MeshBasicMaterial({color:0xdedbd2,side:THREE.DoubleSide});
     for(let i=-8;i<=8;i++){
       const line=new THREE.Mesh(new THREE.PlaneGeometry(.36,6.5),mid);
       line.rotation.x=-Math.PI/2;line.position.set(0,.024,i*21);root.add(line);
+      if(window.CENTURION_REALISM)line.visible=false;
     }
     const lampMat=new THREE.MeshBasicMaterial({color:0xe4e6c2});
     for(let side of [-1,1]) for(let i=-9;i<=9;i++){
@@ -41,8 +43,10 @@ visuals=r'''
     }
     const hangar=new THREE.Mesh(new THREE.BoxGeometry(32,10,28),matStd(0x424e58));
     hangar.position.set(32,5,-155);root.add(hangar);
+    if(window.CENTURION_REALISM)hangar.visible=false;
     const doorway=new THREE.Mesh(new THREE.PlaneGeometry(23,7),new THREE.MeshBasicMaterial({color:0x080d16}));
     doorway.position.set(32,4.4,-140.8);root.add(doorway);
+    if(window.CENTURION_REALISM)doorway.visible=false;
     const plane=new THREE.Group();root.add(plane);
     plane.position.set(0,3.2,-155);
     const wheels=new THREE.Group();plane.add(wheels);
