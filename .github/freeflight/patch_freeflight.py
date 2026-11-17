@@ -19,12 +19,13 @@ extra=r'''
     KC30:{nome:"Airbus KC-30 / A330 MRTT",icona:"kc30",nonArmato:true,noEject:true,m:160000,S:361,Tmil:480000,Tab:480000,cd0:.025,k:.061,cla:5.1,amax:14,astall:16,pmax:42,gmax:2.5,gneg:1,fuel:72000,colpi:0,cannone:"Nessuno",carico:{}},
     E7:{nome:"Boeing E-7 Wedgetail",icona:"e7",nonArmato:true,noEject:true,m:65000,S:125,Tmil:225000,Tab:225000,cd0:.026,k:.076,cla:4.7,amax:14,astall:17,pmax:55,gmax:2.5,gneg:1,fuel:23000,colpi:0,cannone:"Nessuno",carico:{}},
     UAV_FIXED:{nome:"UAV ad ala fissa · ricognizione",icona:"uav-fixed",drone:"fixed",nonArmato:true,noEject:true,m:28,S:4.7,Tmil:115,Tab:115,cd0:.041,k:.095,cla:3.7,amax:18,astall:19,pmax:80,gmax:3.5,gneg:1.5,fuel:10,colpi:0,cannone:"Nessuno",carico:{}},
-    UAV_QUAD:{nome:"UAV quadricottero · osservazione",icona:"uav-quad",drone:"quad",nonArmato:true,noEject:true,m:6,S:.55,Tmil:75,Tab:75,cd0:.07,k:.10,cla:2.5,amax:15,astall:20,pmax:90,gmax:2,gneg:1.5,fuel:3,colpi:0,cannone:"Nessuno",carico:{}}
+    UAV_QUAD:{nome:"UAV quadricottero · osservazione",icona:"uav-quad",drone:"quad",nonArmato:true,noEject:true,m:6,S:.55,Tmil:75,Tab:75,cd0:.07,k:.10,cla:2.5,amax:15,astall:20,pmax:90,gmax:2,gneg:1.5,fuel:3,colpi:0,cannone:"Nessuno",carico:{}},
+    GERAN2:{nome:"Geran-2 · UAV di volo dimostrativo",icona:"geran2",drone:"geran",nonArmato:true,noEject:true,m:200,S:3.2,Tmil:650,Tab:650,cd0:.066,k:.11,cla:3,amax:15,astall:18,pmax:50,gmax:2.5,gneg:1,fuel:30,colpi:0,cannone:"Nessuno",carico:{}}
 '''
 patch('  };\n  /* ---------- armi ---------- */',',\n'+extra+'  };\n  /* ---------- armi ---------- */')
 
 patch('''    P.obj = modello(A.icona, S.cfg.aereo, undefined, "01"); if (S.cfg.ora === "notte") luciNav(P.obj, 5, 15);''',
-'''    if(A.drone){
+'''    if(A.drone&&A.drone!=="geran"){
       const factory=window.CENTURION_REALISM;
       if(!factory || !factory.drone)throw new Error("Missing shared drone model generator");
       const d=factory.drone(A.drone==="quad");
@@ -36,7 +37,7 @@ patch('''    P.M = 0; P.agl = 0; P.qbar = 0;''','''    if(AEREI[S.cfg.aereo]?.dr
       const kind=AEREI[S.cfg.aereo].drone,b=S.pista,hdg=b.hdg*D2R;
       P.pos.set(b.x,b.y+(kind==="quad"?95:450),b.z);
       P.Q.copy(quatDaAssetto(hdg,0,0));
-      P.vel=kind==="quad"?V3():V3(Math.sin(hdg),0,-Math.cos(hdg)).multiplyScalar(29);
+      P.vel=kind==="quad"?V3():V3(Math.sin(hdg),0,-Math.cos(hdg)).multiplyScalar(kind==="geran"?50:29);
       P.aTerra=false;P.carrello=false;S.thr=kind==="quad"?.5:.58;
     }
     P.M = 0; P.agl = 0; P.qbar = 0;''')
@@ -145,4 +146,4 @@ if "centurion-freeflight-fleet" not in html:
  assert "</head>" in html
  html=html.replace("</head>",style+"\n</head>",1)
 idx.write_text(html,encoding="utf-8")
-print("PASS: 11 flyable aircraft: 7 fighters, KC30, E7, two original UAVs.")
+print("PASS: 12 flyable aircraft: 7 fighters, KC30, E7, two original UAVs and unarmed Geran-2 demo.")
