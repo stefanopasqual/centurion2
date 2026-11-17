@@ -183,7 +183,24 @@ jobs:
           cp .github/ground_life/gun_audio.js extracted/site/js/gun_audio.js
           cp .github/ground_life/ground_life.js extracted/site/js/ground_life.js
           python3 .github/ground_life/patch_ground_life.py extracted/site
+          python3 .github/maps/patch_freeflight_ultra.py extracted/site
+          python3 -m py_compile .github/maps/patch_freeflight_ultra.py
           python3 -m py_compile .github/ground_life/patch_ground_life.py
+          node --check extracted/site/js/terrain_mobile.js
+          python3 - <<'PY'
+          from pathlib import Path
+          free=Path('extracted/site/js/volo.js').read_text(encoding='utf-8')
+          terrain=Path('extracted/site/js/terrain_mobile.js').read_text(encoding='utf-8')
+          life=Path('extracted/site/js/ground_life.js').read_text(encoding='utf-8')
+          assert 'quality:"maximum"' in free
+          assert 'altitudeAGL:' in free
+          assert 'velocity?velocity.x:0' in free
+          assert '[isLow?16:17' in terrain
+          assert 'const z=Math.min(15,entry.z)' in terrain
+          assert 'const tile=tiles.get(k)' in terrain
+          assert 'const count=high?' in life
+          print("PASS: Free Flight zoom-17 satellite, actual zoom<=15 DEM, flight prefetch and civil detail")
+          PY
           python3 - <<'PY'
           from pathlib import Path
           path=Path('extracted/site/index.html')
@@ -312,6 +329,7 @@ jobs:
           sed -i 's/centurion2-mobile-fdm6-v33/centurion2-mobile-uav-ir-fix-v34/g' extracted/site/sw.js
           sed -i 's/centurion2-mobile-uav-ir-fix-v34/centurion2-mobile-uav-no-nvg-v35/g' extracted/site/sw.js
           sed -i 's/centurion2-mobile-uav-no-nvg-v35/centurion2-mobile-groundlife-guns-v36/g' extracted/site/sw.js
+          sed -i 's/centurion2-mobile-groundlife-guns-v36/centurion2-mobile-freeflight-ultra-v37/g' extracted/site/sw.js
           # manifest.json (modelli, audio) network-first: rotations and files change on every deploy
           sed -i 's|const isDati = url => /|const isDati = url => !/manifest[.]json/.test(url) \&\& /|' extracted/site/sw.js
           grep -q 'isDati = url => !/manifest\[\.\]json/.test(url) && /' extracted/site/sw.js
