@@ -25,7 +25,7 @@
     concurrent:isLow?3:mobile?4:6
   });
   function ratio(record){return record?1:min(devicePixelRatio||1,profile.dpr);}
-  function texture(tex,renderer){
+  function texture(tex,renderer,requestedAnisotropy){
     if(!tex)return tex;
     if(window.THREE){
       const T=window.THREE;
@@ -34,7 +34,7 @@
       tex.generateMipmaps=true;
       tex.minFilter=T.LinearMipmapLinearFilter;
       tex.magFilter=T.LinearFilter;
-      let cap=profile.anisotropy;
+      let cap=Number.isFinite(requestedAnisotropy)?requestedAnisotropy:profile.anisotropy;
       try{if(renderer&&renderer.capabilities)cap=min(cap,renderer.capabilities.getMaxAnisotropy());}catch(_){}
       tex.anisotropy=max(1,cap);tex.needsUpdate=true;
     }
@@ -55,13 +55,23 @@
     const T=window.THREE, source=typeof VISTA3D!== 'undefined'?VISTA3D:window.VISTA3D;
     if(!T||!source||!opts||!opts.root)return null;
     const center={lat:opts.lat0,lon:opts.lon0};
+    // Maximum mode is opt-in for Free Flight. Other 3D views keep the
+    // balanced configuration and its existing mobile memory profile.
+    const ultra=opts.quality==="maximum";
+    const maxTiles=ultra?(isLow?26:mobile?(budget==="ultra"?58:44):80):profile.maxTiles;
+    const parallel=ultra?(isLow?4:mobile?7:9):profile.concurrent;
     const half=Number.isFinite(opts.half)&&opts.half>0?opts.half:Infinity;
-    const levels=(mobile?[[12,1,profile.segmentBase,0.7],
-                         [isLow?14:15,1,isLow?28:40,1.5]]:
-                        [[13,2,96,.7],[15,1,56,1.5]]);
+    const levels=ultra?
+      [[12,1,Math.max(48,profile.segmentBase),.7],
+       [15,2,isLow?48:80,1.2],
+       [isLow?16:17,2,isLow?28:48,2.2]]:
+      (mobile?[[12,1,profile.segmentBase,0.7],
+               [isLow?14:15,1,isLow?28:40,1.5]]:
+              [[13,2,96,.7],[15,1,56,1.5]]);
     const group=new T.Group();group.name='CENTURION_HD_REAL_ELEVATION';opts.root.add(group);
     const texLoader=new T.TextureLoader();texLoader.setCrossOrigin('anonymous');
-    const tiles=new Map(),queue=[];let active=0,closed=false,lastX=Infinity,lastZ=Infinity,lastTime=0;
+    const tiles=new Map(),queue=[],demCache=new Map();
+    let active=0,closed=false,lastX=Infinity,lastZ=Infinity,lastTime=0;
     const world={};
     for(const level of levels){
       const z=level[0],ref=tileAt(center.lat,center.lon,z);
@@ -76,10 +86,46 @@
       const v=opts.baseHeight(x,z);
       return Number.isFinite(v)?v:0;
     }
-    function sampleHeight(z,x,y,px,pz,grid){
-      const p=coords(z,x,y);
+    function sampleGrid(entry,u,v){
+      // Terrarium provides actual elevation through zoom 15. At imagery
+      // zoom 16/17 we bilinearly sample the correctly positioned parent DEM.
+      // More pixels must never be presented as extra measured elevation.
+      const factor=entry.demRatio||1;
+      const parentX=entry.demX===undefined?entry.x:entry.demX;
+      const parentY=entry.demY===undefined?entry.y:entry.demY;
+      const childX=entry.x-parentX*factor,childY=entry.y-parentY*factor;
+      const sampleU=(childX+clamp(u,0,1))/factor;
+      const sampleV=(childY+clamp(v,0,1))/factor;
+      return (bilinear(entry.grid,sampleU,sampleV)-
+        (opts.datum?opts.datum():0))*(opts.exaggeration?opts.exaggeration():1);
+    }
+    function sampleHeight(entry,px,pz){
+      const p=coords(entry.z,entry.x,entry.y);
       const u=(px-(p.x-p.size/2))/p.size,v=(pz-(p.z-p.size/2))/p.size;
-      return (bilinear(grid,u,v)-(opts.datum?opts.datum():0))*(opts.exaggeration?opts.exaggeration():1);
+      return sampleGrid(entry,u,v);
+    }
+    function requestDem(entry){
+      const z=Math.min(15,entry.z),factor=Math.pow(2,entry.z-z);
+      const px=Math.floor(entry.x/factor),py=Math.floor(entry.y/factor);
+      entry.demRatio=factor;entry.demX=px;entry.demY=py;
+      const k=z+"_"+px+"_"+py;
+      let promise=demCache.get(k);
+      if(!promise){
+        // Reuse DEM parent tiles rather than fetching the same height data
+        // separately for each high-zoom satellite image.
+        promise=new Promise(resolve=>{
+          source.caricaDem(source.tileUrl("dem",z,px,py),
+            img=>{try{resolve(source.demGrid(img));}catch(_){resolve(null);}},
+            ()=>resolve(null));
+        });
+        demCache.set(k,promise);
+        if(demCache.size>160){
+          // Capped promise cache avoids unlimited memory during long flights.
+          const oldest=demCache.keys().next().value;
+          if(oldest!==k)demCache.delete(oldest);
+        }
+      }
+      return promise;
     }
     function heightAt(x,z){
       for(let i=levels.length-1;i>=0;i--){
@@ -87,7 +133,7 @@
         const ix=Math.floor(m.ref.x+x/m.size),iy=Math.floor(m.ref.y+z/m.size);
         const entry=tiles.get(key(z0,ix,iy));
         if(entry&&entry.grid&&!entry.disposed){
-          return sampleHeight(z0,ix,iy,x,z,entry.grid);
+          return sampleHeight(entry,x,z);
         }
       }
       return NaN;
@@ -104,7 +150,7 @@
         const lx=vertices.getX(j),lz=vertices.getZ(j);
         const x=pos.x+lx,z=pos.z+lz;
         const u=clamp(lx/size+.5,0,1),v=clamp(.5+lz/size,0,1);
-        const hi=(bilinear(entry.grid,u,v)-(opts.datum?opts.datum():0))*(opts.exaggeration?opts.exaggeration():1);
+        const hi=sampleGrid(entry,u,v);
         const edge=clamp(min(u,1-u,v,1-v)*8,0,1);
         const lo=baseH(x,z);
         vertices.setY(j,hi*edge+lo*(1-edge)+entry.lift);
@@ -112,7 +158,7 @@
       vertices.needsUpdate=true;geo.computeVertexNormals();geo.computeBoundingSphere();
       const mat=new T.MeshStandardMaterial({color:0xffffff,roughness:1,metalness:0,side:T.FrontSide,
         polygonOffset:true,polygonOffsetFactor:-2,polygonOffsetUnits:-2});
-      if(entry.tex){mat.map=entry.tex;texture(entry.tex,opts.renderer);}
+      if(entry.tex){mat.map=entry.tex;texture(entry.tex,opts.renderer,ultra?16:undefined);}
       else mat.color.set(0x59695b);
       const mesh=new T.Mesh(geo,mat);
       mesh.position.set(pos.x,0,pos.z);mesh.receiveShadow=true;
@@ -131,32 +177,37 @@
     }
     function next(){
       if(closed)return;
-      while(active<profile.concurrent&&queue.length){
+      while(active<parallel&&queue.length){
         const e=queue.shift();
-        if(e.disposed||tiles.get(e.key)!==e)continue;
-        active++;
+        if(e.disposed||tiles.get(e.key)!==e||e.started)continue;
+        e.started=true;active++;
         let finish=0;
         const done=()=>{finish++;if(finish===2){active--;next();}};
         const imgUrl=source.tileUrl('img',e.z,e.x,e.y);
-        const demUrl=source.tileUrl('dem',e.z,e.x,e.y);
+        // Elevation uses a shared zoom-15 parent whenever imagery is finer.
         source.caricaTex(texLoader,imgUrl,tex=>{
           if(e.disposed){tex.dispose();done();return;}
-          e.tex=texture(tex,opts.renderer);
+          e.tex=texture(tex,opts.renderer,ultra?16:undefined);
           if(e.mesh){e.mesh.material.map=e.tex;e.mesh.material.color.set(0xffffff);
             e.mesh.material.needsUpdate=true;e.mesh.visible=true;}
           done();
         },()=>done());
-        source.caricaDem(demUrl,img=>{
-          if(!e.disposed){
-            try{e.grid=source.demGrid(img);build(e);}catch(err){console.warn('HD DEM fallback',err);}
+        requestDem(e).then(grid=>{
+          if(!e.disposed&&grid){
+            e.grid=grid;
+            try{build(e);}catch(err){console.warn("HD DEM fallback",err);}
           }
           done();
-        },()=>done());
+        }).catch(err=>{console.warn("HD DEM request",err);done();});
       }
     }
     function desiredAt(x,z){
       const target=new Map();
       for(const lev of levels){
+        // At cruising altitudes prioritize the broad satellite view;
+        // ground-level detail is streamed again automatically on descent.
+        if(ultra && lev===levels[2] && opts.altitudeAGL &&
+          opts.altitudeAGL()>2200)continue;
         const [zz,rad,seg,lift]=lev,m=world[zz];
         const cx=Math.floor(m.ref.x+x/m.size),cy=Math.floor(m.ref.y+z/m.size);
         for(let dy=-rad;dy<=rad;dy++)for(let dx=-rad;dx<=rad;dx++){
@@ -167,22 +218,40 @@
             seg,lift,dist:Math.hypot(where.x-x,where.z-z)});
         }
       }
-      // Limit mesh count across mobile profiles, favouring close fine tiles.
-      const chosen=[...target.values()].sort((a,b)=>a.dist-b.dist||b.z-a.z).slice(0,profile.maxTiles);
+      // Reserve space for every LOD so high-zoom imagery cannot evict
+      // all wide-area coverage on a memory-limited phone.
+      const sorted=[...target.values()];
+      const ordered=(lev)=>sorted.filter(t=>t.z===lev[0])
+        .sort((a,b)=>a.dist-b.dist);
+      let chosen;
+      if(ultra){
+        const coarse=ordered(levels[0]).slice(0,Math.max(3,Math.floor(maxTiles*.15)));
+        const medium=ordered(levels[1]).slice(0,Math.max(7,Math.floor(maxTiles*.42)));
+        const fine=ordered(levels[2]).slice(0,maxTiles-coarse.length-medium.length);
+        chosen=coarse.concat(medium,fine);
+      }else chosen=sorted.sort((a,b)=>a.dist-b.dist||b.z-a.z).slice(0,maxTiles);
       return new Map(chosen.map(t=>[t.key,t]));
     }
-    function update(x,z,time){
+    function update(x,z,time,vx,vz){
       if(closed)return;
       if(!Number.isFinite(x)||!Number.isFinite(z))return;
       const now=Number.isFinite(time)?time:performance.now();
-      if(now-lastTime<1100&&Math.hypot(x-lastX,z-lastZ)<750)return;
+      if(now-lastTime<(ultra?300:1100)&&
+        Math.hypot(x-lastX,z-lastZ)<(ultra?110:750))return;
       lastX=x;lastZ=z;lastTime=now;
-      const wanted=desiredAt(x,z);
+      // Look ahead into the flight path at jet speeds to avoid blurred tiles.
+      const lead=ultra?.65:0;
+      const dx=Number.isFinite(vx)?clamp(vx*lead,-360,360):0;
+      const dz=Number.isFinite(vz)?clamp(vz*lead,-360,360):0;
+      const wanted=desiredAt(x+dx,z+dz);
       for(const [k,v] of tiles){if(!wanted.has(k)){evict(v);tiles.delete(k);}}
       queue.length=0;
       for(const [k,d] of wanted){
-        if(!tiles.has(k)){tiles.set(k,{...d,grid:null,tex:null,mesh:null,disposed:false});
-          queue.push(tiles.get(k));}
+        if(!tiles.has(k))tiles.set(k,{...d,grid:null,tex:null,mesh:null,disposed:false,started:false});
+        // Previously queued but not yet requested tiles must remain eligible.
+        // Clearing a queue without restoring them could leave holes forever.
+        const tile=tiles.get(k);
+        if(!tile.started)queue.push(tile);
       }
       queue.sort((a,b)=>a.dist-b.dist||b.z-a.z);
       next();
@@ -190,10 +259,11 @@
     function dispose(){
       closed=true;queue.length=0;
       for(const t of tiles.values())evict(t);
-      tiles.clear();opts.root.remove(group);
+      tiles.clear();demCache.clear();opts.root.remove(group);
     }
     // Respect all devices: maximum concurrent tile loads and bounded GPU assets.
-    const info=()=>({quality:profile.budget,tiles:tiles.size,
+    const info=()=>({quality:ultra?"maximum/"+profile.budget:profile.budget,
+      maxTiles,tiles:tiles.size,
       loaded:[...tiles.values()].filter(t=>t.mesh&&t.tex).length,
       nativeZooms:levels.map(l=>l[0])});
     return {update,heightAt,dispose,info};
