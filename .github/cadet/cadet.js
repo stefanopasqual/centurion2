@@ -37,6 +37,11 @@ const CADET = (() => {
   const nomeScelta = (k, id) => (C.SCELTE[k].find(o => o.id === id) || {}).titolo || "";
   const NOMI = Object.assign({}, C.NOMI, { GRIZZLY: "Disturbatore", CENTURION: "Bombardieri di riserva", "IVAN 1": "Caccia nemici", TITAN: "Scorta", GLADIATOR: "Bombardieri", ROMA: "Bombardieri (gruppo nord)" });
   const nome = chi => NOMI[chi] || chi;
+  // soggetto con articolo, per frasi corrette: "i bombardieri hanno…", "la scorta ha…"
+  const ART = { GLADIATOR: ["i bombardieri", true], ROMA: ["i bombardieri del gruppo nord", true], RISERVA: ["i bombardieri di riserva", true], TITAN: ["la scorta", false], GROWLER: ["il disturbatore", false] };
+  const sogg = (id, maiusc) => { const a = (ART[id] || [nome(id).toLowerCase(), true])[0]; return maiusc ? a[0].toUpperCase() + a.slice(1) : a; };
+  const plur = id => (ART[id] || [null, true])[1];
+  const verbo = (id, sing, pl) => plur(id) ? pl : sing;
 
   /* ---------------- voce ---------------- */
   function parla(testo) {
@@ -181,10 +186,18 @@ const CADET = (() => {
     document.body.classList.add("cadet-attivo");
     overlay(); root.className = "cd-volo"; root.innerHTML = `<div class="cd-hud"><span class="cd-ora" id="cd-ora">09:00</span><span id="cd-stato">Gli aerei si preparano al decollo…</span><span class="cd-sp"></span><span class="cd-scad">Scadenza ponte <b>${C.SCADENZA}</b></span><button class="cd-btn small" data-voce>${S.voce ? "🔊" : "🔇"}</button><button class="cd-btn small" data-esci>✕</button></div><div class="cd-cardwrap" id="cd-cardwrap"></div>`;
     aggancia(root);
-    S.oraTimer = setInterval(() => { const o = document.getElementById("cd-ora"); if (o && S.eng) o.textContent = Engine.s2hm(S.eng.t); }, 250);
+    S.oraTimer = setInterval(() => { const o = document.getElementById("cd-ora"); if (o && S.eng) o.textContent = Engine.s2hm(S.eng.t); ritmo(); }, 250);
     APP.setSpeed(120); APP.play(true);
   }
   const stato = t => { const s = document.getElementById("cd-stato"); if (s) s.textContent = t; };
+  // ritmo: lento quando c'è azione (verso il ponte, sul ponte, scontri), veloce nei trasferimenti
+  function ritmo() {
+    const e = S.eng; if (!e || !APP.playing || S.cardAperta) return;
+    const inVolo = e.flights.some(f => f.lato === "BLUE" && f.sortie > 0);
+    const calda = e.ingaggi.some(i => !i.chiuso) || e.flights.some(f => !f.distrutto && f.alt > 50 && ["verso_target", "attacco", "attesa_target", "intercetta"].includes(f.stato));
+    const v = !inVolo ? 120 : calda ? 15 : 60;
+    if (APP.speed !== v) APP.setSpeed(v);
+  }
   function segui(id) {
     if (typeof MONDO3D === "undefined") return;
     if (!MONDO3D.attiva) { try { MONDO3D.apri(id, { cam: "insegui" }); } catch (e) { console.warn(e); } return; }
@@ -221,29 +234,30 @@ const CADET = (() => {
         S.scelte.percorso === "esterno" ? "Avevate scelto la rotta esterna, che non attraversa la zona: questa protezione, qui, non era indispensabile." : "È quello che serviva per attraversare il percorso diretto: da adesso è sicuro.", "GROWLER");
     }
     if (/^PUSH/.test(t) && f && /GLADIATOR|ROMA|RISERVA/.test(f.id) && !S.visti.has("push_" + f.id)) {
-      S.visti.add("push_" + f.id); APP.setSpeed(15); stato("In territorio nemico: verso il ponte");
+      S.visti.add("push_" + f.id); stato("In territorio nemico: verso il ponte");
       const ingresso = (/nord/i.test(t) ? "l'ingresso nord (rotta esterna)" : "l'ingresso diretto");
       if (S.visti.has("push_any")) return; S.visti.add("push_any");
-      return card("➡ Ingresso in territorio nemico", `${nome(f.id)} entrano da ${ingresso}.`, spiegaIngresso(), f.id);
+      return card("➡ Ingresso in territorio nemico", `${sogg(f.id, true)} ${verbo(f.id, "entra", "entrano")} da ${ingresso}.`, spiegaIngresso(), f.id);
     }
     if (/SAM LAUNCH su/.test(t)) {
       const vit = (t.match(/su ([A-Z0-9 ]+?) \(/) || [])[1]; const v = flight(vit);
-      return card("🚀 Missili dalla zona sorvegliata!", `${nome(v ? v.id : vit)} hanno attraversato la zona sorvegliata e la batteria ha lanciato i suoi missili.`,
-        "Nessun disturbatore era abbastanza vicino da accecarne il radar. La scorta o la velocità non bastano contro i missili da terra.", v && !v.distrutto ? v.id : null);
+      const vid = v ? v.id : vit;
+      return card("🚀 Missili dalla zona sorvegliata!", `${sogg(vid, true)} ${verbo(vid, "è entrato", "sono entrati")} nella zona sorvegliata e la batteria ha lanciato i suoi missili.`,
+        vid === "TITAN" ? "La scorta difende dagli aerei, non dai missili da terra: senza un disturbatore vicino, anche lei viene colpita." : "Nessun disturbatore era abbastanza vicino da accecarne il radar. La scorta o la velocità non bastano contro i missili da terra.", v && !v.distrutto ? v.id : null);
     }
     if (/^ESCORT – interviene/.test(t)) { S.visti.add("escort_" + chi); return; }
     if (/^MERGED con/.test(t) && blu) {
       const k = "merge_" + f.id; if (S.visti.has(k)) return; S.visti.add(k);
       const scorta = f.id === "TITAN";
-      return card("⚔ Caccia nemici!", scorta ? "La scorta si mette fra i caccia nemici e i bombardieri e li affronta." : f.id === "GROWLER" ? "I caccia nemici hanno trovato il disturbatore, che non ha armi per difendersi." : `I caccia nemici hanno intercettato ${nome(f.id).toLowerCase()}, che devono difendersi da soli.`,
+      return card("⚔ Caccia nemici!", scorta ? "La scorta si mette fra i caccia nemici e i bombardieri e li affronta." : f.id === "GROWLER" ? "I caccia nemici hanno trovato il disturbatore, che non ha armi per difendersi." : `I caccia nemici hanno intercettato ${sogg(f.id)}, che ${verbo(f.id, "deve", "devono")} difendersi da soli.`,
         scorta ? "Era il compito per cui l'avevate scelta: gli F-22 sono molto superiori ai Su-35." : S.scelte.protezione === "disturbo" ? "Avevate scelto il disturbatore: protegge dai missili da terra, non dagli aerei." : "Senza scorta vicina, i bombardieri hanno poche armi aria-aria: è il rischio che avevate accettato.", f.id);
     }
     if (e.tipo === "ingaggio" && chi === "INGAGGIO") {
       // esito del duello: si raccolgono le perdite annunciate subito dopo
       const id = e.ingaggio; if (S.visti.has("ing_" + id)) return; S.visti.add("ing_" + id);
       setTimeout(() => { const ing = S.eng.ingaggi.find(x => x.id === id); if (!ing || !ing.risultato) return; const r = ing.risultato; const b = flight(ing.blue);
-        card("📋 Esito dello scontro", `${r.killB ? (r.killB === 1 ? "Abbattuto 1 caccia nemico." : `Abbattuti ${r.killB} caccia nemici.`) : "Nessun caccia nemico abbattuto."} ${r.killR ? `${r.killR === 1 ? "Perso 1" : `Persi ${r.killR}`} dei nostri (${nome(b.id).toLowerCase()}).` : "Nessuna perdita fra i nostri."}`,
-          b && b.id === "TITAN" ? "Gli F-22 sono più moderni dei Su-35: in questo simulatore valgono il doppio in combattimento." : "Un F-15E carico di bombe combatte alla pari con un Su-35: senza scorta lo scontro costa caro.", b && !b.distrutto ? b.id : null); }, 0);
+        card("📋 Esito dello scontro", `${r.killB ? (r.killB === 1 ? "Abbattuto 1 caccia nemico." : `Abbattuti ${r.killB} caccia nemici.`) : "Nessun caccia nemico abbattuto."} ${r.killR ? `${r.killR === 1 ? "Perso 1" : `Persi ${r.killR}`} dei nostri (${sogg(b.id)}).` : "Nessuna perdita fra i nostri."}`,
+          b && b.id === "TITAN" ? "Gli F-22 sono più moderni dei Su-35: in questo simulatore valgono il doppio in combattimento." : b && b.id === "GROWLER" ? "Il disturbatore non ha missili aria-aria: contro i caccia può solo subire, se nessuno lo protegge." : "Un F-15E carico di bombe combatte alla pari con un Su-35: senza scorta lo scontro costa caro.", b && !b.distrutto ? b.id : null); }, 0);
       return;
     }
     if (/^RISERVA$/.test(chi)) {
@@ -251,8 +265,8 @@ const CADET = (() => {
       if (/riserva decolla/.test(t)) { stato("La riserva decolla"); return card("🔁 Scatta il piano B", "Il primo gruppo non ce l'ha fatta e il ponte è ancora in piedi: i due bombardieri di riserva decollano ora.", `Arriveranno sul ponte fra circa mezz'ora: la scadenza è alle ${C.SCADENZA}.`, "RISERVA"); }
     }
     if (/SHACK!/.test(t)) {
-      const ora = Engine.s2hm(S.eng.t), ok = S.eng.t <= Engine.hm2s(C.SCADENZA); APP.setSpeed(60); stato("Ponte interrotto: rientro alla base");
-      return card(ok ? "🎯 Ponte interrotto!" : "🎯 Ponte interrotto, ma tardi", `${nome(chi)} hanno colpito il ponte alle ${ora}.`, ok ? `In tempo: i rifornimenti delle ${C.SCADENZA} non passeranno. Ora conta tornare a casa.` : `La scadenza era alle ${C.SCADENZA}: i rifornimenti sono già passati.`, f && f.id);
+      const ora = Engine.s2hm(S.eng.t), ok = S.eng.t <= Engine.hm2s(C.SCADENZA); stato("Ponte interrotto: rientro alla base");
+      return card(ok ? "🎯 Ponte interrotto!" : "🎯 Ponte interrotto, ma tardi", `${sogg(f ? f.id : chi, true)} ${verbo(f ? f.id : chi, "ha", "hanno")} colpito il ponte alle ${ora}.`, ok ? `In tempo: i rifornimenti delle ${C.SCADENZA} non passeranno. Ora conta tornare a casa.` : `La scadenza era alle ${C.SCADENZA}: i rifornimenti sono già passati.`, f && f.id);
     }
     if (/PICKLE/.test(t) && f) { stato(`${nome(f.id)}: bombe sul ponte, danno parziale`); return; }
     if (/Formazione persa/.test(t) && blu) { stato(`${nome(f.id)}: formazione persa`); return; }
@@ -260,7 +274,7 @@ const CADET = (() => {
     if (/Tutte le formazioni BLUE hanno concluso/.test(t) || /Fine della finestra operativa/.test(t)) {
       if (S.visti.has("fine")) return; S.visti.add("fine");
       const x = C.esito(S.eng); stato("Missione conclusa");
-      card("🏁 Missione conclusa", `Tutti gli aerei rimasti sono rientrati alla base: ${x.rientrati} su ${x.esposti}.`, "Nel debrief scoprirai che cosa aveva deciso la difesa nemica e che cosa sarebbe successo con scelte diverse.", null, () => { S.fine = true; fineMissione(); });
+      card("🏁 Missione conclusa", x.rientrati === 0 ? "Nessun aereo è tornato alla base." : x.rientrati === x.esposti ? `Tutti gli aerei sono tornati alla base: ${x.rientrati} su ${x.esposti}.` : `Sono tornati alla base ${x.rientrati} aerei su ${x.esposti}.`, "Nel debrief scoprirai che cosa aveva deciso la difesa nemica e che cosa sarebbe successo con scelte diverse.", null, () => { S.fine = true; fineMissione(); });
     }
   }
   function spiegaIngresso() {
@@ -296,6 +310,7 @@ const CADET = (() => {
     const sam = ev.filter(e => /SAM LAUNCH/.test(e.testo)), duelli = S.eng.ingaggi.filter(i => i.risultato);
     const persiSam = sam.length ? ev.filter(e => /abbattuti da Zona sorvegliata/.test(e.testo)).length : 0;
     if (sam.length) out.push(`La zona sorvegliata ha lanciato i suoi missili ${sam.length === 1 ? "una volta" : sam.length + " volte"}: chi l'ha attraversata senza un disturbatore vicino è stato colpito.`);
+    if (sam.length && s.protezione === "scorta" && s.percorso !== "esterno") out.push("La protezione non corrispondeva alla minaccia: la scorta difende dagli aerei, ma sul percorso diretto il pericolo erano i missili da terra.");
     if ((s.protezione === "disturbo" || s.protezione === "entrambi") && s.percorso === "esterno") out.push("Il disturbatore ha spento la zona sorvegliata, ma sulla rotta esterna non la attraversavate: quella protezione qui non era necessaria.");
     if ((s.protezione === "disturbo" || s.protezione === "entrambi") && s.percorso !== "esterno" && !sam.length) out.push("Il disturbatore ha reso innocua la zona sorvegliata: il passaggio diretto ha funzionato.");
     const conScorta = duelli.filter(i => i.blue === "TITAN"), senza = duelli.filter(i => i.blue !== "TITAN");
@@ -318,7 +333,7 @@ const CADET = (() => {
     const altreDif = C.DIFESE.filter(z => z.id !== S.difesa).map(z => ({ tit: z.titolo, x: C.simula(s, z.id).esito }));
     const r = schermo(`${testata("MISSIONE 01 — IL CORRIDOIO · Debrief", esc(titolo))}
       <div class="cd-grid">
-        <div class="cd-pan"><h4>Risultato</h4><p>${riga(x)}</p><ul class="cd-num"><li>Ponte: <b>${x.ponte ? `interrotto alle ${x.ora}` : `danneggiato ${Math.round(x.danni / x.richieste * 100)}%`}</b> (scadenza ${C.SCADENZA})</li><li>Aerei tornati a casa: <b>${x.rientrati} su ${x.esposti}</b></li><li>Caccia nemici abbattuti: <b>${x.abbattutiNemici}</b></li></ul>
+        <div class="cd-pan"><h4>Risultato</h4><p>${riga(x)}</p><ul class="cd-num"><li>Ponte: <b>${x.ponte ? `interrotto alle ${x.ora}` : x.danni ? `danneggiato ${Math.round(x.danni / x.richieste * 100)}%, ancora in piedi` : "intatto"}</b> (scadenza ${C.SCADENZA})</li><li>Aerei tornati a casa: <b>${x.rientrati} su ${x.esposti}</b></li><li>Caccia nemici abbattuti: <b>${x.abbattutiNemici}</b></li></ul>
           <h4>Le tue scelte</h4><ul>${DECISIONI.map(dd => `<li>${esc(nomeScelta(dd.chiave, s[dd.chiave]))}</li>`).join("")}</ul></div>
         <div class="cd-pan gold"><h4>Cosa aveva deciso la difesa</h4><p><b>${esc(d.titolo)}.</b> ${esc(d.testo)}</p><h4>Cosa è successo e perché</h4><ul>${analisi(x, ev).map(t => `<li>${esc(t)}</li>`).join("")}</ul></div>
         <div class="cd-pan"><h4>E se avessi scelto diversamente?</h4><small>Stessa difesa nemica, cambiando una sola decisione. Le partite sono simulate dal motore vero.</small>
