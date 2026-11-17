@@ -38,9 +38,17 @@ if 'js/veneto.js' not in html:
 
 # ---- mondo3d.js ----
 M = "js/mondo3d.js"
-patch(M, "terreno(root); statici();",
-      "terreno(root); statici(); st.veneto = (typeof VENETO !== \"undefined\" && VENETO.mondo3d) ? VENETO.mondo3d({ scene, st, toXZ, elev, label, matStd, TERRA, lonLatToTile, camera, renderer }) : null;",
-      "VENETO.mondo3d({")
+# avvio dopo statici(): l'aggancio cambia se il terreno HD (patch_mobile_quality.py) si inserisce fra terreno() e statici()
+AVVIO = " st.veneto = (typeof VENETO !== \"undefined\" && VENETO.mondo3d) ? VENETO.mondo3d({ scene, st, toXZ, elev, label, matStd, TERRA, lonLatToTile, camera, renderer }) : null;"
+s3d = (root / M).read_text(encoding="utf-8")
+if "VENETO.mondo3d({" not in s3d:
+    for ancora in ("terreno(root); statici();", "statici(); uavInit();", "\n    statici();"):
+        if s3d.count(ancora) == 1:
+            nuovo = ancora + AVVIO if ancora.endswith("statici();") else ancora.replace("statici();", "statici();" + AVVIO, 1)
+            (root / M).write_text(s3d.replace(ancora, nuovo, 1), encoding="utf-8")
+            break
+    else:
+        raise RuntimeError("mondo3d.js: nessun aggancio per l'avvio della scena Veneto (statici())")
 patch(M, "aggiornaEntita(now); eventi(now);",
       "aggiornaEntita(now); eventi(now); if (st.veneto) { try { st.veneto.tick(dt, now); } catch (e) { console.warn(\"Veneto 3D\", e); } }",
       "st.veneto.tick(dt, now)")

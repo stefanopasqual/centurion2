@@ -522,6 +522,8 @@ const VENETO = (() => {
     const merc = (lat, lon) => { const x = (lon + 180) / 360, lr = rad(lat), y = (1 - Math.log(Math.tan(lr) + 1 / Math.cos(lr)) / Math.PI) / 2; return { u: x, v: y }; };
     const m0 = merc(TERRA.lat0, TERRA.lon0), aMondo = (lat, lon) => { const q = merc(lat, lon); return { x: (q.u - m0.u) * C, z: (q.v - m0.v) * C }; };
     const quota = (x, z) => Math.max(0, elev(x, z));
+    // con il terreno HD in streaming (terrain_mobile.js) le tile z15 stanno 1,5 m sopra la quota misurata: si posa tutto sopra di esse
+    const suolo = (x, z) => { const hd = st.hdTerrain && st.hdTerrain.heightAt ? st.hdTerrain.heightAt(x, z) : NaN; return Number.isFinite(hd) ? Math.max(quota(x, z), hd + 1.5) : quota(x, z); };
     // piste
     const piste = [];
     Object.values(PISTE).forEach(p => {
@@ -530,7 +532,7 @@ const VENETO = (() => {
     });
     // immagini satellitari ad alta risoluzione (z15, ~3,4 m per pixel) su Tessera, Venezia e Istrana
     const insetti = [];
-    if (typeof VISTA3D !== "undefined" && VISTA3D.tileUrl) {
+    if (typeof VISTA3D !== "undefined" && VISTA3D.tileUrl && !window.CENTURION_TERRAIN) {   // il terreno HD in streaming le carica già attorno alla telecamera
       const zona = (la0, lo0, la1, lo1, z) => { const n = 2 ** z; const t0 = lonLatToTile(lo0, la1, z), t1 = lonLatToTile(lo1, la0, z); const out = []; for (let x = Math.floor(t0.x); x <= Math.floor(t1.x); x++) for (let y = Math.floor(t0.y); y <= Math.floor(t1.y); y++) out.push({ x, y, z, n }); return out; };
       const zone = [[45.478, 12.300, 45.535, 12.395]].concat(piccolo ? [] : [[45.425, 12.300, 45.447, 12.365], [45.672, 12.050, 45.697, 12.125]]);
       const loader = new THREE.TextureLoader(); loader.setCrossOrigin("anonymous");
@@ -557,7 +559,7 @@ const VENETO = (() => {
         const eng = APP.engine; if (!eng) return;
         const F = st.fixed, tk = eng.tick_sec || 10, rate = F ? F.speed : (APP.playing ? (APP.speed || 1) : 0);
         gT = (gT == null || Math.abs(gT - eng.t) > 2 * tk + 5) ? eng.t : Math.min(eng.t + tk, Math.max(eng.t - tk, gT + dt * rate));
-        const c = civile(sc, gT), q = toXZ(c.lat, c.lon), terra = quota(q.x, q.z);
+        const c = civile(sc, gT), q = toXZ(c.lat, c.lon), terra = c.aTerra || c.alt < 400 ? suolo(q.x, q.z) + 0.9 : quota(q.x, q.z);
         const gear = mdl && mdl.userData.carrello, alto = (gear ? -gear.userData.terra : 5.6);
         const y = c.aTerra || c.fermo ? terra + alto : Math.max(terra + alto, c.alt * FT);
         g.position.set(q.x, y, q.z);
@@ -572,8 +574,10 @@ const VENETO = (() => {
         const h = rad(c.hdg); disp = { x: q.x + Math.sin(h) * 20, y: y + 0.4, z: q.z - Math.cos(h) * 20, hdg: c.hdg, bank: c.bank };
         // chase più lontana sull'Airbus (59 m), ripristinata quando si cambia velivolo
         if (st.sel !== selPrec) { if (st.sel === CIV_ID) { distPrec = st.chase.dist; st.chase.dist = 140; st.chase.pitch = 0.12; } else if (selPrec === CIV_ID && distPrec) { st.chase.dist = distPrec; distPrec = null; } selPrec = st.sel; }
-        piste.forEach(p => { if (!p.userData.y || st.frame % 60 === 0) { const y0 = quota(p.position.x, p.position.z) + 0.9; p.position.y = y0; p.userData.y = y0; } });   // sopra le immagini ad alta risoluzione (+0,6 m)
-        if (st.frame % 60 === 0) { camp.position.y = quota(camp.position.x, camp.position.z); insetti.forEach(m => { m.position.y = quota(m.position.x, m.position.z) + 0.6; }); }
+        piste.forEach(p => { if (!p.userData.y || st.frame % 60 === 0) {   // sopra le immagini ad alta risoluzione: testate e centro, si prende la quota più alta
+          const L = p.userData.lung / 2, s = Math.sin(p.rotation.y), c = Math.cos(p.rotation.y), x = p.position.x, z = p.position.z;
+          const y0 = Math.max(suolo(x, z), suolo(x + s * L, z + c * L), suolo(x - s * L, z - c * L)) + 0.9; p.position.y = y0; p.userData.y = y0; } });
+        if (st.frame % 60 === 0) { camp.position.y = suolo(camp.position.x, camp.position.z); insetti.forEach(m => { m.position.y = quota(m.position.x, m.position.z) + 0.6; }); }
         etichetteBasi.forEach(l => { l.visible = camera.position.distanceTo(l.position) > 9000; });
       },
       dispose() { oggetti.forEach(o => { scene && scene.remove(o); o.traverse && o.traverse(x => { if (x.geometry && !x.isSprite) x.geometry.dispose(); }); }); rimuovi.concat(etichetteBasi).forEach(o => { o.visible = true; }); }
