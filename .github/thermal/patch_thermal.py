@@ -94,8 +94,8 @@ patch("js/volo.js",
     ov.querySelector("#vl-nvgb").insertAdjacentElement("afterend",irButton);''')
 
 patch("js/volo.js",
-      'else if (k === "n") nvg(); else if (k === "u") toggleThermal();',
-      'else if (k === "n") nvg(); else if (k === "i") toggleThermal(); else if (k === "z") eietta();')
+      'else if (k === "n") nvg();',
+      'else if (k === "n") nvg(); else if (k === "u") toggleThermal();')
 
 patch("js/volo.js",
       'function nvg() { if (!S) return; S.nvg = !S.nvg;',
