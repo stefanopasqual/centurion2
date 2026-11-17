@@ -14,7 +14,8 @@ patch("const sc = APP.sc; TERRA.lat0 = 41.0; TERRA.lon0 = -122.8;",
       """const sc = APP.sc;
     // Respect each scenario's map origin, including the fictional Donbass region.
     const origin=(sc.mappa && sc.mappa.centro)||[41.0,-122.8];
-    TERRA.lat0=origin[0]; TERRA.lon0=origin[1];""")
+    TERRA.lat0=sc.missione && sc.missione.id==="M12"?origin[0]:41.0;
+    TERRA.lon0=sc.missione && sc.missione.id==="M12"?origin[1]:-122.8;""")
 
 visuals=r'''
   /* --- Reusable cinematic scramble. Visual-only: does not fake an engine takeoff. --- */
@@ -108,8 +109,8 @@ visuals=r'''
     const g=new THREE.Group();
     const body=matStd(0x8797a5,{metalness:.18,roughness:.56});
     const dark=matStd(0x262f38);
-    const fus=new THREE.Mesh(new THREE.CapsuleGeometry(quad?.24:.32,quad?.65:2.3,4,8),body);
-    fus.rotation.x=Math.PI/2;g.add(fus);
+    const fus=new THREE.Mesh(new THREE.SphereGeometry(quad?.36:.46,12,8),body);
+    fus.scale.set(1,1,quad?1.5:5.5);g.add(fus);
     const rotors=[];
     if(quad){
       for(const x of [-.8,.8])for(const z of [-.8,.8]){
@@ -159,6 +160,8 @@ visuals=r'''
 anchor="  /* ---------- loop ---------- */\n  function animate() {"
 assert anchor in s
 s=s.replace(anchor,visuals+"\n"+anchor,1)
+patch("const t = APP.sc.target[0]; const q = toXZ(t.lat, t.lon);",
+      "const t = APP.sc.target[0] || APP.sc.basi[0]; const q = toXZ(t.lat, t.lon);")
 patch("aggiornaEntita(now); eventi(now); cameraUpdate(dt);",
       "aggiornaEntita(now); eventi(now); uavTick(dt,now); cameraUpdate(dt); if(st.scramble)scrambleTick(dt);")
 patch("terreno(root); statici(); aggiornaSelect(); setCam(opt.cam || (selId ? \"insegui\" : \"orbita\"));",
