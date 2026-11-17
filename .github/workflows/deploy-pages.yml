@@ -360,6 +360,20 @@ jobs:
           if [ -n "$still" ]; then
             echo "::error::Files above the 25 MiB limit:"; ls -l $still; exit 1
           fi
+      - name: Version the offline cache from the cache-first files
+        shell: bash
+        run: |
+          # sw.js serve modelli, audio e immagini in cache-first, nella cache VERSIONE + "-dati":
+          # finché VERSIONE non cambia, chi ha già aperto l'app non riceve i file aggiornati.
+          # Le sostituzioni "centurion2-mobile-..." del passo «Refresh offline cache» non trovano
+          # più nulla (sw.js dichiara VERSIONE = "centurion-v17"): qui la versione prende
+          # l'impronta dei file in cache-first, calcolata dopo la compressione dei GLB, e cambia
+          # solo quando questi cambiano davvero.
+          cd extracted/site
+          impronta=$(find modelli audio assets -type f 2>/dev/null | LC_ALL=C sort | xargs -r -d '\n' sha256sum | sha256sum | cut -c1-10)
+          grep -q "^const VERSIONE = \".*-${impronta}\";" sw.js || sed -i -E "s/^const VERSIONE = \"([^\"]+)\";/const VERSIONE = \"\1-${impronta}\";/" sw.js
+          grep -q "^const VERSIONE = \".*-${impronta}\";" sw.js || { echo "::error::sw.js: VERSIONE non trovata, la cache offline non verrebbe aggiornata"; exit 1; }
+          grep -m1 "^const VERSIONE" sw.js
       - name: Choose hosting
         id: target
         env:
