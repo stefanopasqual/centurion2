@@ -12,6 +12,7 @@ on:
       - '.github/aar/**'
       - '.github/home/**'
       - '.github/mission_upgrade/**'
+      - '.github/freeflight/**'
       - '.github/cockpit/**'
       - '.github/vfx/**'
       - 'model-sources/**'
@@ -65,6 +66,7 @@ jobs:
           python3 .github/vfx/patch_vfx.py extracted/site
           node --check extracted/site/js/volo.js
           python3 .github/models/patch_render.py extracted/site
+          python3 .github/freeflight/patch_freeflight.py extracted/site
           node --check extracted/site/js/volo.js
           node --check extracted/site/js/vista3d.js
           node --check extracted/site/js/mondo3d.js
@@ -189,6 +191,7 @@ jobs:
           sed -i 's/centurion2-mobile-password-v2/centurion2-mobile-cadet-v24/g; s/centurion2-mobile-hangar-v4/centurion2-mobile-f22-home-v7/g; s/centurion2-mobile-hangar-su35-v5/centurion2-mobile-f22-home-v7/g' extracted/site/sw.js
           sed -i 's/centurion2-mobile-cadet-v24/centurion2-mobile-drone-ops-v26/g' extracted/site/sw.js
           sed -i 's/centurion2-mobile-drone-ops-v26/centurion2-mobile-hangar-uav-v27/g' extracted/site/sw.js
+          sed -i 's/centurion2-mobile-hangar-uav-v27/centurion2-mobile-all-flight-v28/g' extracted/site/sw.js
           # manifest.json (modelli, audio) network-first: rotations and files change on every deploy
           sed -i 's|const isDati = url => /|const isDati = url => !/manifest[.]json/.test(url) \&\& /|' extracted/site/sw.js
           grep -q 'isDati = url => !/manifest\[\.\]json/.test(url) && /' extracted/site/sw.js
