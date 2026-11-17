@@ -1,4 +1,5 @@
 name: CENTURION2 source inspection
+# Refresh current extracted source to reconcile 3D patches with latest base ZIP.
 on:
   push:
     branches: [main]
