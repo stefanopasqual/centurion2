@@ -71,6 +71,19 @@ jobs:
           python3 .github/maps/patch_maps.py extracted/site
           python3 .github/cadet/patch_cadet.py extracted/site
           python3 .github/mission_upgrade/patch_donbass.py extracted/site
+          cp .github/mission_upgrade/realism.js extracted/site/js/realism.js
+          python3 - <<'PY'
+          from pathlib import Path
+          index=Path('extracted/site/index.html')
+          text=index.read_text(encoding='utf-8')
+          marker='<script src="js/mondo3d.js"></script>'
+          assert marker in text, "Mondo3D script must be present"
+          realism='<script src="js/realism.js"></script>'
+          if realism not in text:
+              text=text.replace(marker,realism+'\n'+marker,1)
+              index.write_text(text,encoding='utf-8')
+          PY
+          node --check extracted/site/js/realism.js
           python3 .github/mission_upgrade/patch_visuals.py extracted/site
           node --check extracted/site/js/missioni.js
           node --check extracted/site/js/mondo3d.js
