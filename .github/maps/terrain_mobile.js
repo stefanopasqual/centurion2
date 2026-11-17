@@ -52,7 +52,7 @@
     return (a*(1-fx)+b*fx)*(1-fy)+(c*(1-fx)+d*fx)*fy;
   }
   function start(opts){
-    const T=window.THREE, source=window.VISTA3D;
+    const T=window.THREE, source=typeof VISTA3D!== 'undefined'?VISTA3D:window.VISTA3D;
     if(!T||!source||!opts||!opts.root)return null;
     const center={lat:opts.lat0,lon:opts.lon0};
     const half=Number.isFinite(opts.half)&&opts.half>0?opts.half:Infinity;
