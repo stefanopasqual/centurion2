@@ -200,34 +200,8 @@ def main():
         'status': 'ready' if not args.dry_run else 'ready-for-conversion',
         'attribution': 'Original simplified F-16C reconstruction, not the linked Sketchfab mesh.'
     })
-    # Any additional, user supplied model source is automatically published.
-    # Uploaded GLBs are not fetched from the local computer by GitHub Actions.
-    # Keep each source mesh axis correction when the user GLB overwrites earlier mission entries.
-    extras = [
-        ('su35','SU35','Sukhoi Su-35S Flanker-E',21.9,[0,-90,0]),
-        ('ea18','EA18','Boeing EA-18G Growler',18.31,[0,-90,0]),
-        ('f22','F22','F-22 Raptor',18.9,[0,180,0]),
-    ]
-    for code,mission_type,label,length,rotation in extras:
-        src = root / 'model-sources' / (code+'.glb')
-        if not src.is_file():
-            continue
-        if not args.dry_run:
-            if src.stat().st_size < 10000 or src.read_bytes()[:4] != b'glTF':
-                raise RuntimeError('Invalid uploaded GLB: '+str(src))
-            shutil.copyfile(src, out/(code+'.glb'))
-            shutil.copyfile(src, mission/(code+'.glb'))
-            mission_manifest[mission_type] = {
-                'file':code+'.glb','rot':rotation,'lunghezza_m':length,
-                'tint':False,'gear':'up','autore':'user supplied',
-                'licenza':'verify upload rights','url':''
-            }
-        rec=next(x for x in report if x['id']==code)
-        rec.update({'name':label,'glb':'models/'+code+'.glb' if not args.dry_run else None,
-                    'source':'user supplied GLB (gear-up)','author':'user supplied',
-                    'license':'verify upload rights',
-                    'status':'ready' if not args.dry_run else 'ready-for-conversion',
-                    'attribution':'User supplied mesh, prepared for in-flight rendering.'})
+    # Uploaded aircraft have already been copied and mapped above.
+    # Do not overwrite calibrated rotations and real author/license metadata.
     (out / 'manifest.json').write_text(json.dumps({'models': report, 'notice': 'Third-party aircraft models: bohmerang / Sketchfab (CC BY-NC-SA 4.0) , Rhine_Lab_Muelsyse / Sketchfab (CC BY 4.0) and sxnneh / Sketchfab (Sketchfab Standard). Attribution and noncommercial conditions apply.'}, indent=2), encoding='utf-8')
     (mission / 'manifest.json').write_text(json.dumps(mission_manifest, indent=2), encoding='utf-8')
     print(json.dumps({'hangar':report, 'mission':mission_manifest}, indent=2))
