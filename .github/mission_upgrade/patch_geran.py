@@ -3,6 +3,8 @@
 
 - missioni.js: aggiunge GERAN-1 (lato RED, rotta ad anello inventata) ai droni della M12, al briefing
   e un obiettivo secondario di identificazione (le M13-M15 sostituiscono droni, briefing e obiettivi);
+  nelle M13-M15 i droni ostili ad ala fissa diventano Geran-2 in circuito d'attesa attorno alla loro
+  posizione (i quadricotteri restano generici);
 - js/geran.js: rotta in funzione del tempo di missione e traccia rossa sulla mappa tattica;
 - engine.js: il drone NPC GERAN-1 segue la stessa rotta (rilevamento, identificazione e uscita
   dalla zona restano quelli di patch_drone_engine.py);
@@ -69,8 +71,42 @@ geran_m12 = r'''
     };
   })();
 '''
+geran_m13_15 = r'''
+  // M13-M15: i droni ostili ad ala fissa sono Geran-2 in circuito d'attesa (ellisse 4x2 volte il raggio originale,
+  // ~180 km/h) attorno alla posizione inventata del drone; rilevamento e identificazione restano quelli del motore.
+  (function () {
+    const anello = (d, k) => {
+      const r = Math.max(1200, d.raggio_m || 1800), a = 4 * r, b = 2 * r, rot = 0.4 + k * 0.9, pts = [];
+      const ky = 111320, kx = ky * Math.cos(d.lat * Math.PI / 180);
+      for (let i = 0; i < 8; i++) {
+        const t = i / 8 * Math.PI * 2, x = a * Math.cos(t), y = b * Math.sin(t);
+        const est = x * Math.cos(rot) - y * Math.sin(rot), nord = x * Math.sin(rot) + y * Math.cos(rot);
+        pts.push([+(d.lat + nord / ky).toFixed(5), +(d.lon + est / kx).toFixed(5)]);
+      }
+      return pts;
+    };
+    ["M13", "M14", "M15"].forEach(id => {
+      const m = ELENCO.find(x => x.id === id); if (!m || m._geran) return; m._geran = true;
+      const base = m.applica;
+      m.descrizione += " I droni nemici ad ala fissa sono Geran-2 (famiglia Shahed-136) simulati.";
+      m.applica = sc => {
+        base(sc);
+        let k = 0;
+        sc.droni = (sc.droni || []).map(d => (d.lato === "RED" && d.ostile && d.tipo === "fixed" && typeof d.lat === "number") ?
+          Object.assign({}, d, { tipo: "geran2", vel_ms: 50, rotta: anello(d, k++) }) : d);
+        const B = sc.briefing && sc.briefing.BLUE;
+        if (B && k) {
+          B.threat = "Contatti UAV ostili simulati: Geran-2 ad ala fissa (famiglia Shahed-136) in circuito d'attesa e quadricotteri. Nel gioco non hanno armi ne obiettivi di attacco.";
+          (B.intel = B.intel || []).push("Geran-2: ala a delta di 2,5 m, circa 180 km/h; dopo il rilevamento compaiono come frecce rosse sulla mappa (ID ?) e nella scena 3D nel gruppo «DRONI · ostili»");
+        }
+      };
+    });
+  })();
+'''
 if "m._geran" not in s:
     s = patch_text(s, anchor, geran_m12 + "\n" + anchor, "missioni.js")
+if "circuito d'attesa (ellisse" not in s:
+    s = patch_text(s, anchor, geran_m13_15 + "\n" + anchor, "missioni.js")
 p.write_text(s, encoding="utf-8")
 
 # ---- engine.js: il drone NPC con rotta segue GERAN.stato (stessa posizione di mappa e 3D) ----
@@ -194,7 +230,7 @@ if "function geranTick(" not in s:
                    'if(cfg.tipo==="geran2"&&typeof GERAN==="undefined")continue;\n      const m=cfg.tipo==="geran2"?geranModel():uavModel(cfg.tipo==="quad");scene.add(m.g);', "mondo3d.js")
     s = patch_text(s, 'const lab=label(cfg.nome,cfg.lato==="RED"?"#ff9e89":"#d9eaf7",10);lab.position.y=10;m.g.add(lab);',
                    'const lab=label(cfg.tipo==="geran2"?cfg.id+" · ?":cfg.nome,cfg.lato==="RED"?"#ff9e89":"#d9eaf7",10);lab.position.y=10;m.g.add(lab);\n'
-                   '      const labId=cfg.tipo==="geran2"?label("GERAN-2 · OSTILE","#ff9e89",10):null;if(labId){labId.visible=false;m.g.add(labId);}', "mondo3d.js")
+                   '      const labId=cfg.tipo==="geran2"?label(/^GERAN/.test(cfg.id)?"GERAN-2 · OSTILE":GERAN.etichetta(cfg,true),"#ff9e89",10):null;if(labId){labId.visible=false;m.g.add(labId);}', "mondo3d.js")
     s = patch_text(s, 'st.uavs.push({cfg,origin,mesh:m.g,rotors:m.rotors,animate:m.animate,label:lab,i,disp:null});',
                    'st.uavs.push({cfg,origin,mesh:m.g,rotors:m.rotors,animate:m.animate,label:lab,i,disp:null,geran:cfg.tipo==="geran2",holder:m.holder,disco:m.disco,labId});', "mondo3d.js")
     s = patch_text(s, 'for(const a of st.uavs){\n      const isQuad=a.cfg.tipo==="quad";',
@@ -210,4 +246,4 @@ if "function geranTick(" not in s:
     s = patch_text(s, 'addScaledVector(fwd, sensor?1.2:6).add(new THREE.Vector3(0,sensor?-.22:2.0,0))',
                    'addScaledVector(fwd, sensor?1.2:gsel?2.1:6).add(new THREE.Vector3(0,sensor?-.22:gsel?.3:2.0,0))', "mondo3d.js")
 p.write_text(s, encoding="utf-8")
-print("Geran-2: drone ostile simulato nella M12 (mappa tattica e Mondo 3D)")
+print("Geran-2: drone ostile simulato nella M12 e droni ostili ad ala fissa delle M13-M15 (mappa tattica e Mondo 3D)")
