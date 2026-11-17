@@ -17,6 +17,7 @@ on:
       - '.github/cockpit/**'
       - '.github/vfx/**'
       - '.github/thermal/**'
+      - '.github/ground_life/**'
       - '.github/sonic/**'
       - '.github/aero/**'
       - 'model-sources/**'
@@ -179,7 +180,36 @@ jobs:
               file.write_text(text,encoding='utf-8')
           PY
           node --check extracted/site/js/sonic_fx.js
+          cp .github/ground_life/gun_audio.js extracted/site/js/gun_audio.js
+          cp .github/ground_life/ground_life.js extracted/site/js/ground_life.js
+          python3 .github/ground_life/patch_ground_life.py extracted/site
+          python3 -m py_compile .github/ground_life/patch_ground_life.py
+          python3 - <<'PY'
+          from pathlib import Path
+          path=Path('extracted/site/index.html')
+          html=path.read_text(encoding='utf-8')
+          anchor='<script src="js/volo.js"></script>'
+          assert anchor in html,'Free Flight loader missing'
+          for js in ('gun_audio.js','ground_life.js'):
+              tag=f'<script src="js/{js}"></script>'
+              if tag not in html:
+                  html=html.replace(anchor,tag+'\n'+anchor,1)
+          path.write_text(html,encoding='utf-8')
+          PY
+          node --check extracted/site/js/gun_audio.js
+          node --check extracted/site/js/ground_life.js
+          node --check extracted/site/js/volo.js
           node --check extracted/site/js/mondo3d.js
+          python3 - <<'PY'
+          from pathlib import Path
+          v=Path('extracted/site/js/volo.js').read_text()
+          m=Path('extracted/site/js/mondo3d.js').read_text()
+          assert 'S.gunAudio.update(' in v
+          assert 'S.gunLive=!!fuoco' in v
+          assert 'S.groundLife.update(' in v
+          assert 'st.groundLife.update(' in m
+          print('PASS: armed-aircraft cannon audio and civilian world animation integrated')
+          PY
           node --check extracted/site/js/volo.js
           node --check extracted/site/js/modelli3d.js
           node --check extracted/site/js/engine.js
@@ -281,6 +311,7 @@ jobs:
           sed -i 's/centurion2-mobile-aero-v32/centurion2-mobile-fdm6-v33/g' extracted/site/sw.js
           sed -i 's/centurion2-mobile-fdm6-v33/centurion2-mobile-uav-ir-fix-v34/g' extracted/site/sw.js
           sed -i 's/centurion2-mobile-uav-ir-fix-v34/centurion2-mobile-uav-no-nvg-v35/g' extracted/site/sw.js
+          sed -i 's/centurion2-mobile-uav-no-nvg-v35/centurion2-mobile-groundlife-guns-v36/g' extracted/site/sw.js
           # manifest.json (modelli, audio) network-first: rotations and files change on every deploy
           sed -i 's|const isDati = url => /|const isDati = url => !/manifest[.]json/.test(url) \&\& /|' extracted/site/sw.js
           grep -q 'isDati = url => !/manifest\[\.\]json/.test(url) && /' extracted/site/sw.js
