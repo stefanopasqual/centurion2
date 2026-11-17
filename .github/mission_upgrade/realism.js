@@ -13,6 +13,7 @@
     panel=M(0x51636d,.75,.2), glass=M(0x0c202c,.12,.21,{transparent:true,opacity:.91}),
     white=M(0xd4ddd9,.47,.11), black=M(0x080d12,.4,.15);
   const geoBox=(x,y,z)=>new T.BoxGeometry(x,y,z);
+  const capsule=(r,len)=>T.CapsuleGeometry?new T.CapsuleGeometry(r,len,4,7):new T.CylinderGeometry(r,r,len+2*r,10);
   function obj(g,geo,material,pos,rot,scale){
     const o=new T.Mesh(geo,material);
     if(pos)o.position.set(...pos);
@@ -207,13 +208,13 @@
   function human(group,x,z,vest,orientation){
     const g=new T.Group();g.position.set(x,0,z);g.rotation.y=orientation||0;group.add(g);
     const uniform=M(vest,.85,.05), skin=M(0x97836d,.88,.02);
-    const torso=obj(g,new T.CapsuleGeometry(.24,.52,4,7),uniform,[0,1.25,0]);
+    const torso=obj(g,capsule(.24,.52),uniform,[0,1.25,0]);
     sph(g,skin,[0,1.96,0],[.17,.20,.17],10);
     obj(g,new T.CylinderGeometry(.19,.21,.13,10),white,[0,2.13,0]);
     const arm=[];
     for(const side of [-1,1]){
       const a=new T.Group();a.position.set(side*.28,1.57,0);g.add(a);arm.push(a);
-      obj(a,new T.CapsuleGeometry(.075,.44,3,5),uniform,[side*.05,-.34,.05],[0,0,side*.08]);
+      obj(a,capsule(.075,.44),uniform,[side*.05,-.34,.05],[0,0,side*.08]);
       rod(g,[side*.12,.87,0],[side*.16,.12,.09],.115,dark);
     }
     return {g,arm};
@@ -246,7 +247,7 @@
     const d=new T.Group();root.add(d);
     const low=innerWidth<720;
     const tex=asphaltTexture();
-    const tar=M(0x384044,.94,.03,tex?{map:tex}:{}),stripe=M(0xd6d4bb,.88,.04),
+    const tar=M(tex?0xffffff:0x384044,.94,.03,tex?{map:tex}:{}),stripe=M(0xd6d4bb,.88,.04),
       yellow=M(0xd4b544,.8,.04),concrete=M(0x596366,.95,.025),
       hazard=M(0xe3a248,.8,.04);
     const ground=obj(d,new T.PlaneGeometry(140,460),concrete,[0,-.012,-30],[-PI/2,0,0]);
