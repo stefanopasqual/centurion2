@@ -10,7 +10,7 @@
      restano valide fra una pubblicazione e l'altra finché la password non cambia.
 
    Senza il segreto il sito resta in chiaro, aperto a chiunque abbia l'indirizzo (come prima della cifratura).
-   Con la variabile SITE_CHIUSO = 1 il sito si chiude: resta solo una pagina «accesso chiuso» e un service
+   Con «chiuso» nella prima riga di stato_sito.txt (o con la variabile SITE_CHIUSO = 1) il sito si chiude: resta solo una pagina «accesso chiuso» e un service
    worker che, sui dispositivi che avevano già l'app, cancella cache e chiavi e si disinstalla.
 
    Uso: node .github/security/cifra_sito.mjs extracted/site   (SITE_PASSWORD e SITE_CHIUSO nell'ambiente) */
@@ -44,7 +44,9 @@ function elenca(dir) {
 function svuota(dir) { for (const n of readdirSync(dir)) rmSync(join(dir, n), { recursive: true, force: true }); }
 
 const password = (process.env.SITE_PASSWORD || "").trim();
-const chiuso = /^(1|si|sì|true|chiuso)$/i.test((process.env.SITE_CHIUSO || "").trim());
+// interruttore: prima riga di stato_sito.txt («chiuso» o «aperto») oppure la variabile del repository SITE_CHIUSO
+const statoFile = (() => { try { return readFileSync(join(qui, "stato_sito.txt"), "utf8").split(/\r?\n/).map(r => r.trim()).find(r => r && !r.startsWith("#")) || ""; } catch (e) { return ""; } })();
+const chiuso = /^(1|si|sì|true|chiuso)$/i.test((process.env.SITE_CHIUSO || "").trim()) || /^chiuso$/i.test(statoFile);
 const vecchioSw = (() => { try { return readFileSync(join(sito, "sw.js"), "utf8"); } catch (e) { return ""; } })();
 
 if (chiuso) {
@@ -52,7 +54,7 @@ if (chiuso) {
   svuota(sito);
   writeFileSync(join(sito, "index.html"), readFileSync(join(qui, "chiuso.html")));
   writeFileSync(join(sito, "sw.js"), readFileSync(join(qui, "sw_chiuso.js")));
-  console.log("::warning::SITE_CHIUSO attivo: pubblicata solo la pagina «accesso chiuso».");
+  console.log(`::warning::Sito chiuso (${/^chiuso$/i.test(statoFile) ? "stato_sito.txt" : "variabile SITE_CHIUSO"}): pubblicata solo la pagina «accesso chiuso».`);
   process.exit(0);
 }
 if (!password) {

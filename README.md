@@ -27,11 +27,11 @@ I modelli indicati nei manifest hanno attribuzione bohmerang / Sketchfab e licen
 
 Il workflow può pubblicare il sito, su GitHub Pages o su Cloudflare, in tre modi:
 
-| Impostazione (Settings → Secrets and variables → Actions) | Sito pubblicato |
+| Impostazione | Sito pubblicato |
 |---|---|
-| nessuna | in chiaro, aperto a chiunque abbia l'indirizzo |
-| segreto `SITE_PASSWORD` | cifrato: si apre solo con la password |
-| variabile `SITE_CHIUSO` = `1` (scheda *Variables*) | chiuso: solo la pagina «Accesso chiuso» |
+| `aperto` in `.github/security/stato_sito.txt`, nessun segreto | in chiaro, aperto a chiunque abbia l'indirizzo |
+| `aperto` e segreto `SITE_PASSWORD` (Settings → Secrets and variables → Actions) | cifrato: si apre solo con la password |
+| `chiuso` in `stato_sito.txt`, oppure variabile `SITE_CHIUSO` = `1` (scheda *Variables*) | chiuso: solo la pagina «Accesso chiuso» |
 
 Con la password il workflow cifra tutto il sito prima di pubblicarlo:
 
@@ -44,7 +44,12 @@ Con la password il workflow cifra tutto il sito prima di pubblicarlo:
 1. Nome `SITE_PASSWORD`, almeno 10 caratteri; meglio una frase lunga. Non scriverla in file, issue o chat.
 2. Avvia **Actions → Publish CENTURION2 mobile → Run workflow**.
 
-**Chiudere il sito.** Crea la variabile `SITE_CHIUSO` con valore `1` e rilancia il workflow: si pubblica solo la pagina «Accesso chiuso», e i dispositivi che avevano già l'app cancellano cache e chiavi. Per riaprirlo cancella la variabile e rilancia il workflow.
+**Chiudere e riaprire il sito.**
+1. Apri `.github/security/stato_sito.txt` su GitHub, anche dal telefono, e scegli la matita (*Edit*).
+2. Scrivi `chiuso` o `aperto` nella prima riga e fai *Commit changes* su `main`.
+3. Il workflow riparte da solo e in un paio di minuti il sito cambia.
+
+Da chiuso si pubblica solo la pagina «Accesso chiuso», e i dispositivi che avevano già l'app cancellano cache e chiavi.
 
 **Uso.** Su ogni dispositivo la password si inserisce una volta: la chiave resta nel browser finché la password non cambia. Per richiudere il sito su un dispositivo, apri l'indirizzo del sito con `?blocca` in fondo.
 
