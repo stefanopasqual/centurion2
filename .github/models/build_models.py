@@ -69,7 +69,7 @@ def main():
                     shutil.copyfile(target, mission / target.name)
                     sim_type, length_m = mission_map[code]
                     mission_manifest[sim_type] = {
-                        'file': target.name, 'rot': [0, 0, 0], 'lunghezza_m': length_m,
+                        'file': target.name, 'rot': [0, -90, 0], 'lunghezza_m': length_m,
                         'autore': 'bohmerang', 'licenza': 'CC BY-NC-SA 4.0', 'url': url,
                         'tint': False
                     }
@@ -187,7 +187,7 @@ def main():
                 raise RuntimeError('F-16 generation produced invalid or undersized GLB')
         shutil.copyfile(f16_target, mission / 'f16.glb')
         mission_manifest['F16'] = {
-            'file': 'f16.glb', 'rot': [-90, 0, 180],
+            'file': 'f16.glb', 'rot': [0, 0, 180],
             'lunghezza_m': 15.0, 'tint': False, 'gear': 'up',
             'autore': 'CENTURION2 procedural', 'licenza': 'original approximation',
             'url': ''
