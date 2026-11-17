@@ -237,6 +237,10 @@ jobs:
           node --check extracted/site/js/home_hub.js
           node --check extracted/site/js/cadet_core.js
           node --check extracted/site/js/cadet.js
+          python3 .github/cadet/patch_accademia.py extracted/site
+          python3 -m py_compile .github/cadet/patch_accademia.py
+          node --check extracted/site/js/accademia.js
+          node --check extracted/site/js/volo.js
           cp .github/ef2000/viewer.html extracted/site/ef2000/viewer.html
           cp .github/ef2000/launcher.js extracted/site/ef2000/launcher.js
           cp .github/ef2000/home.js extracted/site/ef2000/home.js
@@ -330,6 +334,7 @@ jobs:
           sed -i 's/centurion2-mobile-uav-ir-fix-v34/centurion2-mobile-uav-no-nvg-v35/g' extracted/site/sw.js
           sed -i 's/centurion2-mobile-uav-no-nvg-v35/centurion2-mobile-groundlife-guns-v36/g' extracted/site/sw.js
           sed -i 's/centurion2-mobile-groundlife-guns-v36/centurion2-mobile-freeflight-ultra-v37/g' extracted/site/sw.js
+          sed -i 's/centurion2-mobile-freeflight-ultra-v37/centurion2-mobile-accademia-v38/g' extracted/site/sw.js
           # manifest.json (modelli, audio) network-first: rotations and files change on every deploy
           sed -i 's|const isDati = url => /|const isDati = url => !/manifest[.]json/.test(url) \&\& /|' extracted/site/sw.js
           grep -q 'isDati = url => !/manifest\[\.\]json/.test(url) && /' extracted/site/sw.js
