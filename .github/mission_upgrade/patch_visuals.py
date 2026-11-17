@@ -162,6 +162,17 @@ assert anchor in s
 s=s.replace(anchor,visuals+"\n"+anchor,1)
 patch("const t = APP.sc.target[0]; const q = toXZ(t.lat, t.lon);",
       "const t = APP.sc.target[0] || APP.sc.basi[0]; const q = toXZ(t.lat, t.lon);")
+patch('(st.aux || []).forEach(a => list.push({ f: a, i: 0, aux: true })); return list;',
+      '''(st.aux || []).forEach(a => list.push({ f: a, i: 0, aux: true }));
+    (st.uavs || []).forEach(u => list.push({ f: { id:u.cfg.id,nome:u.cfg.nome,tipo:"UAV",lato:"BLUE" }, i:0, aux:true,uav:true }));
+    return list;''')
+patch('if (aux) { const k = "Tanker e AWACS";',
+      'if (aux) { const k = f.tipo==="UAV"?"DRONI · osservazione":"Tanker e AWACS";')
+patch('function selDisp() { if (String(st.sel).indexOf("aux:") === 0)',
+      '''function selDisp() {
+    const drone=(st.uavs||[]).find(u=>u.cfg.id===st.sel);
+    if(drone)return drone.disp;
+    if (String(st.sel).indexOf("aux:") === 0)''')
 patch("aggiornaEntita(now); eventi(now); cameraUpdate(dt);",
       "aggiornaEntita(now); eventi(now); uavTick(dt,now); cameraUpdate(dt); if(st.scramble)scrambleTick(dt);")
 patch("terreno(root); statici(); aggiornaSelect(); setCam(opt.cam || (selId ? \"insegui\" : \"orbita\"));",
