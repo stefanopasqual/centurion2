@@ -97,16 +97,16 @@ jobs:
               assert p.is_file() and p.stat().st_size > 10000, p
           assert any(v['id']=='f16' and v['status']=='ready' for v in h['models']), 'F-16 absent from hangar'
           assert 'F16' in m, 'F-16 absent from mission manifest'
-          # Regression guard: all five verified source axes must face nose +Z, top +Y.
+          # Regression guard: all seven verified source axes must face nose +Z, top +Y.
           # Angles are XYZ degrees from the source GLB metadata/mesh verification.
           expected_rotations={
-              'F16':[-90,0,180], 'F22':[0,180,0],
+              'F16':[0,180,0], 'F22':[0,180,0], 'F15':[0,-90,0], 'F2000':[0,-90,0],
               'SU57':[0,-90,0], 'SU35':[0,-90,0], 'EA18':[0,-90,0]
           }
           for aircraft, rotation in expected_rotations.items():
               assert aircraft in m, f'{aircraft} missing from mission'
               assert m[aircraft].get('rot') == rotation, f'{aircraft} crooked chase orientation: {m[aircraft].get("rot")} != {rotation}'
-          print('PASS: 5 aircraft axis calibrations preserved (nose +Z / up +Y)')
+          print('PASS: 7 aircraft axis calibrations preserved (nose +Z / up +Y)')
           print('Hangar models:',len([v for v in h['models'] if v['status']=='ready']))
           print('Mission aircraft:', sorted(m))
           expected={'typhoon':'F2000','f15e':'F15','su57':'SU57','ea18':'EA18','f22':'F22'}
