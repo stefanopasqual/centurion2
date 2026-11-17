@@ -100,7 +100,7 @@ patch("js/vista3d.js",
     });''')
 patch("js/vista3d.js",
       "renderer.render(scene, camera); hud();",
-      '''if(s.hdTerrain)s.hdTerrain.update(camera.position.x,camera.position.z,performance.now());
+      '''if(s.hdTerrain&&TERRA.ready)s.hdTerrain.update(camera.position.x,camera.position.z,performance.now());
     renderer.render(scene, camera); hud();''')
 patch("js/vista3d.js",
       "if (scene) { scene.traverse(x => { if (x.geometry) x.geometry.dispose(); }); scene = null; }",
