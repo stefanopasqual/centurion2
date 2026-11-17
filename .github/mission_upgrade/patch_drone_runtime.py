@@ -72,11 +72,11 @@ apply("js/mondo3d.js",[
     overlay.classList.add("hidden");''')
 ])
 apply("js/map.js",[
- ('''function fitScenario() { map.fitBounds([[40.0, -125.6], [42.3, -121.0]]); }''',
+ ('''function fitScenario() {
+    if(sc.mappa5){''',
   '''function fitScenario() {
     if(sc.mappa && sc.mappa.bounds) map.fitBounds(sc.mappa.bounds,{padding:[18,18]});
-    else map.fitBounds([[40.0, -125.6], [42.3, -121.0]]);
-  }'''),
+    else if(sc.mappa5){'''),
  ('''    layers.nazioni.clearLayers(); layers.griglia.clearLayers(); layers.punti.clearLayers();''',
   '''    layers.nazioni.clearLayers(); layers.griglia.clearLayers(); layers.punti.clearLayers();
     if(sc.znpp && sc.znpp.illustrative){
