@@ -152,7 +152,9 @@ jobs:
           PY
       - name: Refresh offline cache for 3D hangar
         run: |
+          # Force a fresh offline cache for the cinematic model and scene assets.
           sed -i 's/centurion2-mobile-password-v2/centurion2-mobile-cadet-v24/g; s/centurion2-mobile-hangar-v4/centurion2-mobile-f22-home-v7/g; s/centurion2-mobile-hangar-su35-v5/centurion2-mobile-f22-home-v7/g' extracted/site/sw.js
+          sed -i 's/centurion2-mobile-cadet-v24/centurion2-mobile-realism-v25/g' extracted/site/sw.js
           # manifest.json (modelli, audio) network-first: rotations and files change on every deploy
           sed -i 's|const isDati = url => /|const isDati = url => !/manifest[.]json/.test(url) \&\& /|' extracted/site/sw.js
           grep -q 'isDati = url => !/manifest\[\.\]json/.test(url) && /' extracted/site/sw.js
