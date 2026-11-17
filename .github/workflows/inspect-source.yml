@@ -26,5 +26,5 @@ jobs:
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git config user.name 'github-actions[bot]'
           git add _integration_inspect/
-          git commit -m 'chore: extract app structure for EF2000 integration' || exit 0
+          git commit -m 'chore: refresh latest VFX/ejection source snapshot for diagnostics' || exit 0
           git push
