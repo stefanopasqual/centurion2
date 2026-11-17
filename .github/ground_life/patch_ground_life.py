@@ -52,15 +52,14 @@ patch("js/volo.js",
       if(S.groundLife&&S.pl)S.groundLife.update(dtR,S.pl.pos.x,S.pl.pos.z);''')
 # Mission 3D civilian life is visual only, and follows the camera as it travels.
 patch("js/mondo3d.js",
-    'statici(); aggiornaSelect();',
+    'statici();',
     '''statici();
     if(window.CENTURION_GROUND_LIFE){
       st.groundLife=CENTURION_GROUND_LIFE.create(root,{
         mobile:innerWidth<900,heightAt:(x,z)=>elev(x,z)
       });
       st.groundLife.update(.02,camera.position.x,camera.position.z);
-    }
-    aggiornaSelect();''')
+    }''')
 patch("js/mondo3d.js",
     'if(st.scramble)scrambleTick(dt);',
     '''if(st.scramble)scrambleTick(dt);
