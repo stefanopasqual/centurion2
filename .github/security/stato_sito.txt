@@ -1,4 +1,4 @@
-chiuso
+aperto
 # Interruttore del sito pubblicato. Prima riga: «chiuso» oppure «aperto», poi salva (commit su main):
 # il workflow riparte da solo e in un paio di minuti il sito si chiude o si riapre.
 # - chiuso: si pubblica solo la pagina «Accesso chiuso»; i dispositivi che avevano l'app cancellano cache e chiavi.
