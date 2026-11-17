@@ -29,7 +29,9 @@ const MODELS=[
 {id:'su57',name:'Sukhoi Su-57',tag:'Su-57',url:'https://sketchfab.com/3d-models/sukhoi-su-57-felon-p-fighter-jet-free-31127bc63bc048debb694aa88bbaafae'},
 {id:'su35',name:'Sukhoi Su-35S',tag:'Su-35',url:'https://huggingface.co/spaces/cutechicken/3D-Airforce-Simulator'},
 {id:'ea18',name:'Boeing EA-18G Growler',tag:'EA-18G',url:'https://sketchfab.com/3d-models/mcdonnell-douglas-fa-18eboeing-ea-18g-growler-d69153c8e91744cab2bad239a2cb5d98'},
-{id:'weapons',name:'Missili e bombe',tag:'ARMAMENTI',url:'https://sketchfab.com/3d-models/missile-bomb-collection-fighter-jets-free-d203b678424a43568703bf85ba680f47'}];
+{id:'weapons',name:'Missili e bombe',tag:'ARMAMENTI',url:'https://sketchfab.com/3d-models/missile-bomb-collection-fighter-jets-free-d203b678424a43568703bf85ba680f47'},
+{id:'uav-fixed',name:'UAV da ricognizione ad ala fissa',tag:'UAV · FIXED',url:'',drone:'fixed',summary:'Ricognitore originale non armato, ali rastremate, ottica orientabile ed elica animata.'},
+{id:'uav-quad',name:'Drone quadricottero ISR',tag:'UAV · QUAD',url:'',drone:'quad',summary:'Multirotore originale non armato con quattro rotori, carrello ed ottica stabilizzata.'}];
 const $=s=>document.querySelector(s),view=$('#view'),status=$('#status');
 const scene=new THREE.Scene();scene.background=new THREE.Color(0x07111f);
 const camera=new THREE.PerspectiveCamera(40,1,0.05,2000);camera.position.set(16,10,18);
@@ -38,16 +40,52 @@ scene.add(new THREE.HemisphereLight(0xd9ebff,0x243344,2));const key=new THREE.Di
 const rim=new THREE.DirectionalLight(0x80c6ff,1.3);rim.position.set(10,5,-12);scene.add(rim);
 const grid=new THREE.GridHelper(60,30,0x2f526b,0x17334a);grid.position.y=-5.5;scene.add(grid);
 const controls=new OrbitControls(camera,renderer.domElement);controls.enableDamping=true;controls.minDistance=2;controls.maxDistance=180;
-const loader=new GLTFLoader();let selected=MODELS[0],aircraft=null,token=0;
+const loader=new GLTFLoader();let selected=MODELS[0],aircraft=null,token=0,animationDriver=null,procedural=false,droneLoad=null;
+async function ensureDroneFactory(){
+ if(window.CENTURION_REALISM?.drone)return window.CENTURION_REALISM;
+ if(!droneLoad){
+   window.THREE=THREE;
+   droneLoad=new Promise((resolve,reject)=>{
+     const script=document.createElement('script');
+     script.src='../js/realism.js';
+     script.onload=()=>window.CENTURION_REALISM?.drone?
+       resolve(window.CENTURION_REALISM):reject(new Error('Generatore UAV non disponibile'));
+     script.onerror=()=>reject(new Error('Impossibile caricare i modelli UAV condivisi'));
+     document.head.appendChild(script);
+   });
+ }
+ return droneLoad;
+}
 function note(t){status.textContent=t;}
 function clear(){
  document.getElementById('sketchfab-fallback')?.remove();
  $('#floor').style.display='';
- if(aircraft){scene.remove(aircraft);aircraft=null;}
+ $('#floor').textContent='Ruota trascinando · Zoom con due dita o rotellina';
+ if(aircraft){
+   if(procedural)aircraft.traverse(o=>{if(o.isMesh&&o.geometry)o.geometry.dispose();});
+   scene.remove(aircraft);aircraft=null;
+ }
+ animationDriver=null;procedural=false;
 }
 function frame(obj){const box=new THREE.Box3().setFromObject(obj);const dimensions=box.getSize(new THREE.Vector3());const largest=Math.max(dimensions.x,dimensions.y,dimensions.z);if(!largest||!Number.isFinite(largest))throw Error('Geometria non valida');obj.scale.multiplyScalar(16/largest);box.setFromObject(obj);const c=box.getCenter(new THREE.Vector3());obj.position.sub(c);camera.position.set(15,10,19);controls.target.set(0,0,0);controls.update();}
-function place(glb){clear();aircraft=glb.scene;const gearDown=[];aircraft.traverse(o=>{const n=(o.name||'').toLowerCase().replace(/[\s_.-]/g,'');if(/landingon|gearon|geardown|gearout|refuelon|landinglights|undercarriage(?!off|up)|wheel(?!off|up)|tire(?!off|up)|tyre(?!off|up)/.test(n))gearDown.push(o);});gearDown.forEach(o=>{if(o.parent)o.parent.remove(o);});scene.add(aircraft);frame(aircraft);note('Modello 3D originale · carrello retratto · orbita e zoom attivi');}
-async function openModel(m){const id=++token;selected=m;$('#hint').textContent='Caricamento 3D: GLB locale, file importato oppure anteprima Sketchfab.';$('#title').textContent=m.name;$('#credit').textContent=m.id==='f22'?'Modello fornito dall’utente · licenza non specificata':m.id==='ea18'?'Rhine_Lab_Muelsyse / Sketchfab — CC BY 4.0':m.id==='su35'?'cutechicken / Hugging Face — CC BY-NC 4.0':'bohmerang / Sketchfab — CC BY-NC-SA 4.0';$('#source').onclick=()=>window.open(m.url,'_blank','noopener,noreferrer');document.querySelectorAll('nav button').forEach(b=>b.classList.toggle('active',b.dataset.id===m.id));note('Caricamento '+m.name+'…');try{const stored=await readStored(m.id);if(id!==token)return;if(stored){const g=await loader.parseAsync(await stored.arrayBuffer(),'');if(id===token){place(g);return;}}const glb=await loader.loadAsync('../models/'+m.id+'.glb');if(id===token){place(glb);return;}}catch(e){if(id!==token)return;clear();const match=m.url.match(/([0-9a-f]{32})$/i);
+function place(glb){clear();aircraft=glb.scene;const gearDown=[];aircraft.traverse(o=>{const n=(o.name||'').toLowerCase().replace(/[\s_.-]/g,'');if(/landingon|gearon|geardown|gearout|refuelon|landinglights|undercarriage(?!off|up)|wheel(?!off|up)|tire(?!off|up)|tyre(?!off|up)/.test(n))gearDown.push(o);});gearDown.forEach(o=>{if(o.parent)o.parent.remove(o);});scene.add(aircraft);frame(aircraft);note(selected.drone?'GLB UAV importato · orbita e zoom attivi':'Modello 3D originale · carrello retratto · orbita e zoom attivi');}
+function showDrone(m,created){
+ if(!created?.g)throw Error('Geometria UAV mancante');
+ clear();aircraft=created.g;aircraft.name=m.name;scene.add(aircraft);
+ frame(aircraft);procedural=true;
+ animationDriver=typeof created.animate==='function'?created.animate:null;
+ $('#hint').textContent=m.summary+' Modello utilizzato anche nelle missioni Donbass.';
+ $('#floor').textContent='Trascina per ruotare · Pizzica per zoom · Eliche e sensori animati';
+ note('UAV procedurale originale · nessun armamento · orbita e zoom attivi');
+}
+async function openModel(m){const id=++token;selected=m;$('#hint').textContent='Caricamento 3D: GLB locale, file importato oppure anteprima Sketchfab.';$('#title').textContent=m.name;$('#credit').textContent=m.drone?'CENTURION2 · modello procedurale originale, non armato':m.id==='f22'?'Modello fornito dall’utente · licenza non specificata':m.id==='ea18'?'Rhine_Lab_Muelsyse / Sketchfab — CC BY 4.0':m.id==='su35'?'cutechicken / Hugging Face — CC BY-NC 4.0':'bohmerang / Sketchfab — CC BY-NC-SA 4.0';$('#source').hidden=!!m.drone;
+ $('#source').onclick=m.url?()=>window.open(m.url,'_blank','noopener,noreferrer'):null;document.querySelectorAll('nav button').forEach(b=>b.classList.toggle('active',b.dataset.id===m.id));note('Caricamento '+m.name+'…');try{let stored=null;
+ try{stored=await readStored(m.id);}catch(err){console.warn('Archivio locale non accessibile',err);}
+ if(id!==token)return;if(stored){const g=await loader.parseAsync(await stored.arrayBuffer(),'');if(id===token){place(g);return;}}if(m.drone){
+  const factory=await ensureDroneFactory();
+  if(id===token){showDrone(m,factory.drone(m.drone==='quad'));return;}
+ }
+ const glb=await loader.loadAsync('../models/'+m.id+'.glb');if(id===token){place(glb);return;}}catch(e){if(id!==token)return;clear();const match=m.url.match(/([0-9a-f]{32})$/i);
  if(match){
    const f=document.createElement('iframe');
    f.id='sketchfab-fallback';
@@ -61,7 +99,8 @@ async function openModel(m){const id=++token;selected=m;$('#hint').textContent='
    $('#hint').textContent='Anteprima 3D originale via Sketchfab. Per il motore di volo serve il GLB convertito.';
    note('Anteprima Sketchfab in caricamento');
  }else{
-   note('GLB non ancora disponibile sul sito. Tocca «Importa GLB» dopo aver convertito il sorgente Blender.');
+   note(m.drone?'Errore caricamento drone: '+String(e.message||e):
+    'GLB non ancora disponibile sul sito. Tocca «Importa GLB» dopo aver convertito il sorgente Blender.');
  }}}
 for(const m of MODELS){const b=document.createElement('button');b.dataset.id=m.id;b.innerHTML='<strong>'+m.tag+'</strong><small>'+m.name+'</small>';b.onclick=()=>openModel(m);$('#aircraft').append(b);}
 function db(){return new Promise((ok,bad)=>{let r=indexedDB.open('centurion2-glb-v1',1);r.onupgradeneeded=()=>r.result.createObjectStore('files');r.onsuccess=()=>ok(r.result);r.onerror=()=>bad(r.error);});}
@@ -70,6 +109,11 @@ async function saveStored(id,file){const database=await db();try{await new Promi
 $('#import').onclick=()=>$('#upload').click();$('#upload').onchange=async()=>{const f=$('#upload').files[0];if(!f)return;try{note('Importazione '+f.name+'…');const g=await loader.parseAsync(await f.arrayBuffer(),'');place(g);await saveStored(selected.id,f);note(f.name+' · salvato localmente su questo dispositivo');}catch(e){note('Errore GLB: '+String(e.message||e));}$('#upload').value='';};
 $('#reset').onclick=()=>{if(aircraft)frame(aircraft);};
 $('#back').onclick=()=>{if(window.parent!==window)window.parent.postMessage({type:'centurion2-ef2000-close'},location.origin);else location.href='../';};
-function resize(){let w=view.clientWidth,h=view.clientHeight;if(!w||!h)return;renderer.setSize(w,h,false);camera.aspect=w/h;camera.updateProjectionMatrix();}new ResizeObserver(resize).observe(view);resize();renderer.setAnimationLoop(()=>{controls.update();renderer.render(scene,camera);});
+function resize(){let w=view.clientWidth,h=view.clientHeight;if(!w||!h)return;renderer.setSize(w,h,false);camera.aspect=w/h;camera.updateProjectionMatrix();}new ResizeObserver(resize).observe(view);resize();const clock=new THREE.Clock();
+renderer.setAnimationLoop(()=>{
+ const dt=Math.min(.05,clock.getDelta());
+ if(animationDriver)animationDriver(dt,clock.elapsedTime);
+ controls.update();renderer.render(scene,camera);
+});
 openModel(MODELS.find(m=>m.id===new URLSearchParams(location.search).get('aircraft'))||MODELS[0]);
 </script></body></html>
