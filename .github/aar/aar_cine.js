@@ -320,7 +320,8 @@ const AAR_CINE = (() => {
       #aar-cine .aar-met{position:absolute;left:16px;bottom:14px;font-size:12px;color:#c9d7e4;text-shadow:0 1px 4px #000}
       #aar-cine .aar-skip{position:absolute;right:16px;bottom:14px;font-size:12px;color:#c9d7e4;opacity:.8}
       #aar-cine .aar-bar{position:absolute;left:0;right:0;top:0;height:3px;background:#ffffff22}#aar-cine .aar-bar span{display:block;height:100%;width:0;background:#f7dc6f}
-      @media (max-height:460px){#aar-cine .aar-cap{font-size:14px;bottom:34px;padding:6px 12px}#aar-cine .aar-chi{font-size:13px}#aar-cine .aar-kick{font-size:12px}}`;
+      @media (max-height:460px){#aar-cine .aar-cap{font-size:14px;bottom:34px;padding:6px 12px}#aar-cine .aar-chi{font-size:13px}#aar-cine .aar-kick{font-size:12px}}
+      @media (max-width:560px){#aar-cine .aar-cap{white-space:normal;text-align:center;width:88vw;bottom:40px;font-size:15px}#aar-cine .aar-met{display:none}#aar-cine .aar-chi{font-size:13px;max-width:92vw}}`;
     document.head.appendChild(st);
   }
   return { get attiva() { return S.attiva; }, get abilitata() { return abil; }, set abilitata(v) { abil = !!v; }, mostra: r => avvia(r),
