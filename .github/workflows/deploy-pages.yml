@@ -9,6 +9,7 @@ on:
       - '.github/models/**'
       - '.github/maps/**'
       - '.github/cadet/**'
+      - '.github/home/**'
       - '.github/cockpit/**'
       - '.github/vfx/**'
       - 'model-sources/**'
@@ -68,6 +69,8 @@ jobs:
           python3 .github/models/patch_sam_controls.py extracted/site
           python3 .github/maps/patch_maps.py extracted/site
           python3 .github/cadet/patch_cadet.py extracted/site
+          python3 .github/home/patch_home.py extracted/site
+          node --check extracted/site/js/home_hub.js
           node --check extracted/site/js/cadet_core.js
           node --check extracted/site/js/cadet.js
           cp .github/ef2000/viewer.html extracted/site/ef2000/viewer.html
