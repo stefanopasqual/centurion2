@@ -12,6 +12,7 @@ on:
       - '.github/aar/**'
       - '.github/home/**'
       - '.github/mission_upgrade/**'
+      - '.github/veneto/**'
       - '.github/freeflight/**'
       - '.github/cockpit/**'
       - '.github/vfx/**'
@@ -108,6 +109,10 @@ jobs:
           node --check extracted/site/js/mondo3d.js
           node --check extracted/site/js/map.js
           node --check extracted/site/js/geran.js
+          python3 .github/veneto/patch_veneto.py extracted/site
+          node --check extracted/site/js/veneto.js
+          node --check extracted/site/js/veneto_cine.js
+          node --check extracted/site/js/modelli3d.js
           node --check extracted/site/js/engine.js
           node --check extracted/site/js/map.js
           node --check extracted/site/js/missioni.js
