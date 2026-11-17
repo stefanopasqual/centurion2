@@ -16,6 +16,7 @@ on:
       - '.github/freeflight/**'
       - '.github/cockpit/**'
       - '.github/vfx/**'
+      - '.github/thermal/**'
       - 'model-sources/**'
   workflow_dispatch:
 
@@ -112,6 +113,23 @@ jobs:
           python3 .github/veneto/patch_veneto.py extracted/site
           node --check extracted/site/js/veneto.js
           node --check extracted/site/js/veneto_cine.js
+          cp .github/thermal/thermal_camera.js extracted/site/js/thermal_camera.js
+          python3 .github/thermal/patch_thermal.py extracted/site
+          python3 -m py_compile .github/thermal/patch_thermal.py
+          python3 - <<'PY'
+          from pathlib import Path
+          path=Path('extracted/site/index.html')
+          page=path.read_text(encoding='utf-8')
+          tag='<script src="js/thermal_camera.js"></script>'
+          anchor='<script src="js/volo.js"></script>'
+          assert anchor in page, 'Volo script loader not found'
+          if tag not in page:
+              page=page.replace(anchor,tag+'\n'+anchor,1)
+              path.write_text(page,encoding='utf-8')
+          PY
+          node --check extracted/site/js/thermal_camera.js
+          node --check extracted/site/js/mondo3d.js
+          node --check extracted/site/js/volo.js
           node --check extracted/site/js/modelli3d.js
           node --check extracted/site/js/engine.js
           node --check extracted/site/js/map.js
@@ -206,6 +224,7 @@ jobs:
           sed -i 's/centurion2-mobile-drone-ops-v26/centurion2-mobile-hangar-uav-v27/g' extracted/site/sw.js
           sed -i 's/centurion2-mobile-hangar-uav-v27/centurion2-mobile-all-flight-v28/g' extracted/site/sw.js
           sed -i 's/centurion2-mobile-all-flight-v28/centurion2-mobile-hd-terrain-v29/g' extracted/site/sw.js
+          sed -i 's/centurion2-mobile-hd-terrain-v29/centurion2-mobile-thermal-uav-v30/g' extracted/site/sw.js
           # manifest.json (modelli, audio) network-first: rotations and files change on every deploy
           sed -i 's|const isDati = url => /|const isDati = url => !/manifest[.]json/.test(url) \&\& /|' extracted/site/sw.js
           grep -q 'isDati = url => !/manifest\[\.\]json/.test(url) && /' extracted/site/sw.js
