@@ -279,6 +279,7 @@ jobs:
           sed -i 's/centurion2-mobile-thermal-uav-v30/centurion2-mobile-sonic-v31/g' extracted/site/sw.js
           sed -i 's/centurion2-mobile-sonic-v31/centurion2-mobile-aero-v32/g' extracted/site/sw.js
           sed -i 's/centurion2-mobile-aero-v32/centurion2-mobile-fdm6-v33/g' extracted/site/sw.js
+          sed -i 's/centurion2-mobile-fdm6-v33/centurion2-mobile-uav-ir-fix-v34/g' extracted/site/sw.js
           # manifest.json (modelli, audio) network-first: rotations and files change on every deploy
           sed -i 's|const isDati = url => /|const isDati = url => !/manifest[.]json/.test(url) \&\& /|' extracted/site/sw.js
           grep -q 'isDati = url => !/manifest\[\.\]json/.test(url) && /' extracted/site/sw.js
