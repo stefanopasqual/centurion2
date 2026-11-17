@@ -96,6 +96,8 @@ jobs:
           node --check extracted/site/js/znpp.js
           python3 .github/mission_upgrade/patch_visuals.py extracted/site
           python3 .github/mission_upgrade/patch_drone_runtime.py extracted/site
+          python3 .github/mission_upgrade/patch_geran.py extracted/site
+          node --check extracted/site/js/geran.js
           node --check extracted/site/js/engine.js
           node --check extracted/site/js/map.js
           node --check extracted/site/js/missioni.js
@@ -141,10 +143,12 @@ jobs:
               'F16':[0,180,0], 'F22':[0,180,0], 'F15':[0,-90,0], 'F2000':[0,-90,0],
               'SU57':[0,-90,0], 'SU35':[0,-90,0], 'EA18':[0,-90,0]
           }
+          if Path('model-sources/geran2.glb').is_file():
+              expected_rotations['GERAN2']=[0,180,0]
           for aircraft, rotation in expected_rotations.items():
               assert aircraft in m, f'{aircraft} missing from mission'
               assert m[aircraft].get('rot') == rotation, f'{aircraft} crooked chase orientation: {m[aircraft].get("rot")} != {rotation}'
-          print('PASS: 7 aircraft axis calibrations preserved (nose +Z / up +Y)')
+          print(f'PASS: {len(expected_rotations)} model axis calibrations preserved (nose +Z / up +Y)')
           print('Hangar models:',len([v for v in h['models'] if v['status']=='ready']))
           print('Mission aircraft:', sorted(m))
           expected={'typhoon':'F2000','f15e':'F15','su57':'SU57','ea18':'EA18','f22':'F22'}

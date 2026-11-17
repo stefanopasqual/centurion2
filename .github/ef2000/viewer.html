@@ -23,13 +23,15 @@ import * as THREE from 'three';
 import {OrbitControls} from 'three/addons/controls/OrbitControls.js';
 import {GLTFLoader} from 'three/addons/loaders/GLTFLoader.js';
 const MODELS=[
-{id:'f22',name:'Lockheed Martin F-22 Raptor',tag:'F-22',url:''},
+{id:'f22',name:'Lockheed Martin F-22 Raptor',tag:'F-22',url:'https://sketchfab.com/3d-models/f22-raptor-ec44bd6cffa649b4927799a7b19c703b'},
 {id:'typhoon',name:'Eurofighter Typhoon',tag:'EF-2000',url:'https://sketchfab.com/3d-models/eurofighter-typhoon-fighter-jet-free-992bcc8987964ca09d55410330aa8579'},
 {id:'f15e',name:'F-15E Strike Eagle',tag:'F-15E',url:'https://sketchfab.com/3d-models/f-15e-strike-eagle-fighter-jet-free-fff7d75490474e9b964d90cc031c8d01'},
 {id:'su57',name:'Sukhoi Su-57',tag:'Su-57',url:'https://sketchfab.com/3d-models/sukhoi-su-57-felon-p-fighter-jet-free-31127bc63bc048debb694aa88bbaafae'},
-{id:'su35',name:'Sukhoi Su-35S',tag:'Su-35',url:'https://huggingface.co/spaces/cutechicken/3D-Airforce-Simulator'},
+{id:'su35',name:'Sukhoi Su-35S',tag:'Su-35',url:'https://sketchfab.com/3d-models/sukhoi-su-35-fighter-jet-free-3213a404e5cb4fb68f778b9acae5109c'},
 {id:'ea18',name:'Boeing EA-18G Growler',tag:'EA-18G',url:'https://sketchfab.com/3d-models/mcdonnell-douglas-fa-18eboeing-ea-18g-growler-d69153c8e91744cab2bad239a2cb5d98'},
+{id:'geran2',name:'Geran-2 (Shahed-136) · drone ostile',tag:'GERAN-2',url:'https://sketchfab.com/3d-models/geranium-2-8f12f601efe44a73b47e30a7077cf249',info:'Drone ostile della missione M12 Donbass · apertura alare 2,5 m, lunghezza 3,5 m'},
 {id:'weapons',name:'Missili e bombe',tag:'ARMAMENTI',url:'https://sketchfab.com/3d-models/missile-bomb-collection-fighter-jets-free-d203b678424a43568703bf85ba680f47'}];
+const CREDITI={f22:'sxnneh / Sketchfab — Sketchfab Standard',ea18:'Rhine_Lab_Muelsyse / Sketchfab — CC BY 4.0',geran2:'Karosio / Sketchfab — CC BY-NC-SA 4.0'};
 const $=s=>document.querySelector(s),view=$('#view'),status=$('#status');
 const scene=new THREE.Scene();scene.background=new THREE.Color(0x07111f);
 const camera=new THREE.PerspectiveCamera(40,1,0.05,2000);camera.position.set(16,10,18);
@@ -46,8 +48,8 @@ function clear(){
  if(aircraft){scene.remove(aircraft);aircraft=null;}
 }
 function frame(obj){const box=new THREE.Box3().setFromObject(obj);const dimensions=box.getSize(new THREE.Vector3());const largest=Math.max(dimensions.x,dimensions.y,dimensions.z);if(!largest||!Number.isFinite(largest))throw Error('Geometria non valida');obj.scale.multiplyScalar(16/largest);box.setFromObject(obj);const c=box.getCenter(new THREE.Vector3());obj.position.sub(c);camera.position.set(15,10,19);controls.target.set(0,0,0);controls.update();}
-function place(glb){clear();aircraft=glb.scene;const gearDown=[];aircraft.traverse(o=>{const n=(o.name||'').toLowerCase().replace(/[\s_.-]/g,'');if(/landingon|gearon|geardown|gearout|refuelon|landinglights|undercarriage(?!off|up)|wheel(?!off|up)|tire(?!off|up)|tyre(?!off|up)/.test(n))gearDown.push(o);});gearDown.forEach(o=>{if(o.parent)o.parent.remove(o);});scene.add(aircraft);frame(aircraft);note('Modello 3D originale · carrello retratto · orbita e zoom attivi');}
-async function openModel(m){const id=++token;selected=m;$('#hint').textContent='Caricamento 3D: GLB locale, file importato oppure anteprima Sketchfab.';$('#title').textContent=m.name;$('#credit').textContent=m.id==='f22'?'Modello fornito dall’utente · licenza non specificata':m.id==='ea18'?'Rhine_Lab_Muelsyse / Sketchfab — CC BY 4.0':m.id==='su35'?'cutechicken / Hugging Face — CC BY-NC 4.0':'bohmerang / Sketchfab — CC BY-NC-SA 4.0';$('#source').onclick=()=>window.open(m.url,'_blank','noopener,noreferrer');document.querySelectorAll('nav button').forEach(b=>b.classList.toggle('active',b.dataset.id===m.id));note('Caricamento '+m.name+'…');try{const stored=await readStored(m.id);if(id!==token)return;if(stored){const g=await loader.parseAsync(await stored.arrayBuffer(),'');if(id===token){place(g);return;}}const glb=await loader.loadAsync('../models/'+m.id+'.glb');if(id===token){place(glb);return;}}catch(e){if(id!==token)return;clear();const match=m.url.match(/([0-9a-f]{32})$/i);
+function place(glb){clear();aircraft=glb.scene;if(selected.info)$('#hint').textContent=selected.info+' · mostrato ingrandito alla stessa scala dei jet';const gearDown=[];aircraft.traverse(o=>{const n=(o.name||'').toLowerCase().replace(/[\s_.-]/g,'');if(/landingon|gearon|geardown|gearout|refuelon|landinglights|undercarriage(?!off|up)|wheel(?!off|up)|tire(?!off|up)|tyre(?!off|up)/.test(n))gearDown.push(o);});gearDown.forEach(o=>{if(o.parent)o.parent.remove(o);});scene.add(aircraft);frame(aircraft);note('Modello 3D originale · carrello retratto · orbita e zoom attivi');}
+async function openModel(m){const id=++token;selected=m;$('#hint').textContent='Caricamento 3D: GLB locale, file importato oppure anteprima Sketchfab.';$('#title').textContent=m.name;$('#credit').textContent=CREDITI[m.id]||'bohmerang / Sketchfab — CC BY-NC-SA 4.0';$('#source').onclick=()=>window.open(m.url,'_blank','noopener,noreferrer');document.querySelectorAll('nav button').forEach(b=>b.classList.toggle('active',b.dataset.id===m.id));note('Caricamento '+m.name+'…');try{const stored=await readStored(m.id);if(id!==token)return;if(stored){const g=await loader.parseAsync(await stored.arrayBuffer(),'');if(id===token){place(g);return;}}const glb=await loader.loadAsync('../models/'+m.id+'.glb');if(id===token){place(glb);return;}}catch(e){if(id!==token)return;clear();const match=m.url.match(/([0-9a-f]{32})$/i);
  if(match){
    const f=document.createElement('iframe');
    f.id='sketchfab-fallback';

@@ -200,9 +200,36 @@ def main():
         'status': 'ready' if not args.dry_run else 'ready-for-conversion',
         'attribution': 'Original simplified F-16C reconstruction, not the linked Sketchfab mesh.'
     })
+    # Geran-2 (famiglia Shahed-136): drone ostile della missione M12 Donbass e dell'hangar.
+    # GLB fornito dall'utente, "Geranium-2" di Karosio su Sketchfab (CC BY-NC-SA 4.0).
+    # Assi verificati sul mesh: muso verso -Z, dorso +Y -> rotazione 180 gradi su Y.
+    geran_src = root / 'model-sources' / 'geran2.glb'
+    geran_url = 'https://sketchfab.com/3d-models/geranium-2-8f12f601efe44a73b47e30a7077cf249'
+    geran_state = 'source-missing'
+    if geran_src.is_file():
+        geran_state = 'ready-for-conversion' if args.dry_run else 'ready'
+        if not args.dry_run:
+            with geran_src.open('rb') as fh:
+                if fh.read(4) != b'glTF':
+                    raise RuntimeError('Geran-2 source is not a GLB')
+            target = out / 'geran2.glb'
+            shutil.copyfile(geran_src, target)
+            shutil.copyfile(target, mission / target.name)
+            mission_manifest['GERAN2'] = {
+                'file': target.name, 'rot': [0, 180, 0], 'lunghezza_m': 3.5,
+                'tint': False, 'autore': 'Karosio', 'licenza': 'CC BY-NC-SA 4.0',
+                'url': geran_url
+            }
+    report.append({
+        'id': 'geran2', 'name': 'Geran-2 (Shahed-136) drone',
+        'glb': 'models/geran2.glb' if geran_state == 'ready' else None,
+        'source': geran_url, 'author': 'Karosio', 'license': 'CC BY-NC-SA 4.0',
+        'status': geran_state,
+        'attribution': 'Geranium-2 by Karosio on Sketchfab (CC BY-NC-SA 4.0).'
+    })
     # Uploaded aircraft have already been copied and mapped above.
     # Do not overwrite calibrated rotations and real author/license metadata.
-    (out / 'manifest.json').write_text(json.dumps({'models': report, 'notice': 'Third-party aircraft models: bohmerang / Sketchfab (CC BY-NC-SA 4.0) , Rhine_Lab_Muelsyse / Sketchfab (CC BY 4.0) and sxnneh / Sketchfab (Sketchfab Standard). Attribution and noncommercial conditions apply.'}, indent=2), encoding='utf-8')
+    (out / 'manifest.json').write_text(json.dumps({'models': report, 'notice': 'Third-party models: bohmerang / Sketchfab (CC BY-NC-SA 4.0), Rhine_Lab_Muelsyse / Sketchfab (CC BY 4.0), sxnneh / Sketchfab (Sketchfab Standard) and Karosio / Sketchfab (CC BY-NC-SA 4.0, Geran-2 drone). Attribution and noncommercial conditions apply.'}, indent=2), encoding='utf-8')
     (mission / 'manifest.json').write_text(json.dumps(mission_manifest, indent=2), encoding='utf-8')
     print(json.dumps({'hangar':report, 'mission':mission_manifest}, indent=2))
 

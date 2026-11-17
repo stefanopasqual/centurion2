@@ -26,9 +26,10 @@ jobs:
           python3 .github/mission_upgrade/patch_drone_engine.py /tmp/centurion-check/site
           python3 .github/mission_upgrade/patch_visuals.py /tmp/centurion-check/site
           python3 .github/mission_upgrade/patch_drone_runtime.py /tmp/centurion-check/site
+          python3 .github/mission_upgrade/patch_geran.py /tmp/centurion-check/site
           cp .github/mission_upgrade/realism.js /tmp/centurion-check/site/js/realism.js
           cp .github/mission_upgrade/znpp.js /tmp/centurion-check/site/js/znpp.js
-          for js in missioni mondo3d engine map realism znpp; do
+          for js in missioni mondo3d engine map realism znpp geran; do
             node --check "/tmp/centurion-check/site/js/$js.js"
           done
           python3 - <<'PY'
@@ -49,5 +50,7 @@ jobs:
           assert "CENTURION_PLANT.create()" in w
           assert "sc.mappa.bounds" in mp
           assert "scrambleTick(dt)" in w
-          print("PASS: 4 regional scenarios, UAV engine/UI, civilian plant and expanded map")
+          assert "GERAN-1" in m and "function geranTick(" in w and "GERAN.stato(d,this.t)" in e
+          assert "js/geran.js" in Path("/tmp/centurion-check/site/index.html").read_text()
+          print("PASS: 4 regional scenarios, UAV engine/UI, civilian plant, expanded map and Geran-2")
           PY
