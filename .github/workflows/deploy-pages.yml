@@ -378,9 +378,11 @@ jobs:
       - name: Encrypt the published site (password in the SITE_PASSWORD secret)
         env:
           SITE_PASSWORD: ${{ secrets.SITE_PASSWORD }}
+          SITE_CHIUSO: ${{ vars.SITE_CHIUSO }}
         run: |
-          # Tutti i file escono cifrati (AES-256-GCM, chiave da PBKDF2 sulla password); senza il
-          # segreto si pubblica solo la pagina «accesso chiuso». Vedi «Sito cifrato» nel README.
+          # Con il segreto SITE_PASSWORD tutti i file escono cifrati (AES-256-GCM, chiave da PBKDF2);
+          # senza, il sito resta in chiaro; con la variabile SITE_CHIUSO = 1 si pubblica solo
+          # «accesso chiuso». Vedi «Sito cifrato» nel README.
           node --check .github/security/sw_cifrato.js
           node --check .github/security/sw_chiuso.js
           node .github/security/cifra_sito.mjs extracted/site

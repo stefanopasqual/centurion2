@@ -25,7 +25,15 @@ I modelli indicati nei manifest hanno attribuzione bohmerang / Sketchfab e licen
 
 ## Sito cifrato e chiuso
 
-Il workflow cifra tutto il sito prima di pubblicarlo, su GitHub Pages o su Cloudflare.
+Il workflow può pubblicare il sito, su GitHub Pages o su Cloudflare, in tre modi:
+
+| Impostazione (Settings → Secrets and variables → Actions) | Sito pubblicato |
+|---|---|
+| nessuna | in chiaro, aperto a chiunque abbia l'indirizzo |
+| segreto `SITE_PASSWORD` | cifrato: si apre solo con la password |
+| variabile `SITE_CHIUSO` = `1` (scheda *Variables*) | chiuso: solo la pagina «Accesso chiuso» |
+
+Con la password il workflow cifra tutto il sito prima di pubblicarlo:
 
 - Ogni file esce cifrato con AES-256-GCM; anche il nome è sostituito da un codice.
 - La chiave si ricava dalla password con PBKDF2-SHA256 (600.000 iterazioni).
@@ -36,7 +44,7 @@ Il workflow cifra tutto il sito prima di pubblicarlo, su GitHub Pages o su Cloud
 1. Nome `SITE_PASSWORD`, almeno 10 caratteri; meglio una frase lunga. Non scriverla in file, issue o chat.
 2. Avvia **Actions → Publish CENTURION2 mobile → Run workflow**.
 
-**Senza il segreto il sito è chiuso.** Si pubblica solo la pagina «Accesso chiuso», e i dispositivi che avevano già l'app cancellano cache e chiavi.
+**Chiudere il sito.** Crea la variabile `SITE_CHIUSO` con valore `1` e rilancia il workflow: si pubblica solo la pagina «Accesso chiuso», e i dispositivi che avevano già l'app cancellano cache e chiavi. Per riaprirlo cancella la variabile e rilancia il workflow.
 
 **Uso.** Su ogni dispositivo la password si inserisce una volta: la chiave resta nel browser finché la password non cambia. Per richiudere il sito su un dispositivo, apri l'indirizzo del sito con `?blocca` in fondo.
 
@@ -51,7 +59,7 @@ Il workflow cifra tutto il sito prima di pubblicarlo, su GitHub Pages o su Cloud
 
 ## Accesso privato (Cloudflare Pages + Cloudflare Access)
 
-Il workflow `Publish CENTURION2 mobile` pubblica il sito su Cloudflare Pages (progetto `centurion2`) quando trova i segreti `CLOUDFLARE_API_TOKEN` e `CLOUDFLARE_ACCOUNT_ID`; **finché mancano, pubblica su GitHub Pages**, che è raggiungibile da chiunque ma riceve solo il sito cifrato (vedi sopra). Configurazione una tantum:
+Il workflow `Publish CENTURION2 mobile` pubblica il sito su Cloudflare Pages (progetto `centurion2`) quando trova i segreti `CLOUDFLARE_API_TOKEN` e `CLOUDFLARE_ACCOUNT_ID`; **finché mancano, pubblica su GitHub Pages**, che è raggiungibile da chiunque: il sito è cifrato solo se è impostato il segreto `SITE_PASSWORD` (vedi sopra). Configurazione una tantum:
 
 1. **Repository privato**: Settings → General → Danger Zone → *Change visibility* → Private.
 2. **Spegnere GitHub Pages**: Settings → Pages → *Unpublish site*; in *Source* scegliere *None*/disattivare.
