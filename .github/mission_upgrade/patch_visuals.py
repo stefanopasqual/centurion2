@@ -71,11 +71,13 @@ visuals=r'''
     skip.style.cssText="position:absolute;right:8px;top:70px;z-index:17;padding:10px 14px;color:white;background:#203b50;border:1px solid #9bb7c9;border-radius:8px;cursor:pointer";
     skip.onclick=()=>scrambleEnd();
     overlay.append(hud,skip);
-    st.scramble={root,plane,light,hud,skip,elapsed:0,lastStage:-1,base:b};
+    const cinematic=window.CENTURION_REALISM?CENTURION_REALISM.stage(root,plane):null;
+    st.scramble={root,plane,light,hud,skip,cinematic,elapsed:0,lastStage:-1,base:b};
   }
   function scrambleEnd(){
     if(!st || !st.scramble)return;
     const c=st.scramble; c.hud.remove(); c.skip.remove();
+    if(c.cinematic)c.cinematic.dispose();
     scene.remove(c.root);
     c.root.traverse(x=>{if(x.geometry)x.geometry.dispose();});
     st.scramble=null;
@@ -103,6 +105,7 @@ visuals=r'''
     if(c.plane.children[0])c.plane.children[0].visible=t<10.4;
     c.root.position.y=elev(c.root.position.x,c.root.position.z)+2.5;
     c.light.intensity=t<2.2?.25:t<4.5?2.1:3.2;
+    if(c.cinematic)c.cinematic.tick(t,dt,c.plane);
     c.light.position.z=z-7;
     const root=c.root, target=root.localToWorld(c.plane.position.clone());
     const side=stage===0?new THREE.Vector3(45,17,-92):stage===1?
@@ -116,6 +119,7 @@ visuals=r'''
   }
   /* --- Observation-only UAVs; deliberately no weapons, detection or attack logic. --- */
   function uavModel(quad) {
+    if(window.CENTURION_REALISM)return CENTURION_REALISM.drone(quad);
     const g=new THREE.Group();
     const body=matStd(0x8797a5,{metalness:.18,roughness:.56});
     const dark=matStd(0x262f38);
@@ -146,7 +150,7 @@ visuals=r'''
       const m=uavModel(cfg.tipo==="quad");scene.add(m.g);
       const lab=label(cfg.nome,"#d9eaf7",80);lab.position.y=7;m.g.add(lab);
       const origin=toXZ(cfg.lat,cfg.lon);
-      st.uavs.push({cfg,origin,mesh:m.g,rotors:m.rotors,i,disp:null});
+      st.uavs.push({cfg,origin,mesh:m.g,rotors:m.rotors,animate:m.animate,i,disp:null});
     }
   }
   function uavTick(dt,now){
@@ -162,7 +166,8 @@ visuals=r'''
       const dx=Math.cos(t)*r,dz=r*.68*(.67*Math.cos(t*.67)*Math.cos(t)-Math.sin(t*.67)*Math.sin(t));
       const heading=Math.atan2(dx,dz);
       a.mesh.position.set(x,y,z);a.mesh.rotation.set(isQuad?.025*Math.sin(t*3):-.035,heading,.10*Math.sin(t*.7));
-      for(const rotor of a.rotors)rotor.rotation.y+=dt*(isQuad?95:145);
+      if(a.animate)a.animate(dt,now);
+      else for(const rotor of a.rotors)rotor.rotation.y+=dt*(isQuad?95:145);
       a.disp={x,y,z,hdg:(heading*180/Math.PI+360)%360,bank:0};
     }
   }
