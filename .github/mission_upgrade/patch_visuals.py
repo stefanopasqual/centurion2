@@ -10,12 +10,11 @@ def patch(old,new):
  assert old in s, "Mondo3D anchor missing: "+old[:115]
  s=s.replace(old,new,1)
 
-patch("const sc = APP.sc; TERRA.lat0 = 41.0; TERRA.lon0 = -122.8;",
-      """const sc = APP.sc;
-    // Respect each scenario's map origin, including the fictional Donbass region.
-    const origin=(sc.mappa && sc.mappa.centro)||[41.0,-122.8];
-    TERRA.lat0=sc.missione && sc.missione.id==="M12"?origin[0]:41.0;
-    TERRA.lon0=sc.missione && sc.missione.id==="M12"?origin[1]:-122.8;""")
+# Maps patch already sets the correct geographic origin for *all* regions.
+# Fall back to the legacy replacement only if patch_maps.py was not invoked.
+if "TERRA.lat0 = sc.mappa.centro[0]; TERRA.lon0 = sc.mappa.centro[1];" not in s:
+    patch("const sc = APP.sc; TERRA.lat0 = 41.0; TERRA.lon0 = -122.8;",
+          "const sc = APP.sc; TERRA.lat0 = sc.mappa.centro[0]; TERRA.lon0 = sc.mappa.centro[1];")
 
 visuals=r'''
   /* --- Reusable cinematic scramble. Visual-only: does not fake an engine takeoff. --- */
