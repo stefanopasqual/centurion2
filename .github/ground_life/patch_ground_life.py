@@ -41,7 +41,7 @@ patch("js/volo.js",
     '''S.root = root;
     if(window.CENTURION_GROUND_LIFE){
       S.groundLife=CENTURION_GROUND_LIFE.create(root,{
-        mobile:mobile(),heightAt:(x,z)=>elev(x,z)
+        mobile:mobile(),quality:"maximum",heightAt:(x,z)=>elev(x,z)
       });
       S.groundLife.update(.02,S.pl.pos.x,S.pl.pos.z);
     }
