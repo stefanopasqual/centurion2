@@ -9,6 +9,7 @@ on:
       - '.github/models/**'
       - '.github/maps/**'
       - '.github/cadet/**'
+      - '.github/aar/**'
       - '.github/cockpit/**'
       - '.github/vfx/**'
       - 'model-sources/**'
@@ -65,6 +66,8 @@ jobs:
           node --check extracted/site/js/volo.js
           node --check extracted/site/js/vista3d.js
           node --check extracted/site/js/mondo3d.js
+          python3 .github/aar/patch_aar.py extracted/site
+          node --check extracted/site/js/aar_cine.js
           python3 .github/models/patch_sam_controls.py extracted/site
           python3 .github/maps/patch_maps.py extracted/site
           python3 .github/cadet/patch_cadet.py extracted/site
@@ -131,7 +134,7 @@ jobs:
           PY
       - name: Refresh offline cache for 3D hangar
         run: |
-          sed -i 's/centurion2-mobile-password-v2/centurion2-mobile-cadet-v24/g; s/centurion2-mobile-hangar-v4/centurion2-mobile-f22-home-v7/g; s/centurion2-mobile-hangar-su35-v5/centurion2-mobile-f22-home-v7/g' extracted/site/sw.js
+          sed -i 's/centurion2-mobile-password-v2/centurion2-mobile-aar-cine-v25/g; s/centurion2-mobile-hangar-v4/centurion2-mobile-f22-home-v7/g; s/centurion2-mobile-hangar-su35-v5/centurion2-mobile-f22-home-v7/g' extracted/site/sw.js
           # manifest.json (modelli, audio) network-first: rotations and files change on every deploy
           sed -i 's|const isDati = url => /|const isDati = url => !/manifest[.]json/.test(url) \&\& /|' extracted/site/sw.js
           grep -q 'isDati = url => !/manifest\[\.\]json/.test(url) && /' extracted/site/sw.js

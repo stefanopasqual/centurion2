@@ -24,10 +24,12 @@ def patch(rel, old, new):
 
 # ---- vista3d.js: environment map, preload, procedural model export ----
 patch("js/vista3d.js", "  function modelloPromise(icona, col, opt) {", r'''  // Luce ambientale per i materiali PBR dei GLB: senza environment il metallo appare nero.
-  const AMB = {};
+  // La texture PMREM appartiene al contesto WebGL del renderer che la crea: una per renderer (volo, vista missione, cinematiche).
+  const AMB = { perRenderer: new WeakMap(), corrente: null };
   function ambiente(renderer, notte) {
     const key = notte ? "notte" : "giorno";
-    if (AMB[key]) return AMB[key];
+    let cache = AMB.perRenderer.get(renderer); if (!cache) { cache = {}; AMB.perRenderer.set(renderer, cache); }
+    if (key in cache) { AMB.corrente = cache[key]; return cache[key]; }
     try {
       const top = new THREE.Color(notte ? 0x0c1424 : 0x9cc4ff), hor = new THREE.Color(notte ? 0x1a2230 : 0xe8eef5), bot = new THREE.Color(notte ? 0x06080c : 0x6d7563);
       const geo = new THREE.SphereGeometry(10, 32, 16), pos = geo.attributes.position, col = [];
@@ -35,9 +37,9 @@ patch("js/vista3d.js", "  function modelloPromise(icona, col, opt) {", r'''  // 
       geo.setAttribute("color", new THREE.Float32BufferAttribute(col, 3));
       const sc = new THREE.Scene(); sc.add(new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ vertexColors: true, side: THREE.BackSide })));
       if (!notte) { const sun = new THREE.Mesh(new THREE.SphereGeometry(0.9, 12, 8), new THREE.MeshBasicMaterial({ color: new THREE.Color(6, 5.6, 5) })); sun.position.set(4, 7, 5); sc.add(sun); }
-      const pm = new THREE.PMREMGenerator(renderer); AMB[key] = pm.fromScene(sc, 0.02).texture; pm.dispose();
-    } catch (e) { console.warn("ambiente PBR non disponibile", e); AMB[key] = null; }
-    AMB.corrente = AMB[key]; return AMB[key];
+      const pm = new THREE.PMREMGenerator(renderer); cache[key] = pm.fromScene(sc, 0.02).texture; pm.dispose();
+    } catch (e) { console.warn("ambiente PBR non disponibile", e); cache[key] = null; }
+    AMB.corrente = cache[key]; return cache[key];
   }
   function precarica(tipi) {
     return gltfManifest().then(man => (tipi || []).forEach(t => { const m = man && man[t]; if (!m || !m.file || GLTF.cache[m.file] || typeof THREE.GLTFLoader === "undefined") return; GLTF.loader = GLTF.loader || new THREE.GLTFLoader(); GLTF.cache[m.file] = new Promise((res, rej) => GLTF.loader.load("modelli/" + m.file, g => res(g.scene), undefined, rej)).catch(e => { console.warn("glTF non caricabile", m.file, e); return null; }); })).catch(() => {});
