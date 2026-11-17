@@ -1,6 +1,6 @@
 /* =====================================================================
    CENTURION 2 · Missione Veneto – cinematiche di SCRAMBLE (Istrana) e ATTERRAGGIO (Venezia Tessera)
-   Quando la coppia QRA decolla su allarme e quando l'Airbus tocca la pista 04R, la simulazione si
+   Quando la coppia QRA decolla su ordine di scramble e quando l'Airbus tocca la pista 04R, la simulazione si
    ferma per una scena 3D ravvicinata (9-10 secondi), poi riparte da sola. Si salta toccando lo schermo
    o con Esc, si disattiva dal pannello Esecuzione. Non parte se è aperto il Mondo 3D (lì la scena si
    vede dal vivo). Piste e luci con le coordinate reali (OurAirports); terreno con le immagini
@@ -99,7 +99,7 @@ const VENETO_CINE = (() => {
   // Eurofighter: GLB con carrello procedurale e postbruciatori
   async function typhoon(conCarrello) {
     let m = null; try { m = await VISTA3D.modelloPromise("typhoon", undefined, { tipoId: "F2000", numero: "01" }); } catch (e) {}
-    if (!m) m = VISTA3D.jetFallback(0x6b7680); else materialiPropri(m);
+    if (!m) m = VISTA3D.jetFallback(0x6b7680); else { materialiPropri(m); if (VENETO.livreaItaliana) VENETO.livreaItaliana(m); }   // materiali già copiati: insegne italiane
     const W = new THREE.Group(); W.add(m); W.updateMatrixWorld(true);
     const bb = new THREE.Box3().setFromObject(m), size = bb.getSize(V3()), yN = bb.min.y + size.y * 0.3;
     const fiamme = [];
@@ -151,7 +151,7 @@ const VENETO_CINE = (() => {
     const yA = -j1.userData.terra;   // quota del velivolo appoggiato sulle ruote
     const vapori = fumo(F, 14);
     const pos = (W, x, y, z, yaw, pitch) => { W.position.set(x, y, z); W.rotation.set(-(pitch || 0), yaw, 0, "YXZ"); };
-    const did = ["ALLARME QRA · i piloti sono già ai velivoli: FALCO 1-2 escono dai rifugi", "Postbruciatore · decollo in coppia dalla pista 08 di Istrana", "FALCO 1-2 in volo verso il LAGUNA 451"];
+    const did = ["SCRAMBLE · ordine del CAOC: FALCO 1-2 escono dalle hangarette QRA", "Postbruciatore · decollo in coppia dalla pista 08 di Istrana, controvento", "FALCO 1-2 in salita verso il LAGUNA 451, guidati dal radar"];
     const cam = (p0, look, fov) => { camera.position.copy(F.localToWorld(p0.clone())); camera.lookAt(F.localToWorld(look.clone())); camera.fov = Math.min(80, fov * (camera.aspect < 1 ? 1.6 : 1)); camera.updateProjectionMatrix(); cupola.position.copy(camera.position); };   // in verticale serve più campo
     const disegna = t => {
       beacon.forEach((b, i) => { const on = Math.sin(t * 9 + i * 1.7) > 0.2; b.lamp.visible = on; b.alone.visible = on; b.pl.intensity = on ? 3 : 0; });
@@ -181,7 +181,7 @@ const VENETO_CINE = (() => {
       return { fase, didascalia: did[fase] };
     };
     await pronto;
-    return { scene: sc, disegna, kick: "🚨 SCRAMBLE · QRA ISTRANA", met: "Coppia QRA in allerta a 5 minuti · pista 08/26 di Istrana (coordinate OurAirports)" };
+    return { scene: sc, disegna, kick: "🚨 SCRAMBLE · QRA ISTRANA", met: "Prontezza QRA 15 minuti, in volo dopo 8 · pista 08/26 di Istrana (coordinate OurAirports)" };
   }
 
   /* ---------- scena 2: ATTERRAGGIO a Venezia Tessera, pista 04R ---------- */
@@ -198,37 +198,28 @@ const VENETO_CINE = (() => {
     let ab = await VENETO.modelloAirbus(); if (!ab) ab = VISTA3D.jetFallback(0xe5e9ec);
     F.add(ab); const gear = ab.userData && ab.userData.carrello, yG = gear ? -gear.userData.terra : 5.6;
     if (gear) gear.visible = true; if (ab.userData && ab.userData.fari) ab.userData.fari.visible = true;
-    const j1 = await typhoon(false), j2 = await typhoon(false); F.add(j1, j2);
     const gomme = fumo(F, 10), inv = fumo(F, 12);
     const quota = z => { const g = 0.0524 * (zTd - z); if (z < zTd - 200) return g; const u = clamp((z - (zTd - 200)) / 200, 0, 1); return 10.48 * (1 - u) * (1 - u); };
     const setAb = (z, beccheggio) => { ab.position.set(0, yG + quota(z), z); ab.rotation.set(-beccheggio, 0, 0, "YXZ"); };
-    const setJ = (W, x, y, z, pitch, roll, yaw) => { W.position.set(x, y, z); W.rotation.set(-(pitch || 0), yaw || 0, roll || 0, "YXZ"); };
-    const did = ["Corto finale · LAGUNA 451 sull'ILS della pista 04R, FALCO 1-2 in scorta", "Touchdown a Venezia Tessera · emergenza radio conclusa", "FALCO 1-2 · passaggio sulla pista e rientro a Istrana"];
+    const did = ["Corto finale · LAGUNA 451 senza radio: luce verde fissa dalla torre, autorizzato ad atterrare", "Touchdown sulla pista 04R di Venezia Tessera", "Inversori di spinta · FALCO 1-2 in attesa a nord-ovest, poi rientro a Istrana"];
     const cam = (p0, look, fov) => { camera.position.copy(F.localToWorld(p0.clone())); camera.lookAt(F.localToWorld(look.clone())); camera.fov = Math.min(80, fov * (camera.aspect < 1 ? 1.6 : 1)); camera.updateProjectionMatrix(); cupola.position.copy(camera.position); };   // in verticale serve più campo
     let tAnim = 0;
     const disegna = t => {
       gomme.forEach(s => { s.visible = false; }); inv.forEach(s => { s.visible = false; });
       if (ab.userData && ab.userData.anim) { try { ab.userData.anim({ t, afterburner: 0 }); } catch (e) {} }
       let fase;
-      if (t < 3.4) {   // corto finale sopra la laguna, caccia in scorta a sinistra e più in alto
+      if (t < 3.4) {   // corto finale sopra la laguna: i caccia hanno lasciato l'Airbus a 8 NM e sono in attesa a nord-ovest
         fase = 0; const z = zThr - 1300 + 72 * t; setAb(z, 0.045);
-        setJ(j1, 85, yG + quota(z) + 34, z - 150, 0.04, 0, 0); setJ(j2, 140, yG + quota(z) + 46, z - 225, 0.04, 0, 0); postbruciatore(j1, 0, t); postbruciatore(j2, 0, t);
         cam(V3(-95, 12, zThr - 560), V3(30, yG + quota(z) + 12, z - 60), lerp(24, 19, t / 3.4));
       } else if (t < 6.8) {   // richiamata e contatto: fumo dai carrelli principali
         fase = 1; const u = t - 3.4, z = zTd - 200 + 70 * u, toccato = z >= zTd; setAb(Math.min(z, zTd + 5000), toccato ? 0.035 : 0.07 + 0.02 * clamp(u / 2.5, 0, 1));
         if (toccato) { const zz = z; ab.position.set(0, yG, zz); const a0 = (z - zTd) / 70;
           gomme.forEach((s, i) => { const age = a0 - i * 0.04; s.visible = age > 0 && age < 1.6; if (!s.visible) return; s.position.set((i % 2 ? 5.35 : -5.35) + Math.sin(i) * 0.6, 0.8 + age * 1.6, zTd - 1.5 + (i * 0.04) * 70 - 6 - age * 6); const k = 3 + age * 7; s.scale.set(k, k * 0.7, 1); s.material.opacity = (1 - age / 1.6) * 0.55; }); }
-        const zj = zTd - 200 + 78 * u - 120; setJ(j1, 70, yG + 44 + 6 * u, zj, 0.05, 0, 0); setJ(j2, 118, yG + 55 + 6 * u, zj - 70, 0.05, 0, 0); postbruciatore(j1, 0, t); postbruciatore(j2, 0, t);
         cam(V3(-82, 2.4, zTd + 70), V3(0, yG + 4, lerp(zTd - 140, zTd + 10, ease(u / 3.2))), 38);
-      } else {   // corsa d'atterraggio con gli inversori, i caccia passano e cabrano in postbruciatore
+      } else {   // corsa d'atterraggio con gli inversori di spinta: la telecamera resta a bordo pista e lo segue
         fase = 2; const u = t - 6.8, v = 54 - 3.6 * u, z = zTd + 330 + 54 * u - 1.8 * u * u; ab.position.set(0, yG, z); ab.rotation.set(0, 0, 0);
         inv.forEach((s, i) => { const age = (u * 1.4 + i / inv.length * 1.2) % 1.2; s.visible = v > 25; s.position.set((i % 2 ? 9.6 : -9.6) + Math.sin(i * 2.1) * 0.8, 1.2 + age * 2.4, z + 3 - age * 14); const k = 3.5 + age * 9; s.scale.set(k, k * 0.75, 1); s.material.opacity = (1 - age / 1.2) * 0.3; });
-        const q = u, zj = z - 200 + 140 * q, salita = Math.max(0, q - 1.7);
-        const s2 = Math.max(0, q - 2.1);   // virata a sinistra (+X) in salita: rollio negativo = ala sinistra giù
-        setJ(j1, 18 + 18 * salita * salita, yG + 26 + 3 * q + 34 * salita * salita, zj, 0.03 + Math.min(0.6, 0.34 * salita), -Math.min(1.0, 0.6 * salita), 0.12 * salita);
-        setJ(j2, 44 + 22 * s2 * s2, yG + 34 + 3 * q + 34 * s2 * s2, zj - 55, 0.03 + Math.min(0.6, 0.34 * s2), -Math.min(1.0, 0.6 * s2), 0.12 * s2);
-        postbruciatore(j1, clamp((q - 1.5) / 0.4, 0, 1), t); postbruciatore(j2, clamp((q - 1.9) / 0.4, 0, 1), t);
-        cam(V3(46, 3.5, z - 175), V3(14, lerp(10, 34, ease((q - 1.2) / 2.0)), z + 190), 56);
+        cam(V3(-70, 2.2, zTd + 470), V3(0, yG + 2.5, z + 8), lerp(34, 24, ease(u / 3.2)));
       }
       tAnim = t; return { fase, didascalia: did[fase] };
     };
@@ -242,7 +233,7 @@ const VENETO_CINE = (() => {
     if (!S.scene[r.tipo]) S.scene[r.tipo] = await (r.tipo === "scramble" ? scenaScramble() : scenaAtterraggio());
     const Sc = S.scene[r.tipo], q = s => ov.querySelector(s), durata = DURATE[r.tipo];
     q(".vc-kick").textContent = Sc.kick; q(".vc-met").textContent = Sc.met;
-    q(".vc-chi").textContent = r.tipo === "scramble" ? `${r.cs || "FALCO"} · ${r.n || 2}× Eurofighter Typhoon · scramble alle ${r.ora || ""}` : `${VENETO.CIVILE.cs} · ${VENETO.CIVILE.tipo} · ${VENETO.CIVILE.marche} · scortato da FALCO 1-2`;
+    q(".vc-chi").textContent = r.tipo === "scramble" ? `${r.cs || "FALCO"} · ${r.n || 2}× Eurofighter Typhoon · in volo alle ${r.ora || ""}` : `${VENETO.CIVILE.cs} · ${VENETO.CIVILE.tipo} · ${VENETO.CIVILE.marche} · senza radio (7600), scortato da FALCO 1-2 fino a 8 NM`;
     let fase = -1;
     const disegna = t => {
       const info = Sc.disegna(t); if (info.fase !== fase) { fase = info.fase; q(".vc-cap").textContent = info.didascalia; }
