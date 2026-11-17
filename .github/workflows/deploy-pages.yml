@@ -18,6 +18,7 @@ on:
       - '.github/vfx/**'
       - '.github/thermal/**'
       - '.github/sonic/**'
+      - '.github/aero/**'
       - 'model-sources/**'
   workflow_dispatch:
 
@@ -131,6 +132,8 @@ jobs:
           node --check extracted/site/js/thermal_camera.js
           cp .github/sonic/sonic_fx.js extracted/site/js/sonic_fx.js
           python3 .github/sonic/patch_sonic.py extracted/site
+          python3 .github/aero/patch_aero.py extracted/site
+          python3 -m py_compile .github/aero/patch_aero.py
           python3 -m py_compile .github/sonic/patch_sonic.py
           python3 - <<'PY'
           from pathlib import Path
