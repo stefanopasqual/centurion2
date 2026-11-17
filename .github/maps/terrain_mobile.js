@@ -79,7 +79,7 @@
     function sampleHeight(z,x,y,px,pz,grid){
       const p=coords(z,x,y);
       const u=(px-(p.x-p.size/2))/p.size,v=(pz-(p.z-p.size/2))/p.size;
-      return bilinear(grid,u,v)*(opts.exaggeration?opts.exaggeration():1);
+      return (bilinear(grid,u,v)-(opts.datum?opts.datum():0))*(opts.exaggeration?opts.exaggeration():1);
     }
     function heightAt(x,z){
       for(let i=levels.length-1;i>=0;i--){
@@ -103,8 +103,8 @@
       for(let j=0;j<vertices.count;j++){
         const lx=vertices.getX(j),lz=vertices.getZ(j);
         const x=pos.x+lx,z=pos.z+lz;
-        const u=clamp(lx/size+.5,0,1),v=clamp(lz/size+.5,0,1);
-        const hi=bilinear(entry.grid,u,v)*(opts.exaggeration?opts.exaggeration():1);
+        const u=clamp(lx/size+.5,0,1),v=clamp(.5+lz/size,0,1);
+        const hi=(bilinear(entry.grid,u,v)-(opts.datum?opts.datum():0))*(opts.exaggeration?opts.exaggeration():1);
         const edge=clamp(min(u,1-u,v,1-v)*8,0,1);
         const lo=baseH(x,z);
         vertices.setY(j,hi*edge+lo*(1-edge)+entry.lift);
@@ -162,12 +162,14 @@
         for(let dy=-rad;dy<=rad;dy++)for(let dx=-rad;dx<=rad;dx++){
           const xx=cx+dx,yy=cy+dy,where=coords(zz,xx,yy);
           // Preserve 100 km² maps' actual square clipping: omit crossing tiles.
-          if(Math.abs(where.x)+m.size/2>half||Math.abs(where.z)+m.size/2>half)continue;
+          if(Math.abs(where.x)-m.size/2>=half||Math.abs(where.z)-m.size/2>=half)continue;
           target.set(key(zz,xx,yy),{key:key(zz,xx,yy),z:zz,x:xx,y:yy,
             seg,lift,dist:Math.hypot(where.x-x,where.z-z)});
         }
       }
-      return target;
+      // Limit mesh count across mobile profiles, favouring close fine tiles.
+      const chosen=[...target.values()].sort((a,b)=>a.dist-b.dist||b.z-a.z).slice(0,profile.maxTiles);
+      return new Map(chosen.map(t=>[t.key,t]));
     }
     function update(x,z,time){
       if(closed)return;
