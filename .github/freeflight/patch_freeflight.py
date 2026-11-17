@@ -60,6 +60,7 @@ patch('''  function fisica(dt) {
     P.M=P.V/isa(P.pos.y).a;P.alpha=0;P.nz=1;P.p=0;P.q=0;P.r=yaw/Math.max(dt,.0001);
     P.ab=0;P.spinta=Math.max(0,S.thr);
     P.fuel=Math.max(0,P.fuel-dt*(.00028+.00035*Math.abs(S.thr-.5)));
+    if(P.fuel<=0){P.vel.y-=9.81*dt;}
   }
   function fisica(dt) {
     const P = S.pl, A = P.A, In = S.in; if (!P.vivo) return;
@@ -67,6 +68,7 @@ patch('''  function fisica(dt) {
 patch('''  function avvia(cfg) {
     distruggiScena();''',
 '''  function avvia(cfg) {
+    if(AEREI[cfg.aereo]?.nonArmato){cfg.nemici=0;cfg.sam=false;}
     if(AEREI[cfg.aereo]?.drone)cfg.partenza="volo";
     distruggiScena();''')
 patch('''    if (!S || S.pausa || !S.pl.vivo) return; const P = S.pl;
