@@ -10,6 +10,7 @@ on:
       - '.github/maps/**'
       - '.github/cadet/**'
       - '.github/home/**'
+      - '.github/mission_upgrade/**'
       - '.github/cockpit/**'
       - '.github/vfx/**'
       - 'model-sources/**'
@@ -69,6 +70,10 @@ jobs:
           python3 .github/models/patch_sam_controls.py extracted/site
           python3 .github/maps/patch_maps.py extracted/site
           python3 .github/cadet/patch_cadet.py extracted/site
+          python3 .github/mission_upgrade/patch_donbass.py extracted/site
+          python3 .github/mission_upgrade/patch_visuals.py extracted/site
+          node --check extracted/site/js/missioni.js
+          node --check extracted/site/js/mondo3d.js
           python3 .github/home/patch_home.py extracted/site
           node --check extracted/site/js/home_hub.js
           node --check extracted/site/js/cadet_core.js
