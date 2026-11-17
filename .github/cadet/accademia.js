@@ -527,6 +527,7 @@ const ACCADEMIA = (() => {
     try { localStorage.removeItem("centurion_cadet_backup"); } catch (e) {}
   }
   function avviaLezione(L) {
+    if (!L.fasi) return capstone(L);   // le missioni conclusive si aprono dalla loro schermata
     if (typeof VOLO === "undefined" || !VOLO._acc || typeof THREE === "undefined") { alert("Le lezioni pratiche richiedono il Free Flight 3D."); return; }
     chiudiSchermo(); salvaStato();
     try { APP.play(false); } catch (e) {}
@@ -735,6 +736,6 @@ const ACCADEMIA = (() => {
     document.head.appendChild(st);
   }
 
-  return { apri, briefing: id => { const L = LEZIONI.find(x => x.id === id); if (L) briefing(L); }, avvia: id => { const L = LEZIONI.find(x => x.id === id); if (L) avviaLezione(L); }, esci,
+  return { apri, briefing: id => { const L = LEZIONI.find(x => x.id === id); if (L) briefing(L); }, avvia: id => { const L = LEZIONI.find(x => x.id === id); if (L) (L.tipo ? capstone(L) : avviaLezione(L)); }, esci,
     LEZIONI, MODULI, get attiva() { return !!R; }, get stato() { return R && { id: R.L.id, fase: R.i, hold: R.hold, esito: R.esito, motivo: R.motivo, c: R.c, r: R.r }; }, _R: () => R, _xz: xz };
 })();
