@@ -116,6 +116,10 @@
       tipo: "Missione personalizzata", focus: "Missione personalizzata", domande: [], difficolta: 3 };
     sc.meta.nome = sc.missione.titolo;
     (sc.target || []).forEach(t => { if (t.primario == null) t.primario = true; });
+    sc.piani = sc.piani || {};
+    sc.piani.BLUE = sc.piani.BLUE || { formazioni: {} };
+    sc.piani.BLUE.formazioni = sc.piani.BLUE.formazioni || {};
+    sc.piani.RED = sc.piani.RED || { cap: [], prontezza: [], sam_moves: [], commit_nm: 60 };
     return sc;
   }
   function updateGoals(sc) {
@@ -142,6 +146,7 @@
       throw new Error("Servono almeno una base BLUE e una RED");
     if (sc.gate.length < 2) throw new Error("Servono almeno due Gate per le rotte");
     if (!sc.aar.length) throw new Error("Serve almeno un punto AAR (tanker)");
+    if (!sc.target.length) throw new Error("Aggiungi almeno un obiettivo");
     if (!sc.mappa.centro || !latOK(sc.mappa.centro[0]) || !lonOK(sc.mappa.centro[1])) throw new Error("Centro mappa non valido");
     if (!sc.tempo || !(clockMinutes(sc.tempo.inizio) < clockMinutes(sc.tempo.fine))) throw new Error("Finestra temporale non valida");
     if (!sc.meta || !String(sc.meta.nome || "").trim()) throw new Error("Dai un nome alla missione");
@@ -165,7 +170,7 @@
       if (!idsOf("gate").includes(p.gate_in)) p.gate_in = sc.gate[0].id;
       if (!idsOf("gate").includes(p.gate_out)) p.gate_out = sc.gate[1].id;
       if (!idsOf("aar").includes(p.tanker)) p.tanker = sc.aar[0].id;
-      if (!clockMinutes(p.decollo) && p.decollo !== "00:00") p.decollo = sc.tempo.inizio;
+      if (!Number.isFinite(clockMinutes(p.decollo))) p.decollo = sc.tempo.inizio;
       if (!Number.isFinite(clockMinutes(p.push))) p.push = sc.tempo.inizio;
     }
     R.cap = R.cap.filter(c => flightIds.has(c.formazione) && idsOf("cap_box").includes(c.box));
