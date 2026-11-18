@@ -1,0 +1,60 @@
+/* CENTURION2 COMANDANTE - responsive tactical mission builder */
+#cmd-open{padding:7px 11px;color:#fff;background:#38506d;border:1px solid #a3c9ec;border-radius:8px;white-space:nowrap}
+#splash .splash-roles.unica,#splash .splash-roles.unica.hidden{grid-template-columns:repeat(5,minmax(0,1fr))!important}
+#cmd-home{border-color:#a7bfd5!important}
+#cmd-home .big{color:#d1e9fc;font-size:45px}
+#commander-overlay,#commander-overlay *{box-sizing:border-box}
+#commander-overlay{position:fixed;inset:0;z-index:30000;background:#07111b;color:#ebf2f9;display:flex;flex-direction:column;font:14px system-ui,Arial,sans-serif}
+#commander-overlay .cmd-header{min-height:58px;padding:11px 16px;display:flex;align-items:center;justify-content:space-between;background:#13243a;border-bottom:1px solid #425c70}
+#commander-overlay .cmd-header b{display:block;font-size:18px;letter-spacing:.05em}
+#commander-overlay .cmd-header small{display:block;color:#a3bdcf}
+#commander-overlay button{background:#23394e;border:1px solid #648199;color:#f2f7fc;border-radius:7px;padding:9px 10px;cursor:pointer;min-height:36px}
+#commander-overlay button:hover,#commander-overlay button.on{background:#126181;border-color:#7ccce9}
+#commander-overlay .cmd-layout{display:flex;flex:1;min-height:0}
+#commander-overlay .cmd-controls{width:min(360px,40vw);padding:10px;overflow-y:auto;overscroll-behavior:contain;border-right:1px solid #375269}
+#commander-overlay .cmd-card{padding:12px;margin-bottom:11px;border:1px solid #344e65;border-radius:10px;background:#122538}
+#commander-overlay h3{font-size:14px;color:#bce5ff;margin:0 0 10px}
+#commander-overlay h4{font-size:12px;color:#adcde6;margin:12px 0 6px}
+#commander-overlay label{display:flex;flex-direction:column;gap:4px;font-size:12px;color:#d2e3f0;margin:8px 0}
+#commander-overlay label:has(input[type=checkbox]){flex-direction:row;align-items:center}
+#commander-overlay input:not([type=checkbox]),#commander-overlay select{display:block;width:100%;min-height:37px;background:#061828;color:#fff;border:1px solid #4f718a;border-radius:6px;padding:6px 8px;font-size:14px}
+#commander-overlay input[type=checkbox]{width:18px;height:18px}
+#commander-overlay .cmd-tools{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+#commander-overlay .cmd-tools button{font-size:12px;text-align:left}
+#commander-overlay details{border-top:1px solid #39536b;padding:7px 0}
+#commander-overlay summary{cursor:pointer;font-size:13px}
+#commander-overlay summary b{float:right;color:#a4c3d8}
+#commander-overlay .cmd-items{display:grid;gap:4px;margin:6px 0}
+#commander-overlay .cmd-items button{text-align:left}
+#commander-overlay .cmd-world{display:flex;flex:1;min-width:0;min-height:0;flex-direction:column}
+#commander-overlay .cmd-map{flex:1;min-height:240px;background:#0a1722}
+#commander-overlay .cmd-toolbar{padding:9px;background:#14293c;border-top:1px solid #46627b}
+#commander-overlay .cmd-toolbar #cmd-hint{display:block;color:#c7dbe9;font-size:12px;padding-bottom:8px}
+#commander-overlay .cmd-buttons{display:flex;gap:7px;flex-wrap:wrap}
+#commander-overlay .cmd-buttons button{flex:1;min-width:78px}
+#commander-overlay .cmd-buttons [data-action=play]{background:#167548;border-color:#60bca0}
+#commander-overlay .cmd-buttons [data-action=save]{background:#235d8e}
+#commander-overlay .cmd-saved{display:flex;align-items:center;gap:5px;margin-top:7px}
+#commander-overlay .cmd-saved span{flex:1;min-width:0;overflow-wrap:anywhere}
+#commander-overlay .cmd-saved small{display:block;color:#95b5c8}
+#commander-overlay .cmd-saved button{font-size:12px}
+#commander-overlay p,#commander-overlay small{line-height:1.4}
+#commander-overlay .cmd-icon{background:none!important;border:none!important}
+#commander-overlay .cmd-marker{display:flex;align-items:center;justify-content:center;width:30px;height:30px;border:2px solid;border-radius:50%;font-weight:900;font-size:17px;background:#0d2336db;box-shadow:0 2px 6px #0008}
+#commander-overlay .leaflet-control a{min-height:30px;color:#162d45}
+#commander-overlay .leaflet-container{font:12px system-ui,Arial,sans-serif}
+@media(max-width:900px){
+ #splash .splash-roles.unica,#splash .splash-roles.unica.hidden{grid-template-columns:repeat(3,minmax(0,1fr))!important}
+ #commander-overlay .cmd-controls{width:310px}
+}
+@media(max-width:650px){
+ #splash .splash-roles.unica,#splash .splash-roles.unica.hidden{grid-template-columns:repeat(2,minmax(0,1fr))!important}
+ #commander-overlay .cmd-layout{flex-direction:column-reverse}
+ #commander-overlay .cmd-controls{width:100%;height:44%;border-right:0;border-top:1px solid #39536b}
+ #commander-overlay .cmd-world{min-height:40%;flex:1}
+ #commander-overlay .cmd-map{min-height:150px}
+ #commander-overlay .cmd-header{min-height:46px;padding:6px 10px}
+ #commander-overlay .cmd-header b{font-size:15px}
+ #commander-overlay .cmd-buttons{gap:4px}
+ #commander-overlay .cmd-buttons button{font-size:11px;min-width:65px;padding:7px}
+}
