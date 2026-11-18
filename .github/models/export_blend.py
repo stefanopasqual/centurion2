@@ -86,6 +86,10 @@ def main():
     log('Geometry objects', len(selectable), 'images relinked', linked)
     if output.name == 'typhoon.glb':
         for ob in selectable:
+            if ob.name == 'Airframe':
+                points = [ob.matrix_world @ __import__('mathutils').Vector(corner) for corner in ob.bound_box]
+                log('TYPHOON_AIRFRAME_BOUNDS', [(round(min(v[i] for v in points),3),round(max(v[i] for v in points),3)) for i in range(3)])
+        for ob in selectable:
             log('TYPHOON_GEO', ob.name, 'materials:', [m.name if m else 'NONE' for m in ob.data.materials])
         for material in bpy.data.materials:
             if not material.users:
