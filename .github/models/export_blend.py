@@ -48,6 +48,31 @@ def main():
             except Exception as exc:
                 log('Texture warning', img.name, str(exc))
 
+    # CENTURION2 Typhoon: remove the German Bundeswehr livery at SOURCE.
+    # One "Airframe" material carries its flag/crosses and camouflage in the
+    # basecolor.png texture. Detach only that channel; keep normal, roughness,
+    # metallic textures, topology and transparency untouched.
+    if output.name.lower() == 'typhoon.glb':
+        changed = 0
+        for material in bpy.data.materials:
+            if material.name.lower() != 'airframe':
+                continue
+            material.use_nodes = True
+            material.diffuse_color = (0.50, 0.56, 0.61, 1.0)
+            for node in material.node_tree.nodes:
+                if node.type != 'BSDF_PRINCIPLED':
+                    continue
+                base = node.inputs.get('Base Color')
+                if base is None:
+                    continue
+                for link in list(base.links):
+                    material.node_tree.links.remove(link)
+                base.default_value = (0.50, 0.56, 0.61, 1.0)
+                changed += 1
+        if changed == 0:
+            raise RuntimeError('Typhoon Italian conversion failed: Airframe color was not replaced')
+        log('TYPHOON_ITALIAN_SKIN: basecolor.png unlinked from', changed, 'Airframe shaders; panel normals retained')
+
     # Keep authored mesh geometry, UVs, normals, materials and animations.
     # Reuse 3D object's scene transforms. No procedural aircraft substitutions.
     for ob in bpy.data.objects:
