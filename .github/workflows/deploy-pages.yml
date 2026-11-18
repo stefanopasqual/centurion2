@@ -11,6 +11,7 @@ on:
       - '.github/cadet/**'
       - '.github/aar/**'
       - '.github/home/**'
+      - '.github/commander/**'
       - '.github/mission_upgrade/**'
       - '.github/veneto/**'
       - '.github/freeflight/**'
@@ -236,6 +237,10 @@ jobs:
           node --check extracted/site/js/missioni.js
           node --check extracted/site/js/mondo3d.js
           python3 .github/home/patch_home.py extracted/site
+          python3 .github/commander/patch_commander.py extracted/site
+          node --check extracted/site/js/commander_core.js
+          node --check extracted/site/js/commander_commander.js
+          python3 -m py_compile .github/commander/patch_commander.py
           node --check extracted/site/js/home_hub.js
           node --check extracted/site/js/cadet_core.js
           node --check extracted/site/js/cadet.js
