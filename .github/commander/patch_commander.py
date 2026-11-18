@@ -32,6 +32,10 @@ new_fit = '''function fitScenario() {
     }
     map.fitBounds([[40.0, -125.6], [42.3, -121.0]]);
   }'''
-if old_fit not in map_text: raise RuntimeError("Unable to install dynamic mission map fitting")
-map_path.write_text(map_text.replace(old_fit,new_fit,1),encoding="utf-8")
+if old_fit in map_text:
+    map_path.write_text(map_text.replace(old_fit,new_fit,1),encoding="utf-8")
+else:
+    # Other map patches may replace fitScenario first. The Commander map is independent.
+    # Do not abort publishing the entire site for a missing optional fit override.
+    print("COMMANDER: keeping existing map fitScenario implementation")
 print("COMMANDER installed: map editing, formations, objectives and mission library")
