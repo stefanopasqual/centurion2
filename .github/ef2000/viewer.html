@@ -93,7 +93,7 @@ function showDrone(m,created){
 async function openModel(m){const id=++token;selected=m;$('#hint').textContent='Caricamento 3D: GLB locale, file importato oppure anteprima Sketchfab.';$('#title').textContent=m.name;$('#credit').textContent=m.drone?'CENTURION2 · modello procedurale originale, non armato':(CREDITI[m.id]||'bohmerang / Sketchfab — CC BY-NC-SA 4.0');
  $('#source').onclick=m.url?()=>window.open(m.url,'_blank','noopener,noreferrer'):null;document.querySelectorAll('nav button').forEach(b=>b.classList.toggle('active',b.dataset.id===m.id));note('Caricamento '+m.name+'…');try{let stored=null;
  try{stored=await readStored(m.id);}catch(err){console.warn('Archivio locale non accessibile',err);}
- if(id!==token)return;if(stored){const g=await loader.parseAsync(await stored.arrayBuffer(),'');if(id===token){place(g);return;}}if(m.drone){
+ if(id!==token)return;if(stored && m.id!=='typhoon'){const g=await loader.parseAsync(await stored.arrayBuffer(),'');if(id===token){place(g);return;}}if(m.drone){
   const factory=await ensureDroneFactory();
   if(id===token){showDrone(m,factory.drone(m.drone==='quad'));return;}
  }
@@ -108,6 +108,7 @@ async function openModel(m){const id=++token;selected=m;$('#hint').textContent='
    Object.assign(f.style,{position:'absolute',inset:'0',width:'100%',height:'100%',border:'0',zIndex:'1'});
    view.append(f);
    $('#floor').style.display='none';
+  if(m.id==='typhoon')$('#hint').textContent='GLB del Typhoon non caricato: il modello Sketchfab originale non usa la livrea italiana. Riprova ad aprire il sito dopo il deploy.';
    $('#hint').textContent='Anteprima 3D originale via Sketchfab. Per il motore di volo serve il GLB convertito.';
    note('Anteprima Sketchfab in caricamento');
  }else{
