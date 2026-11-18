@@ -379,6 +379,16 @@ jobs:
           grep -q "^const VERSIONE = \".*-${impronta}\";" sw.js || sed -i -E "s/^const VERSIONE = \"([^\"]+)\";/const VERSIONE = \"\1-${impronta}\";/" sw.js
           grep -q "^const VERSIONE = \".*-${impronta}\";" sw.js || { echo "::error::sw.js: VERSIONE non trovata, la cache offline non verrebbe aggiornata"; exit 1; }
           grep -m1 "^const VERSIONE" sw.js
+      - name: Add browser login screen when encrypted hosting is not configured
+        env:
+          SITE_PASSWORD: ${{ secrets.SITE_PASSWORD }}
+        run: |
+          if [ -z "$SITE_PASSWORD" ]; then
+            python3 .github/security/apply_gate.py extracted/site
+            node --check extracted/site/security/access-lock.js
+          else
+            echo "SITE_PASSWORD configured: encrypted password login takes precedence"
+          fi
       - name: Encrypt the published site (password in the SITE_PASSWORD secret)
         env:
           SITE_PASSWORD: ${{ secrets.SITE_PASSWORD }}

@@ -29,7 +29,7 @@ Il workflow può pubblicare il sito, su GitHub Pages o su Cloudflare, in tre mod
 
 | Impostazione | Sito pubblicato |
 |---|---|
-| `aperto` in `.github/security/stato_sito.txt`, nessun segreto | in chiaro, aperto a chiunque abbia l'indirizzo |
+| `aperto` in `.github/security/stato_sito.txt`, nessun segreto | schermata con password nel browser, ma file ancora pubblicamente accessibili |
 | `aperto` e segreto `SITE_PASSWORD` (Settings → Secrets and variables → Actions) | cifrato: si apre solo con la password |
 | `chiuso` in `stato_sito.txt`, oppure variabile `SITE_CHIUSO` = `1` (scheda *Variables*) | chiuso: solo la pagina «Accesso chiuso» |
 
@@ -77,4 +77,4 @@ Il workflow `Publish CENTURION2 mobile` pubblica il sito su Cloudflare Pages (pr
 
 Cloudflare Pages accetta file fino a 25 MiB: il workflow comprime in WebP (max 2048 px) le texture dei GLB più grandi e si ferma con errore se un file resta oltre il limite.
 
-**Nota:** finché il repository era pubblico, codice, ZIP e modelli potevano essere scaricati; renderlo privato non revoca copie già fatte. Il vecchio lucchetto JavaScript (`.github/security/`) non è collegato al deploy e non serve più: l'accesso è controllato da Cloudflare Access lato server.
+**Nota:** finché il repository era pubblico, codice, ZIP e modelli potevano essere scaricati; renderlo privato non revoca copie già fatte. Il lucchetto JavaScript (`.github/security/access-lock.js`) viene ora applicato come ripiego quando `SITE_PASSWORD` non è configurato. È solo una schermata iniziale lato browser: non protegge sorgenti, asset, URL diretti o il repository. Per un vero accesso privato utilizzare Cloudflare Access oppure configurare il secret `SITE_PASSWORD` (almeno 10 caratteri), che abilita la cifratura del sito; se entrambi sono presenti prevale la cifratura.

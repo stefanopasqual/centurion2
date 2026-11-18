@@ -1,8 +1,8 @@
 (() => {
   "use strict";
-  const ITERATIONS = 275000;
+  const ITERATIONS = 600000;
   const SALT = "1cde619737aa98e132b847b1c931ff36";
-  const EXPECTED = "e99d014b66d72d03f45ce50be1e0fcdf8a50a96bddf32b70369998a1f9c52142";
+  const EXPECTED = "052711e982d114928a4e2572f2c835abefcc4ba4a3c656eb34f9ce948410c636";
   const hexBytes = hex => Uint8Array.from(hex.match(/.{2}/g), x => parseInt(x, 16));
   let attempts = 0;
   let opening = false;
