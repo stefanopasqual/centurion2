@@ -79,7 +79,38 @@ function verticalMark(THREE) {
   },512,256);
 }
 
+// Replace original baked German color markings, not merely cover them.
+function replaceOriginalSkin(THREE, aircraft) {
+  const memo = new Map();
+  let changed = 0;
+  const preserve = /glass|canopy|cockpit|windscreen|window|interior|seat|pilot|engine|exhaust|nozzle|turbine|wheel|tire|tyre|gear|rubber|brake|metal|chrome|light|intake/i;
+  aircraft.traverse(object => {
+    if (!object.isMesh || !object.material) return;
+    const transformMaterial = m => {
+      if (!m || !('color' in m)) return m;
+      const name = (object.name || '') + ' ' + (m.name || '');
+      if (preserve.test(name) || m.transparent || m.opacity < 0.96) return m;
+      if (memo.has(m)) return memo.get(m);
+      const clone = m.clone();
+      // The source German colors and crosses are baked into base-color maps.
+      // Do not modify normal, metallic, roughness, or geometry detail maps.
+      clone.map = null;
+      clone.color = new THREE.Color('#8d9da9');
+      clone.metalness = Math.min(Number(clone.metalness) || 0, 0.25);
+      clone.roughness = Math.max(Number(clone.roughness) || 0.6, 0.65);
+      clone.needsUpdate = true;
+      memo.set(m, clone);
+      changed++;
+      return clone;
+    };
+    object.material = Array.isArray(object.material)
+      ? object.material.map(transformMaterial) : transformMaterial(object.material);
+  });
+  return changed;
+}
+
 export function apply51Stormo(THREE, scene, aircraft) {
+  const neutralizedMaterials = replaceOriginalSkin(THREE, aircraft);
   const nodes=[]; const resources=[];
   const box=new THREE.Box3().setFromObject(aircraft);
   const size=box.getSize(new THREE.Vector3());
@@ -149,6 +180,7 @@ export function apply51Stormo(THREE, scene, aircraft) {
   }
   return {
     applied:nodes.length,
+    neutralizedMaterials,
     dispose() {
       nodes.forEach(o=>{scene.remove(o);o.geometry.dispose();});
       resources.forEach(o=>o.dispose());
