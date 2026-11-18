@@ -7,8 +7,6 @@
  * The black-cat drawing is an original simplified interpretation,
  * not an official vector insignia.
  */
-import { DecalGeometry } from 'three/addons/geometries/DecalGeometry.js';
-
 function texture(THREE, painter, width = 512, height = 512) {
   const c = document.createElement('canvas');
   c.width = width; c.height = height;
@@ -144,39 +142,55 @@ export function apply51Stormo(THREE, scene, aircraft) {
     }
     return null;
   };
-  function decal(hit,key,w,h) {
-    if(!hit)return false;
-    const normal=hit.face.normal.clone().transformDirection(hit.object.matrixWorld).normalize();
-    if(normal.lengthSq()<.5)return false;
-    const vertical=new THREE.Vector3(0,1,0);
-    if(Math.abs(normal.dot(vertical))>.90)vertical.set(1,0,0);
-    const horizontal=new THREE.Vector3().crossVectors(vertical,normal).normalize();
-    const up=new THREE.Vector3().crossVectors(normal,horizontal).normalize();
-    const basis=new THREE.Matrix4().makeBasis(horizontal,up,normal);
-    const euler=new THREE.Euler().setFromQuaternion(new THREE.Quaternion().setFromRotationMatrix(basis));
-    const point=hit.point.clone().addScaledVector(normal,.008);
-    const thick=Math.max(.12,Math.min(.65,w*.45));
-    try{
-      const geometry=new DecalGeometry(hit.object,point,euler,new THREE.Vector3(w,h,thick));
-      if(!geometry.getAttribute('position') || geometry.getAttribute('position').count===0){
-        geometry.dispose();return false;
-      }
-      const d=new THREE.Mesh(geometry,material[key]);d.renderOrder=5;
-      d.name='CENTURION2_51Stormo_'+key;
-      scene.add(d);nodes.push(d);
-      return true;
-    }catch(e){console.warn('CENTURION2 livery decal:',e);return false;}
+  function decal(hit,key,w,h,placement) {
+    // Surface-mounted planar insignia. The previous DecalGeometry projection
+    // clipped every marking on parts of the imported Typhoon mesh.
+    // PlaneGeometry follows the hit surface normal and is drawn just above it.
+    let point, normal;
+    if (hit) {
+      normal=hit.face.normal.clone().transformDirection(hit.object.matrixWorld).normalize();
+      point=hit.point.clone();
+    } else if (placement) {
+      point=placement.point.clone();
+      normal=placement.normal.clone();
+    } else return false;
+    if(normal.lengthSq()<0.5) return false;
+    const orientation=new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0,0,1), normal);
+    // The side markers must be upright in world-space, not aligned at an
+    // arbitrary rotation of the target mesh normal.
+    if(Math.abs(normal.y)<0.65) {
+      const right=new THREE.Vector3().crossVectors(new THREE.Vector3(0,1,0),normal).normalize();
+      const up=new THREE.Vector3().crossVectors(normal,right).normalize();
+      const rotation=new THREE.Matrix4().makeBasis(right,up,normal);
+      orientation.setFromRotationMatrix(rotation);
+    }
+    const geom=new THREE.PlaneGeometry(w,h);
+    const d=new THREE.Mesh(geom,material[key]);
+    d.position.copy(point).addScaledVector(normal,Math.max(.025,size.x*.002));
+    d.quaternion.copy(orientation);
+    d.renderOrder=20;
+    d.name='CENTURION2_51Stormo_'+key;
+    scene.add(d); nodes.push(d);
+    return true;
   }
+  const sideFallback=(fx,fy,side)=>({
+    point:new THREE.Vector3(min.x+size.x*fx,min.y+size.y*fy,side>0?box.max.z+0.015:box.min.z-0.015),
+    normal:new THREE.Vector3(0,0,side)
+  });
+  const topFallback=(fx,depth)=>({
+    point:new THREE.Vector3(min.x+size.x*fx,box.max.y+.015,min.z+size.z*depth),
+    normal:new THREE.Vector3(0,1,0)
+  });
   const L=size.x;const W=size.z;const H=size.y;
   // Italian AF roundel and 51-01 fuselage codes, both port and starboard.
   for(const side of [-1,1]){
-    decal(locate(.70,.42,side), 'roundel',L*.055,L*.055);
-    decal(locate(.54,.42,side), 'code',L*.17,H*.18);
+    decal(locate(.70,.42,side), 'roundel',L*.055,L*.055,sideFallback(.70,.42,side));
+    decal(locate(.54,.42,side), 'code',L*.17,H*.18,sideFallback(.54,.42,side));
     // Gatti Neri insignia on both vertical-stabilizer faces.
-    decal(locate(.17,.75,side), 'cat',L*.105,H*.26);
-    decal(locate(.27,.73,side), 'unit',L*.085,H*.16);
+    decal(locate(.17,.75,side), 'cat',L*.105,H*.26,sideFallback(.17,.75,side));
+    decal(locate(.27,.73,side), 'unit',L*.085,H*.16,sideFallback(.27,.73,side));
     // Roundels on wing upper surfaces (approximate positions).
-    decal(locate(.46,.5,side*.28,true),'roundel',L*.058,L*.058);
+    decal(locate(.46,.5,side*.28,true),'roundel',L*.058,L*.058,topFallback(.46,.5+side*.22));
   }
   return {
     applied:nodes.length,
