@@ -77,9 +77,9 @@
   state.selection=selected?state.selection:null;
   attach(); drawMap();
  }
- function redrawDetails() {
+ function redrawDetails(preserveView=true) {
   const a=state.layer&&state.layer.getCenter&&state.layer.getCenter(),z=state.layer&&state.layer.getZoom&&state.layer.getZoom();
-  if(a){state.sc.mappa.centro=[a.lat,a.lng];state.sc.mappa.zoom=z;}
+  if(a&&preserveView){state.sc.mappa.centro=[a.lat,a.lng];state.sc.mappa.zoom=z;}
   if(state.layer){state.layer.remove();state.layer=null;}
   render();
  }
@@ -94,9 +94,9 @@
   dom.querySelectorAll("[data-red-cap]").forEach(el=>el.addEventListener("change",()=>{const [i,k]=el.dataset.redCap.split(":");state.sc.piani.RED.cap[Number(i)][k]=el.value;redrawDetails();}));
   dom.querySelectorAll("[data-remove-formation]").forEach(el=>el.addEventListener("click",()=>{state.sc.formazioni=state.sc.formazioni.filter(x=>x.id!==el.dataset.removeFormation);C().reconcile(state.sc);redrawDetails();}));
   dom.querySelectorAll("[data-remove-cap]").forEach(el=>el.addEventListener("click",()=>{state.sc.piani.RED.cap.splice(+el.dataset.removeCap,1);redrawDetails();}));
-  dom.querySelectorAll("[data-load]").forEach(el=>el.addEventListener("click",()=>{const v=C().readSaved(el.dataset.load);if(v){state.savedId=v.id;state.sc=C().importMission(v);state.selection=null;state.placing=null;redrawDetails();}}));
+  dom.querySelectorAll("[data-load]").forEach(el=>el.addEventListener("click",()=>{const v=C().readSaved(el.dataset.load);if(v){state.savedId=v.id;state.sc=C().importMission(v);state.selection=null;state.placing=null;redrawDetails(false);}}));
   dom.querySelectorAll("[data-erase]").forEach(el=>el.addEventListener("click",()=>{if(confirm("Eliminare definitivamente la missione salvata?")){C().remove(el.dataset.erase);if(state.savedId===el.dataset.erase)state.savedId=null;redrawDetails();}}));
-  $("#cmd-import").addEventListener("change",async ev=>{const f=ev.target.files[0];if(!f)return;try{const o=JSON.parse(await f.text());state.sc=C().importMission(o);state.savedId=null;state.selection=null;redrawDetails();toast("Missione importata");}catch(e){alert("Importazione non riuscita: "+e.message);}});
+  $("#cmd-import").addEventListener("change",async ev=>{const f=ev.target.files[0];if(!f)return;try{const o=JSON.parse(await f.text());state.sc=C().importMission(o);state.savedId=null;state.selection=null;redrawDetails(false);toast("Missione importata");}catch(e){alert("Importazione non riuscita: "+e.message);}});
  }
  function fieldChange(el) {
   const k=el.dataset.field,val=el.type==="checkbox"?el.checked:(el.type==="number"?Number(el.value):el.value),s=state.sc;
@@ -113,7 +113,8 @@
    const p=s[state.selection.kind].find(x=>x.id===state.selection.id);
    if(p){p[k]=val;if(k==="lato"&&state.selection.kind==="basi")state.sc.formazioni.filter(f=>f.base===p.id&&f.lato!==val).forEach(f=>{const b=state.sc.basi.find(x=>x.lato===f.lato);if(b)f.base=b.id;});}
   }
-  redrawDetails();
+  if(k==="mappa.centro.lat"||k==="mappa.centro.lon")redrawDetails(false);
+  else redrawDetails();
  }
  function drawMap() {
   const s=state.sc;const el=$("#cmd-map"); if(!el||typeof L==="undefined")return;
@@ -148,8 +149,8 @@
   try{
    const s=state.sc;
    if(name==="close"){close();return;}
-   if(name==="new"){if(!confirm("Creare una nuova missione? Le modifiche non salvate andranno perse."))return;const p=state.layer.getCenter();state.sc=C().fresh(p.lat,p.lng);state.savedId=null;state.selection=null;redrawDetails();return;}
-   if(name==="duplicate"){state.sc=C().copyCurrent(APP.sc);state.savedId=null;state.selection=null;redrawDetails();return;}
+   if(name==="new"){if(!confirm("Creare una nuova missione? Le modifiche non salvate andranno perse."))return;const p=state.layer.getCenter();state.sc=C().fresh(p.lat,p.lng);state.savedId=null;state.selection=null;redrawDetails(false);return;}
+   if(name==="duplicate"){state.sc=C().copyCurrent(APP.sc);state.savedId=null;state.selection=null;redrawDetails(false);return;}
    if(name==="save"){C().reconcile(s);const e=C().save(s,state.savedId);state.savedId=e.id;toast("Missione salvata sul dispositivo: "+e.nome);redrawDetails();return;}
    if(name==="import"){$("#cmd-import").click();return;}
    if(name==="export"){C().reconcile(s);const payload={schema:"centurion-commander-1",exportedAt:new Date().toISOString(),scenario:s};DATAIO.downloadJSON(payload,(s.meta.nome||"missione").replace(/[^a-z0-9_-]/gi,"_")+".json");return;}
