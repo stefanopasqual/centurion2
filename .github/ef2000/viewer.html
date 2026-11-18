@@ -22,9 +22,10 @@ footer{padding:11px 14px;background:#0b1b2c;border-top:1px solid #28455f;display
 import * as THREE from 'three';
 import {OrbitControls} from 'three/addons/controls/OrbitControls.js';
 import {GLTFLoader} from 'three/addons/loaders/GLTFLoader.js';
+import {apply51Stormo} from './livrea51.js';
 const MODELS=[
 {id:'f22',name:'Lockheed Martin F-22 Raptor',tag:'F-22',url:'https://sketchfab.com/3d-models/f22-raptor-ec44bd6cffa649b4927799a7b19c703b'},
-{id:'typhoon',name:'Eurofighter Typhoon',tag:'EF-2000',url:'https://sketchfab.com/3d-models/eurofighter-typhoon-fighter-jet-free-992bcc8987964ca09d55410330aa8579'},
+{id:'typhoon',name:'Eurofighter Typhoon · 51° Stormo Istrana',tag:'EF-2000',url:'https://sketchfab.com/3d-models/eurofighter-typhoon-fighter-jet-free-992bcc8987964ca09d55410330aa8579'},
 {id:'f15e',name:'F-15E Strike Eagle',tag:'F-15E',url:'https://sketchfab.com/3d-models/f-15e-strike-eagle-fighter-jet-free-fff7d75490474e9b964d90cc031c8d01'},
 {id:'su57',name:'Sukhoi Su-57',tag:'Su-57',url:'https://sketchfab.com/3d-models/sukhoi-su-57-felon-p-fighter-jet-free-31127bc63bc048debb694aa88bbaafae'},
 {id:'su35',name:'Sukhoi Su-35S',tag:'Su-35',url:'https://sketchfab.com/3d-models/sukhoi-su-35-fighter-jet-free-3213a404e5cb4fb68f778b9acae5109c'},
@@ -42,7 +43,7 @@ scene.add(new THREE.HemisphereLight(0xd9ebff,0x243344,2));const key=new THREE.Di
 const rim=new THREE.DirectionalLight(0x80c6ff,1.3);rim.position.set(10,5,-12);scene.add(rim);
 const grid=new THREE.GridHelper(60,30,0x2f526b,0x17334a);grid.position.y=-5.5;scene.add(grid);
 const controls=new OrbitControls(camera,renderer.domElement);controls.enableDamping=true;controls.minDistance=2;controls.maxDistance=180;
-const loader=new GLTFLoader();let selected=MODELS[0],aircraft=null,token=0,animationDriver=null,procedural=false,droneLoad=null;
+const loader=new GLTFLoader();let selected=MODELS[0],aircraft=null,token=0,animationDriver=null,procedural=false,droneLoad=null,livery51=null;
 async function ensureDroneFactory(){
  if(window.CENTURION_REALISM?.drone)return window.CENTURION_REALISM;
  if(!droneLoad){
@@ -60,6 +61,7 @@ async function ensureDroneFactory(){
 }
 function note(t){status.textContent=t;}
 function clear(){
+ if(livery51){livery51.dispose();livery51=null;}
  document.getElementById('sketchfab-fallback')?.remove();
  $('#floor').style.display='';
  $('#floor').textContent='Ruota trascinando · Zoom con due dita o rotellina';
@@ -70,7 +72,14 @@ function clear(){
  animationDriver=null;procedural=false;
 }
 function frame(obj){const box=new THREE.Box3().setFromObject(obj);const dimensions=box.getSize(new THREE.Vector3());const largest=Math.max(dimensions.x,dimensions.y,dimensions.z);if(!largest||!Number.isFinite(largest))throw Error('Geometria non valida');obj.scale.multiplyScalar(16/largest);box.setFromObject(obj);const c=box.getCenter(new THREE.Vector3());obj.position.sub(c);camera.position.set(15,10,19);controls.target.set(0,0,0);controls.update();}
-function place(glb){clear();aircraft=glb.scene;if(selected.info)$('#hint').textContent=selected.info+' · mostrato ingrandito alla stessa scala dei jet';const gearDown=[];aircraft.traverse(o=>{const n=(o.name||'').toLowerCase().replace(/[\s_.-]/g,'');if(/landingon|gearon|geardown|gearout|refuelon|landinglights|undercarriage(?!off|up)|wheel(?!off|up)|tire(?!off|up)|tyre(?!off|up)/.test(n))gearDown.push(o);});gearDown.forEach(o=>{if(o.parent)o.parent.remove(o);});scene.add(aircraft);frame(aircraft);note(selected.drone?'GLB UAV importato · orbita e zoom attivi':'Modello 3D originale · carrello retratto · orbita e zoom attivi');}
+function place(glb){clear();aircraft=glb.scene;if(selected.info)$('#hint').textContent=selected.info+' · mostrato ingrandito alla stessa scala dei jet';const gearDown=[];aircraft.traverse(o=>{const n=(o.name||'').toLowerCase().replace(/[\s_.-]/g,'');if(/landingon|gearon|geardown|gearout|refuelon|landinglights|undercarriage(?!off|up)|wheel(?!off|up)|tire(?!off|up)|tyre(?!off|up)/.test(n))gearDown.push(o);});gearDown.forEach(o=>{if(o.parent)o.parent.remove(o);});scene.add(aircraft);frame(aircraft);
+ if(selected.id==='typhoon'){
+  try{
+   livery51=apply51Stormo(THREE,scene,aircraft);
+   $('#hint').textContent='Eurofighter Typhoon · livrea 51° Stormo, Istrana · insegne artistiche ispirate ai Gatti Neri';
+   note(livery51.applied ? '51° Stormo di Istrana · ' + livery51.applied + ' decalcomanie applicate · carrello retratto' : 'Eurofighter originale · livrea 51° non proiettata sul modello');
+  }catch(e){console.warn('Eurofighter 51 Stormo:',e);note('Eurofighter originale · livrea 51° non disponibile');}
+ }else note(selected.drone?'GLB UAV importato · orbita e zoom attivi':'Modello 3D originale · carrello retratto · orbita e zoom attivi');}
 function showDrone(m,created){
  if(!created?.g)throw Error('Geometria UAV mancante');
  clear();aircraft=created.g;aircraft.name=m.name;scene.add(aircraft);
