@@ -279,6 +279,7 @@ jobs:
           assert "showDrone(m,created)" in page, 'Drone viewer missing'
           assert "ensureDroneFactory()" in page, 'Mission drone asset loader missing'
           assert "id:'geran2'" in page, 'Geran-2 missing from hangar'
+          assert "id:'f16'" in page, 'F-16C missing from aircraft selection menu'
           # Browser Three.js import map script is a module. Check the complete script
           # without requiring CDN modules during a Node syntax-only build.
           start=page.index('<script type="module">')+len('<script type="module">')
