@@ -21,6 +21,7 @@ on:
       - '.github/sonic/**'
       - '.github/aero/**'
       - '.github/security/**'
+      - '.github/pod/**'
       - 'model-sources/**'
   workflow_dispatch:
 
@@ -242,6 +243,9 @@ jobs:
           python3 -m py_compile .github/cadet/patch_accademia.py
           node --check extracted/site/js/accademia.js
           node --check extracted/site/js/volo.js
+          python3 .github/pod/patch_pod_armi.py extracted/site
+          python3 -m py_compile .github/pod/patch_pod_armi.py
+          node --check extracted/site/js/pod.js
           cp .github/ef2000/viewer.html extracted/site/ef2000/viewer.html
           cp .github/ef2000/launcher.js extracted/site/ef2000/launcher.js
           cp .github/ef2000/home.js extracted/site/ef2000/home.js

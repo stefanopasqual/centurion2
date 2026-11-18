@@ -4,6 +4,37 @@
   const q = s => document.querySelector(s);
   let panel, toggle, installed = false;
 
+  // Stemmi dei quattro ingressi: toppe circolari nello stesso stile (colore del ruolo, simbolo bianco)
+  const JET = 'M0-19L3-9V-4L16 7V10L3 6L2 13L7 17V19L0 17.5L-7 19V17L-2 13L-3 6L-16 10V7L-3-4V-9Z';
+  const toppa = (base, luce, simbolo) => '<svg class="home-emblema" viewBox="0 0 64 64" aria-hidden="true" focusable="false">' +
+    '<circle cx="32" cy="32" r="30" fill="' + base + '"/>' +
+    '<path d="M32 2a30 30 0 0 1 0 60z" fill="#000" fill-opacity=".14"/>' +
+    '<circle cx="32" cy="32" r="29" fill="none" stroke="' + luce + '" stroke-width="2.4"/>' +
+    '<circle cx="32" cy="32" r="24.5" fill="#0b1220" fill-opacity=".62" stroke="' + luce + '" stroke-opacity=".5"/>' +
+    simbolo + '</svg>';
+  const EMBLEMI = {
+    TRAINER: toppa('#b8860b', '#f7d774',
+      '<path d="M32 18 51 26.5 32 35 13 26.5Z" fill="#f4f8ff"/>' +
+      '<path d="M21 31.5V39c2.8 3.2 6.8 4.8 11 4.8s8.2-1.6 11-4.8v-7.5L32 36.5Z" fill="#f4f8ff" fill-opacity=".85"/>' +
+      '<path d="M48 28v10" stroke="#f7d774" stroke-width="2" stroke-linecap="round"/><circle cx="48" cy="40.5" r="2.6" fill="#f7d774"/>'),
+    BLUE: toppa('#1f6fc4', '#8cc4ff',
+      '<g fill="#f4f8ff"><path d="' + JET + '" transform="translate(32 25) scale(.5)"/>' +
+      '<path d="' + JET + '" transform="translate(20.5 37) scale(.4)"/><path d="' + JET + '" transform="translate(43.5 37) scale(.4)"/></g>'),
+    RED: toppa('#c0392b', '#ff9a8c',
+      '<path d="M32 14.5 46 19.5V31c0 9.2-6 15.6-14 18.5C24 46.6 18 40.2 18 31V19.5Z" fill="#f4f8ff"/>' +
+      '<path d="M32 23 33.8 28.5H39.6L34.9 31.9 36.7 37.5 32 34.1 27.3 37.5 29.1 31.9 24.4 28.5H30.2Z" fill="#c0392b"/>'),
+    VOLO: toppa('#138a7e', '#7fe0d0',
+      '<path d="M15 48C21 44 25 40 28.5 35.5" fill="none" stroke="#f4f8ff" stroke-opacity=".75" stroke-width="2.4" stroke-linecap="round" stroke-dasharray="1 4.2"/>' +
+      '<path d="' + JET + '" transform="translate(36 27) rotate(40) scale(.62)" fill="#f4f8ff"/>')
+  };
+  function emblemi(root) {   // sostituisce le emoji dei ruoli (anche nella scelta delle postazioni in rete)
+    if (!root) return;
+    root.querySelectorAll('.role-btn').forEach(b => {
+      const ruolo = b.dataset.role || b.dataset.sm, big = b.querySelector('.big');
+      if (big && EMBLEMI[ruolo] && !big.querySelector('svg')) big.innerHTML = EMBLEMI[ruolo];
+    });
+  }
+
   function syncRole() {
     const trainer = !!(q('#role-badge') && q('#role-badge').textContent.trim() === 'TRAINER');
     document.body.classList.toggle('centurion-is-trainer', trainer);
@@ -37,8 +68,12 @@
     installed = true;
     // The home contains exactly four selectable entries, not a flight feature menu.
     roles.appendChild(flight);
-    flight.textContent = '🕹 VOLO LIBERO';
+    // stesso aspetto degli altri tre ingressi: stemma, titolo, descrizione
+    flight.classList.add('home-card');
+    flight.innerHTML = '<span class="big">' + EMBLEMI.VOLO + '</span><b>VOLO LIBERO</b><small>Pilota tu: Typhoon, F‑16, F‑22, Su‑57 e altri velivoli</small>';
     flight.title = 'Pilota direttamente un caccia';
+    emblemi(roles);
+    new MutationObserver(() => emblemi(multi)).observe(multi, {childList:true, subtree:true});
     const sub = q('#splash .splash-sub');
     if (sub) sub.textContent = 'Seleziona una delle quattro modalità. Tutte le altre funzioni si trovano in Trainer.';
 
