@@ -252,6 +252,9 @@ jobs:
           python3 -m py_compile .github/pod/patch_pod_armi.py
           node --check extracted/site/js/pod.js
           cp .github/ef2000/viewer.html extracted/site/ef2000/viewer.html
+          cp .github/ef2000/livrea51.js extracted/site/ef2000/livrea51.js
+          test -s extracted/site/ef2000/livrea51.js
+          node --check extracted/site/ef2000/livrea51.js
           cp .github/ef2000/launcher.js extracted/site/ef2000/launcher.js
           cp .github/ef2000/home.js extracted/site/ef2000/home.js
           python3 - <<'PY'
