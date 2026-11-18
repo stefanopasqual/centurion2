@@ -59,6 +59,19 @@ def main():
     if not selectable:
         raise RuntimeError('No mesh geometry in source .blend')
     log('Geometry objects', len(selectable), 'images relinked', linked)
+    if output.name == 'typhoon.glb':
+        for ob in selectable:
+            log('TYPHOON_GEO', ob.name, 'materials:', [m.name if m else 'NONE' for m in ob.data.materials])
+        for material in bpy.data.materials:
+            if not material.users:
+                continue
+            if material.use_nodes and material.node_tree:
+                nodes = material.node_tree.nodes
+                imgs = [(n.name, n.image.name, n.image.size[:]) for n in nodes if n.type == 'TEX_IMAGE' and n.image]
+                log('TYPHOON_MAT', material.name, 'images:', imgs, 'diffuse:', list(material.diffuse_color))
+        for im in bpy.data.images:
+            if im.users and im.source in {'FILE','TILED'}:
+                log('TYPHOON_IMAGE', im.name, list(im.size), str(im.filepath))
     output.parent.mkdir(parents=True, exist_ok=True)
     bpy.ops.export_scene.gltf(
         filepath=str(output.resolve()),
