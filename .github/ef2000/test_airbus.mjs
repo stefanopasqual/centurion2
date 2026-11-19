@@ -4,7 +4,7 @@ const cases=[
  ['airbus_a380_lufthansa.glb','f16','A380'],
  ['Airbus A350-900.glb','','A350'],
  ['A330-200.glb','','A330'],
- ['A320neo.glb','','AIRBUS'],
+ ['A320neo.glb','','A320'],
  ['a321-ceo.glb','f22','A321'],
  ['Airbus A340 600.glb','','A340'],
  ['model.glb','a380','A380'],
