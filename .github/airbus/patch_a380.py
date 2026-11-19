@@ -176,9 +176,9 @@ old="{id:'f16',name:'General Dynamics F-16C Fighting Falcon',tag:'F-16C',url:'',
 new=old+"\n{id:'a380',name:'Airbus A380-841 · Lufthansa 100th Year',tag:'A380-841',url:'https://sketchfab.com/3d-models/airbus-a380-841-lufthansa-100th-year-0de836a0d2b04fdf92f0d56c7886c82b',info:'Airbus A380-841 Lufthansa 100th Year · Nobilis 2, CC BY 4.0 · importa GLB se non presente sul sito'},"
 if page.count(old)!=1:raise RuntimeError("A380 hangar menu anchor mismatch")
 page=page.replace(old,new,1)
-old="const CREDITI={f16:"
+old="const CREDITI={"
 if page.count(old)!=1:raise RuntimeError("A380 credit anchor mismatch")
-page=page.replace(old,"const CREDITI={a380:'Nobilis 2 (Sketchfab) · CC BY 4.0 · Lufthansa 100th Year',f16:",1)
+page=page.replace(old,"const CREDITI={a380:'Nobilis 2 (Sketchfab) · CC BY 4.0 · Lufthansa 100th Year',",1)
 old="scene.add(aircraft);frame(aircraft);"
 new='''if(selected.id==="a380"){
     aircraft.rotation.y=0;
