@@ -6,6 +6,12 @@ on:
       - '.github/blackhawk/**'
       - '.github/aero/**'
       - '.github/workflows/verify-physics.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/blackhawk/**'
+      - '.github/aero/**'
+      - '.github/workflows/verify-physics.yml'
   workflow_dispatch:
 permissions:
   contents: read
