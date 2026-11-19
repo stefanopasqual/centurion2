@@ -29,4 +29,12 @@ jobs:
           node .github/aero/test_fdm6.cjs
           node .github/blackhawk/test_heli.cjs
           node .github/blackhawk/test_heli_edge.cjs
+          node .github/blackhawk/test_pilot.cjs
           python3 -m py_compile .github/blackhawk/patch_rotor.py .github/airbus/patch_a380.py
+      - name: Upload virtual pilot telemetry
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: uh60-virtual-test-pilot
+          path: .github/blackhawk/reports/
+          if-no-files-found: warn
