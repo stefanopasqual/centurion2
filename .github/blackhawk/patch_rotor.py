@@ -37,7 +37,7 @@ patch('''  function fisica6(dt){''',
       P.rotorSim=CENTURION_HELI_FDM.create(A,{
         r:P.pos.toArray(),v:P.vel.toArray(),
         q:[P.Q.x,P.Q.y,P.Q.z,P.Q.w],
-        fuel:P.fuel
+        fuel:P.fuel,collective:S.thr
       });
     }
     const sim=P.rotorSim;
