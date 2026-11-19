@@ -18,7 +18,7 @@ jobs:
         run: |
           node --version
           node --check .github/ef2000/airbus_local.js
-          node --experimental-default-type=module .github/ef2000/test_airbus.mjs
+          node .github/ef2000/test_airbus.mjs
           python3 - <<'PY'
           from pathlib import Path
           page=Path('.github/ef2000/viewer.html').read_text(encoding='utf-8')
