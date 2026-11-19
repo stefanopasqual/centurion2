@@ -26,6 +26,7 @@ import {apply51Stormo} from './livrea51.js';
 const MODELS=[
 {id:'f22',name:'Lockheed Martin F-22 Raptor',tag:'F-22',url:'https://sketchfab.com/3d-models/f22-raptor-ec44bd6cffa649b4927799a7b19c703b'},
 {id:'f16',name:'General Dynamics F-16C Fighting Falcon',tag:'F-16C',url:'',info:'F-16C Fighting Falcon · modello originale semplificato CENTURION2, carrello retratto'},
+{id:'f16-studiolab',name:'F-16 Fighting Falcon · Studio Lab (Sketchfab)',tag:'F-16 · STUDIO LAB',url:'https://sketchfab.com/3d-models/f-16-f-16-fighting-falcon-fighter-jet-8be8ab656304467eb6ddcbb244ae8574',info:'Anteprima 3D interattiva di Studio Lab · per usarlo nel Volo libero occorre un GLB autorizzato',embedOnly:true},
 {id:'typhoon',name:'Eurofighter Typhoon · 51° Stormo Istrana',tag:'EF-2000',url:'https://sketchfab.com/3d-models/eurofighter-typhoon-fighter-jet-free-992bcc8987964ca09d55410330aa8579'},
 {id:'f15e',name:'F-15E Strike Eagle',tag:'F-15E',url:'https://sketchfab.com/3d-models/f-15e-strike-eagle-fighter-jet-free-fff7d75490474e9b964d90cc031c8d01'},
 {id:'su57',name:'Sukhoi Su-57',tag:'Su-57',url:'https://sketchfab.com/3d-models/sukhoi-su-57-felon-p-fighter-jet-free-31127bc63bc048debb694aa88bbaafae'},
@@ -35,7 +36,7 @@ const MODELS=[
 {id:'uav-fixed',name:'UAV da ricognizione ad ala fissa',tag:'UAV · FIXED',url:'',drone:'fixed',summary:'Ricognitore originale non armato, ali rastremate, ottica orientabile ed elica animata.'},
 {id:'uav-quad',name:'Drone quadricottero ISR',tag:'UAV · QUAD',url:'',drone:'quad',summary:'Multirotore originale non armato con quattro rotori, carrello ed ottica stabilizzata.'},
 {id:'geran2',name:'Geran-2 (Shahed-136) · drone ostile',tag:'GERAN-2',url:'https://sketchfab.com/3d-models/geranium-2-8f12f601efe44a73b47e30a7077cf249',info:'Drone ostile delle missioni M12–M15 (Donbass e Zaporižžja) · apertura alare 2,5 m, lunghezza 3,5 m'}];
-const CREDITI={f16:'CENTURION2 · modello originale semplificato (procedurale)',f22:'sxnneh / Sketchfab — Sketchfab Standard',ea18:'Rhine_Lab_Muelsyse / Sketchfab — CC BY 4.0',geran2:'Karosio / Sketchfab — CC BY-NC-SA 4.0'};
+const CREDITI={'f16-studiolab':'Studio Lab · Sketchfab · anteprima incorporata, nessuna licenza di redistribuzione verificata',f16:'CENTURION2 · modello originale semplificato (procedurale)',f22:'sxnneh / Sketchfab — Sketchfab Standard',ea18:'Rhine_Lab_Muelsyse / Sketchfab — CC BY 4.0',geran2:'Karosio / Sketchfab — CC BY-NC-SA 4.0'};
 const $=s=>document.querySelector(s),view=$('#view'),status=$('#status');
 const scene=new THREE.Scene();scene.background=new THREE.Color(0x07111f);
 const camera=new THREE.PerspectiveCamera(40,1,0.05,2000);camera.position.set(16,10,18);
@@ -93,7 +94,23 @@ function showDrone(m,created){
 async function openModel(m){const id=++token;selected=m;$('#hint').textContent='Caricamento 3D: GLB locale, file importato oppure anteprima Sketchfab.';$('#title').textContent=m.name;$('#credit').textContent=m.drone?'CENTURION2 · modello procedurale originale, non armato':(CREDITI[m.id]||'bohmerang / Sketchfab — CC BY-NC-SA 4.0');
  $('#source').onclick=m.url?()=>window.open(m.url,'_blank','noopener,noreferrer'):null;document.querySelectorAll('nav button').forEach(b=>b.classList.toggle('active',b.dataset.id===m.id));note('Caricamento '+m.name+'…');try{let stored=null;
  try{stored=await readStored(m.id);}catch(err){console.warn('Archivio locale non accessibile',err);}
- if(id!==token)return;if(stored && m.id!=='typhoon'){const g=await loader.parseAsync(await stored.arrayBuffer(),'');if(id===token){place(g);return;}}if(m.drone){
+ if(id!==token)return;
+ if(m.embedOnly){
+   clear();
+   const match=m.url.match(/([0-9a-f]{32})$/i);
+   if(!match)throw Error('URL Sketchfab non valido');
+   const f=document.createElement('iframe');
+   f.id='sketchfab-fallback';f.title=m.name;
+   f.src='https://sketchfab.com/models/'+match[1]+'/embed?autostart=1&ui_controls=1';
+   f.allow='autoplay; fullscreen; xr-spatial-tracking';
+   f.setAttribute('allowfullscreen','');
+   const host=$('#viewport')||$('#stage')||document.querySelector('main');
+   if(!host)throw Error('Area visualizzatore non trovata');
+   host.appendChild(f);
+   note('Studio Lab · visualizzatore Sketchfab originale · modello non ancora importato nel Volo libero');
+   return;
+ }
+ if(stored && m.id!=='typhoon'){const g=await loader.parseAsync(await stored.arrayBuffer(),'');if(id===token){place(g);return;}}if(m.drone){
   const factory=await ensureDroneFactory();
   if(id===token){showDrone(m,factory.drone(m.drone==='quad'));return;}
  }
