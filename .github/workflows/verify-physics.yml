@@ -28,8 +28,8 @@ jobs:
           node --check .github/aero/fdm6.js
           node .github/aero/test_fdm6.cjs
           node .github/blackhawk/test_heli.cjs
-          node .github/blackhawk/test_heli_edge.cjs
           node .github/blackhawk/test_pilot.cjs
+          node .github/blackhawk/test_heli_edge.cjs
           python3 -m py_compile .github/blackhawk/patch_rotor.py .github/airbus/patch_a380.py
       - name: Upload virtual pilot telemetry
         if: always()
