@@ -41,7 +41,7 @@ patch('''  function fisica6(dt){''',
       });
     }
     const sim=P.rotorSim;
-    const mass=Math.max(8000,A.m-A.fuel/2+P.fuel);
+    const mass=Math.max(6500,A.m-A.fuel+P.fuel);
     const out=CENTURION_HELI_FDM.step(sim,dt,{
       collective:S.thr,roll:In.sx||0,pitch:In.sy||0,rudder:In.rud||0
     },{
@@ -82,7 +82,7 @@ patch('''        if(P.obj.userData.droneAnim)P.obj.userData.droneAnim(dtR,S.t);'
 '''        if(P.obj.userData.droneAnim)P.obj.userData.droneAnim(dtR,S.t);
         if(P.A.rotorcraft&&P.obj){
           const anim=P.obj.userData;
-          if(!anim.uh60Rotors){
+          if(!anim.uh60Rotors||(!anim.uh60Rotors.main&&!anim.uh60Rotors.tail)){
             let main=null,tail=null;
             P.obj.traverse(o=>{
               if(o.name==="CENTURION_UH60_MAIN_ROTOR"||o.name==="ROTOR_MAIN")main=o;
@@ -92,7 +92,7 @@ patch('''        if(P.obj.userData.droneAnim)P.obj.userData.droneAnim(dtR,S.t);'
           }
           const r=anim.uh60Rotors;
           const rpm=P.rotorSim?.rpm||0;
-          if(r.main)r.main.rotation.y+=dtR*29*rpm;
+          if(r.main)r.main.rotation.y+=dtR*27*rpm;
           if(r.tail)r.tail.rotation.x+=dtR*135*rpm;
         }''')
 
