@@ -64,6 +64,10 @@ patch('''  function fisica6(dt){''',
     P.ab=0;P.spinta=out.collective;
     P.aTerra=!!out.onGround;
     P.gMax=Math.max(P.gMax||0,P.nz);
+    if(out.crashed){
+      return schianto(out.hardLanding?"Impatto verticale UH-60":
+        "Impatto orizzontale UH-60");
+    }
   }
   function fisica6(dt){''')
 
