@@ -1,129 +1,131 @@
-/* CENTURION2 utility rotorcraft dynamics, standalone and testable.
- * Original approximate 6DOF force/moment model for a UH-60-class helicopter.
- * Not FAA-certified or derived from Sikorsky flight-test tables.
- * World: +Y up, body: +Z nose, +Y rotor thrust, +X left/right.
+/* CENTURION2 rotorcraft flight model: calibrated gameplay approximation.
+ * Body +X left, +Y up, +Z nose; world +Y up; units SI.
+ * Collective adjusts rotor blade pitch/thrust, cyclic tilts the aircraft,
+ * pedals command yaw. No flight-test or certification claim.
  */
 (function(root,factory){
   'use strict';
-  const api=factory(root.CENTURION_FDM6 || (typeof module==='object'&&module.exports?require('../aero/fdm6.js'):null));
+  const dep=root.CENTURION_FDM6 ||
+    (typeof module==='object'&&module.exports?require('../aero/fdm6.js'):null);
+  const api=factory(dep);
   if(typeof module==='object'&&module.exports)module.exports=api;
   root.CENTURION_HELI_FDM=api;
 })(typeof window!=='undefined'?window:globalThis,function(FDM){
   'use strict';
   if(!FDM)throw Error('CENTURION_FDM6 dependency missing');
-  const g=9.80665,cl=(x,a,b)=>Math.max(a,Math.min(b,x)),PI=Math.PI;
-  const vec=(x,y,z)=>[x,y,z],dot=FDM.dot;
-  const add=(a,b)=>a.map((x,i)=>x+b[i]);
-  const sub=(a,b)=>a.map((x,i)=>x-b[i]);
-  const mul=(a,k)=>a.map(x=>x*k);
-  const vlen=a=>Math.hypot(...a);
-  const qrot=FDM.rotate;
+  const G=9.80665,PI=Math.PI,cl=(x,a,b)=>Math.max(a,Math.min(b,x));
+  const add=(a,b)=>a.map((v,i)=>v+b[i]);
+  const sub=(a,b)=>a.map((v,i)=>v-b[i]);
+  const mul=(a,k)=>a.map(v=>v*k);
+  const dot=FDM.dot,rot=FDM.rotate;
   function create(spec,initial={}){
-    const m=Number(spec.m)||9500;
     return {
       spec,
-      r:(initial.r||[0,100,0]).slice(),v:(initial.v||[0,0,0]).slice(),
+      r:(initial.r||[0,100,0]).slice(),
+      v:(initial.v||[0,0,0]).slice(),
       q:FDM.qNorm(initial.q||[0,0,0,1]),
       w:(initial.w||[0,0,0]).slice(),
-      collective:Number(initial.collective??spec.collectiveHover??.64),rpm:1,rotorPhase:0,tailPhase:0,
-      fuel:initial.fuel==null?Number(spec.fuel)||1650:initial.fuel,
-      time:0,last:null,mass:m
+      collective:Number(initial.collective??spec.collectiveHover??.64),
+      rpm:Number(initial.rpm??1),
+      rotorPhase:0,tailPhase:0,
+      fuel:initial.fuel==null?Number(spec.fuel)||1650:Number(initial.fuel),
+      time:0,last:null,mass:Number(spec.m)||9500
     };
   }
-  function step(s,dt,input={},env={}){
-    const h=cl(Number(dt)||0,0,1/60);
-    if(!h)return s.last;
-    const spec=s.spec||{},m=Math.max(100,Number(env.mass)||spec.m||9500);
-    const density=cl(Number(env.rho)||1.225,.2,1.4);
-    const ground=Number(env.ground)||0;
+  function integrate(s,h,input,env){
+    const spec=s.spec||{};
+    const mass=Math.max(100,Number(env.mass)||Number(spec.m)||9500);
+    const rho=cl(Number(env.rho)||1.225,.18,1.4);
+    const ground=Number.isFinite(env.ground)?env.ground:0;
     const agl=Math.max(0,s.r[1]-ground);
-    const cmdCollective=cl(Number(input.collective??input.throttle??.62),0,1);
-    // Turboshaft response and governor. Throttle is mapped to collective:
-    // hover is about 64% at sea level, rising with altitude/weight.
-    s.collective+=(cmdCollective-s.collective)*(1-Math.exp(-h/1.25));
-    const rpmTarget=s.fuel>0?1:0;
-    s.rpm+=(rpmTarget-s.rpm)*(1-Math.exp(-h/(s.fuel>0?2.2:7)));
+    const cmd=cl(Number(input.collective??input.throttle??.64),0,1);
     const cyclicX=cl(Number(input.roll)||0,-1,1);
     const cyclicY=cl(Number(input.pitch)||0,-1,1);
     const pedal=cl(Number(input.rudder)||0,-1,1);
-    const inertia=FDM.inertia({icona:'uh60',S:201,span:16.36,length:19.76,height:5.13},m);
-    // Self-levelling stabilisation: stick sets target attitude, not position.
-    const up=qrot(s.q,[0,1,0]);
-    const targetRoll=-cyclicX*.32, targetPitch=cyclicY*.31;
-    const rollErr=cl(targetRoll-up[0],-.8,.8);
-    const pitchErr=cl(targetPitch-up[2],-.8,.8);
-    const targetRates=[
-      cl(pitchErr*2.5,-.7,.7),
-      -pedal*.65,
-      cl(-rollErr*2.5,-.7,.7)
+    // Turboshaft/governor inertia. Rotor RPM is separate from collective.
+    s.collective+=(cmd-s.collective)*(1-Math.exp(-h/.75));
+    const engineOn=s.fuel>0;
+    const governor=engineOn?cl(1-.055*Math.max(0,s.collective-.64)/.36,.94,1):0;
+    s.rpm+=(governor-s.rpm)*(1-Math.exp(-h/(engineOn?1.0:5.5)));
+    // UH-60 has SAS, not position hold: cyclic commands pitch/roll rates
+    // with weak attitude damping and actual angular inertia.
+    // Positive longitudinal stick = nose UP = negative body X.
+    const up=rot(s.q,[0,1,0]);
+    const demand=[
+      cl(-cyclicY*.53-up[2]*.44,-.72,.72),
+      cl(-pedal*.55-.085*(s.collective-(spec.collectiveHover??.64)),-.75,.75),
+      cl(cyclicX*.53+up[0]*.44,-.72,.72)
     ];
-    const deltaRates=[
-      (targetRates[0]-s.w[0])*3.4,
-      (targetRates[1]-s.w[1])*2.9,
-      (targetRates[2]-s.w[2])*3.4
-    ];
+    const inertia=FDM.inertia({icona:'uh60',S:201,span:16.36,length:19.76,height:5.13},mass);
     const gyro=FDM.angularAccel(inertia,s.w,[0,0,0]);
-    const moments=[
-      inertia.ix*(deltaRates[0]-gyro[0]),
-      inertia.iy*(deltaRates[1]-gyro[1]),
-      inertia.iz*(deltaRates[2]-gyro[2])
+    const gain=[2.8,2.0,2.8];
+    const torque=[
+      inertia.ix*((demand[0]-s.w[0])*gain[0]-gyro[0]),
+      inertia.iy*((demand[1]-s.w[1])*gain[1]-gyro[1]),
+      inertia.iz*((demand[2]-s.w[2])*gain[2]-gyro[2])
     ];
-    const ang=FDM.angularAccel(inertia,s.w,moments);
+    const ang=FDM.angularAccel(inertia,s.w,torque);
     const oldW=s.w.slice();
-    s.w=s.w.map((x,i)=>cl(x+ang[i]*h,-1.1,1.1));
+    s.w=s.w.map((w,i)=>cl(w+ang[i]*h,-1.15,1.15));
     s.q=FDM.advanceQ(s.q,mul(add(oldW,s.w),.5),h);
-    // Main rotor lift from shaft-axis thrust plus translational lift.
-    // Slower air at altitude reduces available rotor thrust.
-    const airFactor=Math.pow(density/1.225,.70);
+    // Rotor disk and momentum-theory power ceiling, independent of mass.
     const relative=sub(s.v,env.windWorld||[0,0,0]);
-    const forward=qrot(s.q,[0,0,1]),right=qrot(s.q,[1,0,0]);
     const horizontal=Math.hypot(relative[0],relative[2]);
-    const translation=1+.11*cl((horizontal-8)/24,0,1);
-    const groundEffect=1+.13*Math.exp(-Math.max(0,agl)/5);
-    const liftMax=Number(spec.maxRotorThrust)||m*g/0.64;
-    let lift=liftMax*s.collective*airFactor*translation*groundEffect*s.rpm*s.rpm;
-    // At high speed induced lift is limited; no supersonic rotorcraft.
-    lift*=1-.17*cl((horizontal-70)/30,0,1);
-    const rotor=qrot(s.q,[0,lift,0]);
-    // Independent drag in body axes (longitudinal, lateral, vertical).
-    const vb=FDM.inverse(s.q,relative);
-    const CdA=[4.8,5.0,2.7];
-    const localDrag=vb.map((v,i)=>-.5*density*CdA[i]*v*Math.abs(v));
-    const drag=qrot(s.q,localDrag);
-    const f=add(rotor,drag);
-    const acc=add(mul(f,1/m),[0,-g,0]);
-    const lastV=s.v.slice();
-    s.v=add(s.v,mul(acc,h));
-    s.r=add(s.r,mul(add(s.v,lastV),.5*h));
-    // Wheeled landing contact, not a fake hovering clamp in mid-air.
+    const etl=1+.10*cl((horizontal-7)/20,0,1);
+    const ge=1+.12*Math.exp(-agl/4.5);
+    const densityFactor=Math.pow(rho/1.225,.45);
+    const radius=Number(spec.rotorRadius)||8.18,disk=PI*radius*radius;
+    const seaThrust=Number(spec.maxRotorThrust)||
+      (Number(spec.m)||9500)*G/(Number(spec.collectiveHover)||.64);
+    const requested=seaThrust*s.collective*densityFactor*etl*ge*s.rpm*s.rpm;
+    const power=(Number(spec.shaftPower)||3.15e6)*Math.pow(rho/1.225,.65);
+    const efficiency=Number(spec.rotorEfficiency)||.74;
+    const available=engineOn?power*s.rpm:0;
+    const powerThrust=Math.pow(2*rho*disk*Math.pow(available*efficiency,2),1/3);
+    // Advancing/retreating-blade effects limit high-speed lift.
+    const highSpeed=1-.28*cl((horizontal-65)/35,0,1);
+    const sink=Math.max(0,-relative[1]);
+    const vrs=.26*cl((sink-4)/6,0,1)*(1-cl(horizontal/12,0,1));
+    const rotorLift=Math.max(0,Math.min(requested,powerThrust*etl)*highSpeed*(1-vrs));
+    const rotor=rot(s.q,[0,rotorLift,0]);
+    // Quadratic parasite drag in body axes, including lateral slip.
+    const local=FDM.inverse(s.q,relative),cdA=[5.3,4.4,6.5];
+    const drag=rot(s.q,local.map((v,i)=>-.5*rho*cdA[i]*v*Math.abs(v)));
+    const force=add(rotor,drag);
+    const acceleration=add(mul(force,1/mass),[0,-G,0]);
+    const oldV=s.v.slice();
+    s.v=add(s.v,mul(acceleration,h));
+    s.r=add(s.r,mul(add(oldV,s.v),.5*h));
     const gear=Number(spec.gearHeight)||1.85;
-    let onGround=false;
+    let onGround=false,hardLanding=false;
     if(s.r[1]<=ground+gear){
-      const sink=Math.min(0,s.v[1]);
+      hardLanding=s.v[1]<-5.5;
       s.r[1]=ground+gear;
       s.v[1]=Math.max(0,s.v[1]);
       onGround=true;
-      // Finite rolling/braking friction and horizontal wind drag.
-      const friction=(env.brake?.40:.075)*g*h;
+      const friction=(env.brake?.40:.085)*G*h;
       for(const i of [0,2])s.v[i]=Math.sign(s.v[i])*Math.max(0,Math.abs(s.v[i])-friction);
-      // Soft reset of excessive angular tilt while safely stationary.
-      if(horizontal<2&&s.collective<.45){
-        s.w=s.w.map(v=>v*.96);
-      }
-      if(sink<-5.5)onGround=false; // game can report hard touchdown
+      if(Math.hypot(s.v[0],s.v[2])<1&&s.collective<.45)s.w=s.w.map(w=>w*.98);
     }
-    // Approximate two turboshaft consumption in kg/s at 100% rotor power.
-    s.fuel=Math.max(0,s.fuel-h*(.09+.42*Math.pow(s.collective,1.7))*s.rpm);
-    s.rotorPhase=(s.rotorPhase+h*29*s.rpm)%(2*PI);
+    s.fuel=Math.max(0,s.fuel-h*(engineOn?.10+.35*Math.pow(s.collective,1.6):0)*s.rpm);
+    s.rotorPhase=(s.rotorPhase+h*27.0*s.rpm)%(2*PI);
     s.tailPhase=(s.tailPhase+h*135*s.rpm)%(2*PI);
     s.time+=h;
-    const v=vlen(s.v),mach=v/Math.sqrt(1.4*287.05*288.15);
+    const speed=Math.hypot(...relative);
+    const upNew=rot(s.q,[0,1,0]);
     s.last={r:s.r.slice(),v:s.v.slice(),q:s.q.slice(),w:s.w.slice(),
-      acceleration:acc,forceWorld:f,rotorLift:lift,collective:s.collective,
+      acceleration,forceWorld:force,rotorLift,collective:s.collective,
       rotorRPM:s.rpm,rotorPhase:s.rotorPhase,tailPhase:s.tailPhase,
-      onGround,mach,qbar:.5*density*v*v,nz:dot(f,up)/(m*g),
-      agl:Math.max(0,s.r[1]-ground),fuel:s.fuel};
+      onGround,hardLanding,mach:speed/340.3,qbar:.5*rho*speed*speed,
+      nz:dot(force,upNew)/(mass*G),agl:Math.max(0,s.r[1]-ground),fuel:s.fuel};
+  }
+  function step(s,dt,input={},env={}){
+    if(!Number.isFinite(dt)||dt<=0)return s.last;
+    // Frame-rate independence: advance all elapsed time, never drop 30-fps frames.
+    const total=cl(dt,0,.10),n=Math.max(1,Math.ceil(total/(1/120)));
+    const h=total/n;
+    for(let i=0;i<n;i++)integrate(s,h,input,env);
     return s.last;
   }
-  return Object.freeze({version:'uh60-6dof-1',create,step});
+  return Object.freeze({version:'uh60-6dof-2',create,step});
 });
