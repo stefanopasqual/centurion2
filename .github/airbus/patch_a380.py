@@ -153,7 +153,7 @@ new='''  function a380FromLocal(){
             new THREE.GLTFLoader().parse(bytes,"",g=>ok(g.scene),bad);
           })).then(raw=>{
             const wrap=new THREE.Group();wrap.name="Airbus A380-841 · Lufthansa 100th Year";
-            wrap.add(raw);raw.rotation.y=Math.PI;raw.updateMatrixWorld(true);
+            wrap.add(raw);raw.rotation.y=0;raw.updateMatrixWorld(true);
             const bounds=new THREE.Box3().setFromObject(raw),dim=bounds.getSize(new THREE.Vector3());
             const scl=79.8/Math.max(.001,dim.x);raw.scale.multiplyScalar(scl);raw.updateMatrixWorld(true);
             const center=new THREE.Box3().setFromObject(raw).getCenter(new THREE.Vector3());
@@ -189,7 +189,7 @@ if page.count(old)!=1:raise RuntimeError("A380 credit anchor mismatch")
 page=page.replace(old,"const CREDITI={a380:'Nobilis 2 (Sketchfab) · CC BY 4.0 · Lufthansa 100th Year',f16:",1)
 old="scene.add(aircraft);frame(aircraft);"
 new='''if(selected.id==="a380"){
-    aircraft.rotation.y=Math.PI;
+    aircraft.rotation.y=0;
     const bounds=new THREE.Box3().setFromObject(aircraft),dims=bounds.getSize(new THREE.Vector3());
     aircraft.scale.multiplyScalar(79.8/Math.max(.001,dims.x));
   }
@@ -209,7 +209,7 @@ if asset.is_file():
     shutil.copyfile(out,mission)
     manifest=root/"modelli"/"manifest.json"
     m=json.loads(manifest.read_text(encoding="utf-8"))
-    m["A380"]={"file":"a380.glb","rot":[0,180,0],"lunghezza_m":72.7,
+    m["A380"]={"file":"a380.glb","rot":[0,0,0],"lunghezza_m":72.7,
         "autore":"Nobilis 2","licenza":"CC BY 4.0",
         "url":"https://sketchfab.com/3d-models/airbus-a380-841-lufthansa-100th-year-0de836a0d2b04fdf92f0d56c7886c82b"}
     manifest.write_text(json.dumps(m,ensure_ascii=False,indent=2),encoding="utf-8")
