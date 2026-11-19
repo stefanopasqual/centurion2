@@ -55,7 +55,7 @@ assert.ok(Math.abs(s30.time-10)<1e-8,'30 Hz integrates 10 full seconds');
 const flameout=rotor.create(spec,{r:[0,120,0],v:[0,0,0],collective:.64,fuel:0});
 for(let k=0;k<120;k++)rotor.step(flameout,1/60,{collective:.64},{mass:9500,rho:1.225,ground:0});
 assert.ok(flameout.r[1]<115,'engine out must lose altitude');
-assert.equal(rotor.version,'uh60-6dof-2');
+assert.equal(rotor.version,'uh60-6dof-3');
 const a380={icona:'a380',m:445000,S:845,span:79.8,oswald:.83,
   Tmil:1240000,Tab:1240000,cd0:.0205,cla:5.2,astall:17,amax:14,
   criticalMach:.8,waveRise:.085,gmax:2.5,gneg:1,pmax:22,
