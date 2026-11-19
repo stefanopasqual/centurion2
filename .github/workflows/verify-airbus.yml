@@ -1,0 +1,33 @@
+name: Verify Airbus Hangar Consolidation
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/ef2000/**'
+      - '.github/workflows/verify-airbus.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  airbus:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify local Airbus consolidation logic
+        run: |
+          node --version
+          node --check .github/ef2000/airbus_local.js
+          node --experimental-default-type=module .github/ef2000/test_airbus.mjs
+          python3 - <<'PY'
+          from pathlib import Path
+          page=Path('.github/ef2000/viewer.html').read_text(encoding='utf-8')
+          assert "from './airbus_local.js'" in page
+          assert "id=\"airbus-open\"" in page
+          assert 'await archiveImportedAirbus' in page
+          assert 'await makeAirbusArchive()' in page
+          assert 'await refreshLocalAirbusMenu()' in page
+          code=page.rsplit('<script type="module">',1)[1].split('</script>',1)[0]
+          Path('/tmp/hangar-airbus.mjs').write_text(code,encoding='utf-8')
+          PY
+          node --check /tmp/hangar-airbus.mjs
