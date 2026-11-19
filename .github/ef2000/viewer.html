@@ -28,6 +28,7 @@ const MODELS=[
 {id:'f16',name:'General Dynamics F-16C Fighting Falcon',tag:'F-16C',url:'',info:'F-16C Fighting Falcon · modello originale semplificato CENTURION2, carrello retratto'},
 {id:'f16-studiolab',name:'F-16 Fighting Falcon · Studio Lab (Sketchfab)',tag:'F-16 · STUDIO LAB',url:'https://sketchfab.com/3d-models/f-16-f-16-fighting-falcon-fighter-jet-8be8ab656304467eb6ddcbb244ae8574',info:'Anteprima 3D interattiva di Studio Lab · per usarlo nel Volo libero occorre un GLB autorizzato',embedOnly:true},
 {id:'uh60',name:'Sikorsky UH-60 Black Hawk · Michał Flodrowski',tag:'UH-60 · BLACK HAWK',url:'https://sketchfab.com/3d-models/uh-60-black-hawk-4682e6566cee481cb94d387fb7845243',info:'Anteprima 3D Sketchfab di Michał Flodrowski · volo elicottero non ancora integrato',embedOnly:true},
+{id:'uh60-centurion',name:'CENTURION UH-60 · modello originale',tag:'UH-60 · CENTURION',url:'',info:'Modello 3D originale CENTURION2 · fusoliera, quattro pale, rotore di coda, carrello, motori e sensori · rotori animati',ownHelicopter:true},
 {id:'typhoon',name:'Eurofighter Typhoon · 51° Stormo Istrana',tag:'EF-2000',url:'https://sketchfab.com/3d-models/eurofighter-typhoon-fighter-jet-free-992bcc8987964ca09d55410330aa8579'},
 {id:'f15e',name:'F-15E Strike Eagle',tag:'F-15E',url:'https://sketchfab.com/3d-models/f-15e-strike-eagle-fighter-jet-free-fff7d75490474e9b964d90cc031c8d01'},
 {id:'su57',name:'Sukhoi Su-57',tag:'Su-57',url:'https://sketchfab.com/3d-models/sukhoi-su-57-felon-p-fighter-jet-free-31127bc63bc048debb694aa88bbaafae'},
@@ -37,7 +38,7 @@ const MODELS=[
 {id:'uav-fixed',name:'UAV da ricognizione ad ala fissa',tag:'UAV · FIXED',url:'',drone:'fixed',summary:'Ricognitore originale non armato, ali rastremate, ottica orientabile ed elica animata.'},
 {id:'uav-quad',name:'Drone quadricottero ISR',tag:'UAV · QUAD',url:'',drone:'quad',summary:'Multirotore originale non armato con quattro rotori, carrello ed ottica stabilizzata.'},
 {id:'geran2',name:'Geran-2 (Shahed-136) · drone ostile',tag:'GERAN-2',url:'https://sketchfab.com/3d-models/geranium-2-8f12f601efe44a73b47e30a7077cf249',info:'Drone ostile delle missioni M12–M15 (Donbass e Zaporižžja) · apertura alare 2,5 m, lunghezza 3,5 m'}];
-const CREDITI={uh60:'Michał Flodrowski (WR5) · Sketchfab · anteprima incorporata','f16-studiolab':'Studio Lab · Sketchfab · anteprima incorporata, nessuna licenza di redistribuzione verificata',f16:'CENTURION2 · modello originale semplificato (procedurale)',f22:'sxnneh / Sketchfab — Sketchfab Standard',ea18:'Rhine_Lab_Muelsyse / Sketchfab — CC BY 4.0',geran2:'Karosio / Sketchfab — CC BY-NC-SA 4.0'};
+const CREDITI={'uh60-centurion':'CENTURION2 · modello 3D originale procedurale · nessuna geometria Sketchfab',uh60:'Michał Flodrowski (WR5) · Sketchfab · anteprima incorporata','f16-studiolab':'Studio Lab · Sketchfab · anteprima incorporata, nessuna licenza di redistribuzione verificata',f16:'CENTURION2 · modello originale semplificato (procedurale)',f22:'sxnneh / Sketchfab — Sketchfab Standard',ea18:'Rhine_Lab_Muelsyse / Sketchfab — CC BY 4.0',geran2:'Karosio / Sketchfab — CC BY-NC-SA 4.0'};
 const $=s=>document.querySelector(s),view=$('#view'),status=$('#status');
 const scene=new THREE.Scene();scene.background=new THREE.Color(0x07111f);
 const camera=new THREE.PerspectiveCamera(40,1,0.05,2000);camera.position.set(16,10,18);
@@ -76,6 +77,18 @@ function clear(){
 }
 function frame(obj){const box=new THREE.Box3().setFromObject(obj);const dimensions=box.getSize(new THREE.Vector3());const largest=Math.max(dimensions.x,dimensions.y,dimensions.z);if(!largest||!Number.isFinite(largest))throw Error('Geometria non valida');obj.scale.multiplyScalar(16/largest);box.setFromObject(obj);const c=box.getCenter(new THREE.Vector3());obj.position.sub(c);camera.position.set(15,10,19);controls.target.set(0,0,0);controls.update();}
 function place(glb){clear();aircraft=glb.scene;if(selected.info)$('#hint').textContent=selected.info+' · mostrato ingrandito alla stessa scala dei jet';const gearDown=[];aircraft.traverse(o=>{const n=(o.name||'').toLowerCase().replace(/[\s_.-]/g,'');if(/landingon|gearon|geardown|gearout|refuelon|landinglights|undercarriage(?!off|up)|wheel(?!off|up)|tire(?!off|up)|tyre(?!off|up)/.test(n))gearDown.push(o);});gearDown.forEach(o=>{if(o.parent)o.parent.remove(o);});scene.add(aircraft);frame(aircraft);
+ if(selected.ownHelicopter){
+   const main=aircraft.getObjectByName('CENTURION_UH60_MAIN_ROTOR');
+   const tail=aircraft.getObjectByName('CENTURION_UH60_TAIL_ROTOR');
+   animationDriver=(dt)=>{
+     if(main)main.rotation.y+=(dt*13.2);
+     if(tail)tail.rotation.x+=(dt*54.0);
+   };
+   $('#hint').textContent=selected.info;
+   $('#floor').textContent='Modello originale · quattro pale e rotore di coda animati · ruota / zoom';
+   note('UH-60 CENTURION · GLB originale · '+(main&&tail?'rotori animati':'parti rotoriche statiche'));
+   return;
+ }
  if(selected.id==='typhoon'){
   try{
    livery51=apply51Stormo(THREE,scene,aircraft);
