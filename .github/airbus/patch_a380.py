@@ -127,11 +127,7 @@ modify("js/aero_core.js",
 # loader takes precedence automatically.
 mod_path=root/"js"/"vista3d.js"
 source=mod_path.read_text(encoding="utf-8")
-old='''  function modelloPromise(icona, col, opt) {
-    // 1) modello glTF reale se presente in app/modelli; 2) altrimenti modello procedurale
-    const tipo = (opt && opt.tipoId) || ICONA2TIPO[icona] || "F16";
-    return gltfModello(tipo, col, opt).catch(() => null).then(m => m || modelloProcedurale(icona, col, opt));
-  }'''
+old='  function modelloPromise(icona, col, opt) {'
 new='''  function a380FromLocal(){
     if(typeof indexedDB==="undefined" || typeof THREE.GLTFLoader==="undefined")return Promise.resolve(null);
     return new Promise(resolve=>{
@@ -165,14 +161,12 @@ new='''  function a380FromLocal(){
     });
   }
   function modelloPromise(icona, col, opt) {
-    const tipo=(opt&&opt.tipoId)||ICONA2TIPO[icona]||"F16";
-    if(tipo==="A380"||icona==="a380"){
+    const a380tipo=(opt&&opt.tipoId)||ICONA2TIPO[icona]||"F16";
+    if(a380tipo==="A380"||icona==="a380"){
       return gltfModello("A380",col,opt).catch(()=>null)
         .then(model=>model||a380FromLocal())
         .then(model=>model||(window.CENTURION_A380?Promise.resolve(window.CENTURION_A380.create(THREE)):modelloProcedurale("kc30",col,opt)));
-    }
-    return gltfModello(tipo,col,opt).catch(()=>null).then(m=>m||modelloProcedurale(icona,col,opt));
-  }'''
+    }'''
 if source.count(old)!=1:raise RuntimeError("A380 loader anchor mismatch")
 mod_path.write_text(source.replace(old,new,1),encoding="utf-8")
 
