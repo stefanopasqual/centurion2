@@ -19,8 +19,6 @@ def modify(path,old,new):
 
 # Fleet: mass is reference simulated operating mass; MTOW is a limit, not a fixed
 # flight mass. Fuel mass decreases with time, no afterburner or weapon systems.
-modify("js/volo.js","  /* ---------- armi ---------- */",
-    """  /* ---------- armi ---------- */""")
 fleet_marker='    KC30:{nome:"Airbus KC-30 / A330 MRTT"'
 fleet_path=root/"js/volo.js"
 fleet=fleet_path.read_text(encoding="utf-8")
