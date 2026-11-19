@@ -37,5 +37,14 @@ h["models"].append({
   "attribution":"Independently created model; unrelated to WR5's Sketchfab geometry."
 })
 hangar.write_text(json.dumps(h,ensure_ascii=False,indent=2),encoding="utf-8")
+mission=site/"modelli"/"manifest.json"
+m=json.loads(mission.read_text(encoding="utf-8"))
+m["UH60"]={
+  "file":"uh60-centurion.glb",
+  "rot":[0,0,0],"lunghezza_m":19.76,
+  "autore":"CENTURION2","licenza":"original procedural mesh",
+  "gear":"down","tint":False
+}
+mission.write_text(json.dumps(m,ensure_ascii=False,indent=2),encoding="utf-8")
 print("PASS UH60 original",model.stat().st_size,"bytes,",len(obj.get("meshes",[])),
       "meshes, both rotor animation nodes")
