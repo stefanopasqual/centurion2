@@ -11,7 +11,7 @@ export function classifyAirbus(name,key=''){
   const clean=String(name||'').toLowerCase().replace(/[_]+/g,' ');
   const keyText=String(key||'').toLowerCase();
   const find=t=>{
-    const match=t.match(/(?:^|[^a-z0-9])(?:airbus[\s-]*)?(a\s*-?\s*(?:220|318|319|320|321|330|340|350|380))(?=$|[^a-z0-9])/i);
+    const match=t.match(/(?:^|[^a-z0-9])(?:airbus[\s-]*)?(a\s*-?\s*(?:220|318|319|320|321|330|340|350|380))(?:neo|ceo)?(?=$|[^a-z0-9])/i);
     return match ? match[1].toUpperCase().replace(/[\s-]/g,'') : null;
   };
   const found=find(clean)||find(keyText);
