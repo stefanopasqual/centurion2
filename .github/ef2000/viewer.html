@@ -116,7 +116,7 @@ function showDrone(m,created){
  $('#floor').textContent='Trascina per ruotare · Pizzica per zoom · Eliche e sensori animati';
  note('UAV procedurale originale · nessun armamento · orbita e zoom attivi');
 }
-async function openModel(m){const id=++token;selected=m;$('#hint').textContent='Caricamento 3D: GLB locale, file importato oppure anteprima Sketchfab.';$('#title').textContent=m.name;$('#credit').textContent=m.drone?'CENTURION2 · modello procedurale originale, non armato':(CREDITI[m.id]||'bohmerang / Sketchfab — CC BY-NC-SA 4.0');
+async function openModel(m){const id=++token;selected=m;$('#hint').textContent='Caricamento 3D: GLB locale, file importato oppure anteprima Sketchfab.';$('#title').textContent=m.name;$('#credit').textContent=m.id?.startsWith('a3')&&m.id!=='a380'?'GLB importato localmente · diritti e licenza originali da verificare':(m.drone?'CENTURION2 · modello procedurale originale, non armato':(CREDITI[m.id]||'bohmerang / Sketchfab — CC BY-NC-SA 4.0'));
  $('#source').onclick=m.url?()=>window.open(m.url,'_blank','noopener,noreferrer'):null;document.querySelectorAll('nav button').forEach(b=>b.classList.toggle('active',b.dataset.id===m.id));note('Caricamento '+m.name+'…');try{let stored=null;
  try{stored=await readStored(m.id);}catch(err){console.warn('Archivio locale non accessibile',err);}
  if(id!==token)return;
@@ -162,6 +162,24 @@ for(const m of MODELS){const b=document.createElement('button');b.dataset.id=m.i
 function db(){return new Promise((ok,bad)=>{let r=indexedDB.open('centurion2-glb-v1',1);r.onupgradeneeded=()=>r.result.createObjectStore('files');r.onsuccess=()=>ok(r.result);r.onerror=()=>bad(r.error);});}
 async function readStored(id){const database=await db();try{return await new Promise((resolve,reject)=>{const r=database.transaction('files').objectStore('files').get(id);r.onsuccess=()=>resolve(r.result);r.onerror=()=>reject(r.error);});}finally{database.close();}}
 async function saveStored(id,file){const database=await db();try{await new Promise((resolve,reject)=>{const t=database.transaction('files','readwrite');t.objectStore('files').put(file,id);t.oncomplete=resolve;t.onerror=()=>reject(t.error);});}finally{database.close();}}
+async function refreshLocalAirbusMenu(){
+ const {candidates}=await scanAirbus();
+ const names=new Map();
+ for(const entry of candidates){
+  const id=canonicalAirbusId(entry.family);
+  if(!id||entry.key!==id||MODELS.some(model=>model.id===id))continue;
+  if(!names.has(id))names.set(id,entry);
+ }
+ for(const [id,entry] of names){
+  const m={id,name:'Airbus '+entry.family+' · import locale',tag:entry.family,
+   info:'GLB Airbus importato localmente su questo dispositivo · '+entry.name};
+  MODELS.push(m);
+  const b=document.createElement('button');b.dataset.id=m.id;
+  const strong=document.createElement('strong');strong.textContent=m.tag;
+  const small=document.createElement('small');small.textContent=m.name;
+  b.append(strong,small);b.onclick=()=>openModel(m);$('#aircraft').append(b);
+ }
+}
 function airbusMessage(message){$('#airbus-message').textContent=message;}
 function airbusElement(tag,value){const n=document.createElement(tag);n.textContent=String(value);return n;}
 async function refreshAirbus(){
@@ -204,6 +222,7 @@ $('#airbus-consolidate').onclick=async()=>{
  try{
   const out=await consolidateAirbus();
   await refreshAirbus();
+  await refreshLocalAirbusMenu();
   airbusMessage('Consolidate '+out.actions.length+' famiglie Airbus su questo dispositivo. Esporta lo ZIP per portarle su GitHub.');
  }catch(e){airbusMessage('Consolidamento non riuscito: '+(e.message||e));}
 };
@@ -228,4 +247,5 @@ renderer.setAnimationLoop(()=>{
  controls.update();renderer.render(scene,camera);
 });
 openModel(MODELS.find(m=>m.id===new URLSearchParams(location.search).get('aircraft'))||MODELS[0]);
+refreshLocalAirbusMenu().catch(e=>console.warn('Airbus locali:',e));
 </script></body></html>
