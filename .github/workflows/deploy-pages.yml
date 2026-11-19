@@ -263,7 +263,7 @@ jobs:
           cp .github/ef2000/home.js extracted/site/ef2000/home.js
           python3 .github/airbus/patch_a380.py extracted/site
           # Independent CENTURION Black Hawk; the Michał Sketchfab embed remains untouched.
-          blender --background --python-exit-code 7 --python .github/blackhawk/build_uh60.py -- extracted/site/models/uh60-centurion.glb
+          python3 .github/blackhawk/consolidate_uh60m.py extracted/site/models/uh60-centurion.glb
           python3 .github/blackhawk/publish_uh60.py extracted/site
           cp .github/blackhawk/heli_fdm.js extracted/site/js/heli_fdm.js
           python3 .github/blackhawk/patch_rotor.py extracted/site
