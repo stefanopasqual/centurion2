@@ -21,7 +21,7 @@ const test=(collective,seconds,extra={})=>{
   return s;
 };
 let s=test(.64,8);
-assert.ok(Math.abs(s.r[1]-120)<12,'UH60 hover at .64 collective stays within +-12m: '+s.r[1]);
+assert.ok(Math.abs(s.r[1]-120)<.5,'UH60 hover at .64 collective stays within +-0.5m: '+s.r[1]);
 s=test(.85,6);
 assert.ok(s.r[1]>125,'UH60 high collective climbs: '+s.r[1]);
 s=test(.37,6);
@@ -33,7 +33,29 @@ assert.ok(Math.abs(s.r[0])+Math.abs(s.r[2])>.5,'UH60 cyclic must induce horizont
 const landed=rotor.create(spec,{r:[0,1.85,0],v:[0,-.4,0],collective:.2});
 const touchdown=rotor.step(landed,1/60,{collective:.2},{mass:9500,rho:1.225,ground:0});
 assert.ok(touchdown.onGround && Math.abs(landed.r[1]-1.85)<1e-6,'UH60 must settle on wheels');
-assert.equal(rotor.version,'uh60-6dof-1');
+
+// Validate correct cockpit controls, not just "some movement".
+s=test(.64,5,{pitch:-.3});
+assert.ok(s.r[2]>5,'forward cyclic must accelerate toward nose +Z: '+s.r[2]);
+s=test(.64,5,{pitch:.3});
+assert.ok(s.r[2]<-5,'aft cyclic must accelerate toward tail -Z: '+s.r[2]);
+s=test(.64,5,{roll:.3});
+assert.ok(s.r[0]<-5,'right cyclic must accelerate to world -X: '+s.r[0]);
+// The 30 Hz path must not discard half the elapsed physics time.
+function withStep(dt) {
+  const state=rotor.create(spec,{r:[0,120,0],v:[0,0,0],collective:.64,fuel:1650});
+  const frames=Math.round(10/dt);
+  for(let i=0;i<frames;i++)rotor.step(state,dt,{collective:.64},{mass:9500,rho:1.225,ground:0});
+  return state;
+}
+const s30=withStep(1/30),s60=withStep(1/60);
+assert.ok(Math.abs(s30.r[1]-s60.r[1])<.1,'30 Hz and 60 Hz altitude agreement');
+assert.ok(Math.abs(s30.time-10)<1e-8,'30 Hz integrates 10 full seconds');
+// Without engine power, helicopter must descend (no infinite hover).
+const flameout=rotor.create(spec,{r:[0,120,0],v:[0,0,0],collective:.64,fuel:0});
+for(let k=0;k<120;k++)rotor.step(flameout,1/60,{collective:.64},{mass:9500,rho:1.225,ground:0});
+assert.ok(flameout.r[1]<115,'engine out must lose altitude');
+assert.equal(rotor.version,'uh60-6dof-2');
 const a380={icona:'a380',m:445000,S:845,span:79.8,oswald:.83,
   Tmil:1240000,Tab:1240000,cd0:.0205,cla:5.2,astall:17,amax:14,
   criticalMach:.8,waveRise:.085,gmax:2.5,gneg:1,pmax:22,
@@ -51,4 +73,4 @@ assert.ok(eng.thrust>0&&eng.thrust<1240000,'A380 realistic four-engine thrust la
 const fdm=require('../aero/fdm6.js');
 const I=fdm.inertia(a380,a380.m);
 assert.ok(I.det>0&&I.ix>1e8,'A380 mass and geometric inertia finite');
-console.log('PASS AIRLINER/ROTOR: UH60 hover climb descent cyclic yaw touchdown; A380 lift stall thrust inertia');
+console.log('PASS AIRLINER/ROTOR: UH60 hover climb descent cyclic directions yaw touchdown engine-out timestep; A380 lift stall thrust inertia');
