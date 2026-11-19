@@ -6,6 +6,7 @@ on:
       - 'CENTURION2_GITHUB_MOBILE.zip'
       - '.github/workflows/deploy-pages.yml'
       - '.github/ef2000/**'
+      - '.github/airbus/**'
       - '.github/models/**'
       - '.github/maps/**'
       - '.github/cadet/**'
@@ -257,6 +258,13 @@ jobs:
           node --check extracted/site/ef2000/livrea51.js
           cp .github/ef2000/launcher.js extracted/site/ef2000/launcher.js
           cp .github/ef2000/home.js extracted/site/ef2000/home.js
+          python3 .github/airbus/patch_a380.py extracted/site
+          python3 -m py_compile .github/airbus/patch_a380.py
+          node --check extracted/site/js/a380.js
+          node --check extracted/site/js/volo.js
+          node --check extracted/site/js/vista3d.js
+          node --check extracted/site/js/aero_core.js
+          node --check extracted/site/ef2000/livrea51.js
           python3 - <<'PY'
           from pathlib import Path
           path=Path('extracted/site/index.html')
@@ -280,6 +288,8 @@ jobs:
           assert "ensureDroneFactory()" in page, 'Mission drone asset loader missing'
           assert "id:'geran2'" in page, 'Geran-2 missing from hangar'
           assert "id:'f16'" in page, 'F-16C missing from aircraft selection menu'
+          assert "id:'a380'" in page, 'A380 missing from hangar selector'
+          assert 'A380:{nome:' in Path('extracted/site/js/volo.js').read_text(), 'A380 missing from free flight'
           # Browser Three.js import map script is a module. Check the complete script
           # without requiring CDN modules during a Node syntax-only build.
           start=page.index('<script type="module">')+len('<script type="module">')
