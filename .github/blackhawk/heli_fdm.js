@@ -25,7 +25,7 @@
       r:(initial.r||[0,100,0]).slice(),v:(initial.v||[0,0,0]).slice(),
       q:FDM.qNorm(initial.q||[0,0,0,1]),
       w:(initial.w||[0,0,0]).slice(),
-      collective:0,rpm:1,rotorPhase:0,tailPhase:0,
+      collective:Number(initial.collective??spec.collectiveHover??.64),rpm:1,rotorPhase:0,tailPhase:0,
       fuel:initial.fuel==null?Number(spec.fuel)||1650:initial.fuel,
       time:0,last:null,mass:m
     };
@@ -53,9 +53,9 @@
     const rollErr=cl(targetRoll-up[0],-.8,.8);
     const pitchErr=cl(targetPitch-up[2],-.8,.8);
     const targetRates=[
-      cl(-pitchErr*2.5,-.7,.7),
+      cl(pitchErr*2.5,-.7,.7),
       -pedal*.65,
-      cl(rollErr*2.5,-.7,.7)
+      cl(-rollErr*2.5,-.7,.7)
     ];
     const deltaRates=[
       (targetRates[0]-s.w[0])*3.4,
