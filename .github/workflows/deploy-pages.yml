@@ -263,6 +263,12 @@ jobs:
           # Independent CENTURION Black Hawk; the Michał Sketchfab embed remains untouched.
           blender --background --python-exit-code 7 --python .github/blackhawk/build_uh60.py -- extracted/site/models/uh60-centurion.glb
           python3 .github/blackhawk/publish_uh60.py extracted/site
+          cp .github/blackhawk/heli_fdm.js extracted/site/js/heli_fdm.js
+          python3 .github/blackhawk/patch_rotor.py extracted/site
+          node --check extracted/site/js/heli_fdm.js
+          node --check extracted/site/js/volo.js
+          node .github/blackhawk/test_heli.cjs
+          python3 -m py_compile .github/blackhawk/patch_rotor.py
           python3 -m py_compile .github/blackhawk/build_uh60.py .github/blackhawk/publish_uh60.py
           python3 -m py_compile .github/airbus/patch_a380.py
           node --check extracted/site/js/a380.js
@@ -296,6 +302,10 @@ jobs:
           assert "id:'a380'" in page, 'A380 missing from hangar selector'
           assert "id:'uh60'" in page, 'Michał Sketchfab Black Hawk preview missing'
           assert "id:'uh60-centurion'" in page, 'Original CENTURION UH-60 missing'
+          volo=Path('extracted/site/js/volo.js').read_text(encoding='utf-8')
+          assert 'UH60:{nome:' in volo, 'UH-60 rotorcraft not selectable in free flight'
+          assert 'CENTURION_HELI_FDM.step' in volo, 'UH-60 rotor physics not connected'
+          assert Path('extracted/site/js/heli_fdm.js').is_file(), 'UH60 physics script missing'
           assert 'A380:{nome:' in Path('extracted/site/js/volo.js').read_text(), 'A380 missing from free flight'
           # Browser Three.js import map script is a module. Check the complete script
           # without requiring CDN modules during a Node syntax-only build.
