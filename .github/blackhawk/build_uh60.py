@@ -218,6 +218,16 @@ uv("Searchlight lens",(0,-.58,4.19),(.22,.13,.08),nav,14,8)
 rod("VHF cabin antenna",(0,1.72,1.11),(0,2.21,1.22),.027,black,8)
 rod("Tail warning antenna",(0,.98,-8.65),(0,1.38,-8.65),.025,black,8)
 
+# Geometry was authored in the Three.js coordinates x-right, y-up, z-forward.
+# Blender uses z-up. Parent a +90 degree X rotation to compensate for the
+# exporter's z-up -> glTF y-up basis transform without reorienting each mesh.
+axes=bpy.data.objects.new("CENTURION_UH60_AXES", None)
+bpy.context.collection.objects.link(axes)
+axes.rotation_euler[0]=math.pi/2
+for obj in list(bpy.context.scene.objects):
+    if obj != axes and obj.parent is None:
+        obj.parent=axes
+
 # Names are retained in glTF and used by the hangar for animation.
 bpy.ops.object.select_all(action="SELECT")
 bpy.context.view_layer.objects.active=bpy.context.selected_objects[0]
