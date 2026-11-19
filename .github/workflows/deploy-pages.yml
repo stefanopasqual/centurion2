@@ -255,6 +255,8 @@ jobs:
           node --check extracted/site/js/pod.js
           cp .github/ef2000/viewer.html extracted/site/ef2000/viewer.html
           cp .github/ef2000/livrea51.js extracted/site/ef2000/livrea51.js
+          cp .github/ef2000/airbus_local.js extracted/site/ef2000/airbus_local.js
+          node --check extracted/site/ef2000/airbus_local.js
           test -s extracted/site/ef2000/livrea51.js
           node --check extracted/site/ef2000/livrea51.js
           cp .github/ef2000/launcher.js extracted/site/ef2000/launcher.js
@@ -300,6 +302,9 @@ jobs:
           assert "id:'geran2'" in page, 'Geran-2 missing from hangar'
           assert "id:'f16'" in page, 'F-16C missing from aircraft selection menu'
           assert "id:'a380'" in page, 'A380 missing from hangar selector'
+          assert 'Consolida Airbus' in page, 'Airbus archive interface missing'
+          assert "from './airbus_local.js'" in page, 'Airbus module not imported in hangar'
+          assert Path('extracted/site/ef2000/airbus_local.js').is_file(), 'Airbus consolidation module absent'
           assert "id:'uh60'" in page, 'Michał Sketchfab Black Hawk preview missing'
           assert "id:'uh60-centurion'" in page, 'Original CENTURION UH-60 missing'
           volo=Path('extracted/site/js/volo.js').read_text(encoding='utf-8')
