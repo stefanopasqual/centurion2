@@ -40,7 +40,8 @@ function record(s,phase){
     rpm:+s.rpm.toFixed(3),
     lift:+(o.rotorLift||0).toFixed(1),
     fuel:+s.fuel.toFixed(3),
-    onGround:!!o.onGround,hardLanding:!!o.hardLanding
+    onGround:!!o.onGround,hardLanding:!!o.hardLanding,
+    unsafeLanding:!!o.unsafeLanding,crashed:!!o.crashed
   });
 }
 function grade(name,ok,details){
@@ -54,7 +55,7 @@ function create(initial){
 }
 function fly(s,phase,seconds,controller,wind=[0,0,0]){
   const count=Math.round(seconds/DT),start=s.time;
-  let minAlt=Infinity,maxAlt=-Infinity,maxSpeed=0,maxSink=0,contact=false;
+  let minAlt=Infinity,maxAlt=-Infinity,maxSpeed=0,maxSink=0,contact=false,anyCrash=false;
   const env=Object.assign({},environment,{windWorld:wind});
   for(let k=0;k<count;k++){
     const input=controller(s,k*DT);
@@ -62,6 +63,7 @@ function fly(s,phase,seconds,controller,wind=[0,0,0]){
     const o=heli.step(s,DT,input,env);
     if(!finite(s))throw Error('Non-finite dynamics in '+phase+' at '+k);
     if(o.onGround)contact=true;
+    if(o.crashed)anyCrash=true;
     if(o.onGround && previousV[1]<-5.5)maxSink=Math.min(maxSink,previousV[1]);
     minAlt=Math.min(minAlt,s.r[1]); maxAlt=Math.max(maxAlt,s.r[1]);
     maxSpeed=Math.max(maxSpeed,Math.hypot(s.v[0],s.v[2]));
@@ -73,7 +75,7 @@ function fly(s,phase,seconds,controller,wind=[0,0,0]){
     vs:+s.v[1].toFixed(2),speed:+Math.hypot(s.v[0],s.v[2]).toFixed(2),
     heading:+(att.heading*180/PI).toFixed(2),minAlt:+minAlt.toFixed(2),
     maxAlt:+maxAlt.toFixed(2),maxSpeed:+maxSpeed.toFixed(2),
-    maxImpactSink:+maxSink.toFixed(2),contact,
+    maxImpactSink:+maxSink.toFixed(2),contact,anyCrash,
     rotorRPM:+s.rpm.toFixed(3),fuel:+s.fuel.toFixed(2)};
   console.log('FLIGHT-PHASE '+JSON.stringify(end));
   return end;
@@ -88,11 +90,11 @@ function virtualPilot(target){
     const att=orientation(s);
     const forwardSpeed=dot(s.v,att.nose);
     const rightSpeed=dot(s.v,att.right);
-    const altitude=target.alt??120;
+    const altitude=typeof target.alt==='function'?target.alt(s):(target.alt??120);
     const altError=altitude-s.r[1];
     const collective=clamp(.64+.012*altError-.042*s.v[1],.24,.84);
     const pitch=clamp(-.035*((target.speed||0)-forwardSpeed),-.32,.32);
-    const roll=clamp(-.032*(0-rightSpeed),-.28,.28);
+    const roll=clamp(-.032*rightSpeed,-.28,.28);
     const yawError=angle((target.heading||0)-att.heading);
     const rudder=clamp(.80*yawError,-.48,.48);
     return {collective,roll,pitch,rudder};
@@ -105,28 +107,32 @@ const idle=fly(s,'ground-idle',3,virtualPilot({idle:true}));
 grade('preflight idle stays grounded',idle.alt<=1.88&&idle.speed<1.0,
   'alt='+idle.alt+'m speed='+idle.speed+'m/s');
 const takeoff=fly(s,'powered-takeoff',16,virtualPilot({alt:28}));
-grade('controlled takeoff',takeoff.alt>10&&!s.last.onGround,
+grade('controlled takeoff',takeoff.alt>10&&!s.last.onGround&&!takeoff.anyCrash,
   'alt='+takeoff.alt+'m max='+takeoff.maxAlt+'m');
 const hovering=fly(s,'hover-height-hold',16,virtualPilot({alt:28}));
-grade('stabilized height hold',Math.abs(hovering.alt-28)<8&&Math.abs(hovering.vs)<3,
+grade('stabilized height hold',Math.abs(hovering.alt-28)<2&&Math.abs(hovering.vs)<1&&!hovering.anyCrash,
   'alt='+hovering.alt+'m verticalSpeed='+hovering.vs+'m/s');
 const beforeForward=s.r.slice();
 const forward=fly(s,'forward-transition',14,virtualPilot({alt:28,speed:14}));
 const forwardTravel=Math.hypot(s.r[0]-beforeForward[0],s.r[2]-beforeForward[2]);
-grade('cyclic forward motion',forwardTravel>25&&forward.speed>5,
+grade('cyclic forward motion',forwardTravel>80&&forward.speed>8&&forward.speed<25&&!forward.anyCrash,
   'distance='+forwardTravel.toFixed(1)+'m speed='+forward.speed+'m/s');
 const beforeTurn=orientation(s).heading;
 const turn=fly(s,'ninety-degree-turn',16,virtualPilot({alt:28,speed:10,heading:PI/2}));
 const angleTurn=Math.abs(angle(orientation(s).heading-beforeTurn));
-grade('pedal heading turn',angleTurn>1.0&&Math.abs(angle(orientation(s).heading-PI/2))<.35,
+grade('pedal heading turn',angleTurn>1.0&&Math.abs(angle(orientation(s).heading-PI/2))<.35&&turn.speed<25&&!turn.anyCrash,
   'yaw='+((angleTurn*180/PI).toFixed(1))+'deg heading='+turn.heading+'deg');
 const braking=fly(s,'forward-braking',15,virtualPilot({alt:28,heading:PI/2,speed:0}));
-grade('braking toward hover',braking.speed<8,
+grade('braking toward hover',braking.speed<2&&!braking.anyCrash,
   'horizontal speed='+braking.speed+'m/s');
-const approach=fly(s,'precision-approach',20,virtualPilot({alt:1.85,heading:PI/2,speed:0}));
+const approachStart=s.time,approachAlt=s.r[1];
+const approach=fly(s,'precision-approach',28,virtualPilot({
+  alt:state=>Math.max(1.85,approachAlt-1.25*(state.time-approachStart)),
+  heading:PI/2,speed:0
+}));
 const settled=fly(s,'landing-settle',5,virtualPilot({idle:true}));
-grade('gentle landing completed',!!s.last.onGround&&settled.speed<5&&
-  settled.maxImpactSink>=-5.5,
+grade('gentle landing completed',!!s.last.onGround&&settled.speed<2&&
+  !approach.anyCrash&&!settled.anyCrash&&!s.crashed,
   'ground='+!!s.last.onGround+' horizontal='+settled.speed+
   'm/s sinkOnContact='+approach.maxImpactSink+'m/s');
 // Isolated hazard cases, flown directly through the same actual FDM.
@@ -136,7 +142,7 @@ grade('hands-off nominal hover',Math.abs(trim.alt-120)<1.0&&trim.speed<1,
   'height drift='+(trim.alt-120).toFixed(3)+'m speed='+trim.speed+'m/s');
 const crosswind=create({r:[0,120,0]});
 const wind=fly(crosswind,'crosswind-hover-12mps',12,virtualPilot({alt:120}),[12,0,0]);
-grade('crosswind test remains finite',finite(crosswind)&&wind.alt>40,
+grade('crosswind test remains finite',finite(crosswind)&&wind.alt>100&&wind.speed<12&&!wind.anyCrash,
   'alt='+wind.alt+'m drift='+Math.hypot(crosswind.r[0],crosswind.r[2]).toFixed(1)+'m');
 const failedEngine=create({r:[0,120,0],v:[0,-5,0],fuel:0,collective:.4,rpm:1});
 heli.step(failedEngine,DT,{collective:.4},environment);
@@ -154,7 +160,7 @@ record(runOn,'high-speed-ground-contact');
 grade('high-speed ground contact detected',
   runOn.last.hardLanding===true||runOn.last.unsafeLanding===true,
   'horizontal='+Math.hypot(runOn.v[0],runOn.v[2]).toFixed(1)+
-  'm/s hardLanding='+runOn.last.hardLanding);
+  'm/s hardLanding='+runOn.last.hardLanding+' unsafe='+runOn.last.unsafeLanding);
 function rateProfile(dt){
   const t=create({r:[0,120,0]});
   for(let i=0;i<Math.round(10/dt);i++)
