@@ -27,6 +27,7 @@ const MODELS=[
 {id:'f22',name:'Lockheed Martin F-22 Raptor',tag:'F-22',url:'https://sketchfab.com/3d-models/f22-raptor-ec44bd6cffa649b4927799a7b19c703b'},
 {id:'f16',name:'General Dynamics F-16C Fighting Falcon',tag:'F-16C',url:'',info:'F-16C Fighting Falcon · modello originale semplificato CENTURION2, carrello retratto'},
 {id:'f16-studiolab',name:'F-16 Fighting Falcon · Studio Lab (Sketchfab)',tag:'F-16 · STUDIO LAB',url:'https://sketchfab.com/3d-models/f-16-f-16-fighting-falcon-fighter-jet-8be8ab656304467eb6ddcbb244ae8574',info:'Anteprima 3D interattiva di Studio Lab · per usarlo nel Volo libero occorre un GLB autorizzato',embedOnly:true},
+{id:'uh60',name:'Sikorsky UH-60 Black Hawk · Michał Flodrowski',tag:'UH-60 · BLACK HAWK',url:'https://sketchfab.com/3d-models/uh-60-black-hawk-4682e6566cee481cb94d387fb7845243',info:'Anteprima 3D Sketchfab di Michał Flodrowski · volo elicottero non ancora integrato',embedOnly:true},
 {id:'typhoon',name:'Eurofighter Typhoon · 51° Stormo Istrana',tag:'EF-2000',url:'https://sketchfab.com/3d-models/eurofighter-typhoon-fighter-jet-free-992bcc8987964ca09d55410330aa8579'},
 {id:'f15e',name:'F-15E Strike Eagle',tag:'F-15E',url:'https://sketchfab.com/3d-models/f-15e-strike-eagle-fighter-jet-free-fff7d75490474e9b964d90cc031c8d01'},
 {id:'su57',name:'Sukhoi Su-57',tag:'Su-57',url:'https://sketchfab.com/3d-models/sukhoi-su-57-felon-p-fighter-jet-free-31127bc63bc048debb694aa88bbaafae'},
@@ -36,7 +37,7 @@ const MODELS=[
 {id:'uav-fixed',name:'UAV da ricognizione ad ala fissa',tag:'UAV · FIXED',url:'',drone:'fixed',summary:'Ricognitore originale non armato, ali rastremate, ottica orientabile ed elica animata.'},
 {id:'uav-quad',name:'Drone quadricottero ISR',tag:'UAV · QUAD',url:'',drone:'quad',summary:'Multirotore originale non armato con quattro rotori, carrello ed ottica stabilizzata.'},
 {id:'geran2',name:'Geran-2 (Shahed-136) · drone ostile',tag:'GERAN-2',url:'https://sketchfab.com/3d-models/geranium-2-8f12f601efe44a73b47e30a7077cf249',info:'Drone ostile delle missioni M12–M15 (Donbass e Zaporižžja) · apertura alare 2,5 m, lunghezza 3,5 m'}];
-const CREDITI={'f16-studiolab':'Studio Lab · Sketchfab · anteprima incorporata, nessuna licenza di redistribuzione verificata',f16:'CENTURION2 · modello originale semplificato (procedurale)',f22:'sxnneh / Sketchfab — Sketchfab Standard',ea18:'Rhine_Lab_Muelsyse / Sketchfab — CC BY 4.0',geran2:'Karosio / Sketchfab — CC BY-NC-SA 4.0'};
+const CREDITI={uh60:'Michał Flodrowski (WR5) · Sketchfab · anteprima incorporata','f16-studiolab':'Studio Lab · Sketchfab · anteprima incorporata, nessuna licenza di redistribuzione verificata',f16:'CENTURION2 · modello originale semplificato (procedurale)',f22:'sxnneh / Sketchfab — Sketchfab Standard',ea18:'Rhine_Lab_Muelsyse / Sketchfab — CC BY 4.0',geran2:'Karosio / Sketchfab — CC BY-NC-SA 4.0'};
 const $=s=>document.querySelector(s),view=$('#view'),status=$('#status');
 const scene=new THREE.Scene();scene.background=new THREE.Color(0x07111f);
 const camera=new THREE.PerspectiveCamera(40,1,0.05,2000);camera.position.set(16,10,18);
@@ -104,10 +105,11 @@ async function openModel(m){const id=++token;selected=m;$('#hint').textContent='
    f.src='https://sketchfab.com/models/'+match[1]+'/embed?autostart=1&ui_controls=1';
    f.allow='autoplay; fullscreen; xr-spatial-tracking';
    f.setAttribute('allowfullscreen','');
-   const host=$('#viewport')||$('#stage')||document.querySelector('main');
-   if(!host)throw Error('Area visualizzatore non trovata');
-   host.appendChild(f);
-   note('Studio Lab · visualizzatore Sketchfab originale · modello non ancora importato nel Volo libero');
+   Object.assign(f.style,{position:'absolute',inset:'0',width:'100%',height:'100%',border:'0',zIndex:'8',background:'#07111f'});
+   $('#view').appendChild(f);
+   $('#floor').style.display='none';
+   $('#hint').textContent=m.info||'Anteprima Sketchfab';
+   note('Anteprima Sketchfab · '+m.name+' · per il volo serve un modello GLB locale');
    return;
  }
  if(stored && m.id!=='typhoon'){const g=await loader.parseAsync(await stored.arrayBuffer(),'');if(id===token){place(g);return;}}if(m.drone){
