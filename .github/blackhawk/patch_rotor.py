@@ -96,8 +96,11 @@ patch('''        if(P.obj.userData.droneAnim)P.obj.userData.droneAnim(dtR,S.t);'
           }
           const r=anim.uh60Rotors;
           const rpm=P.rotorSim?.rpm||0;
-          if(r.main)r.main.rotation.y+=dtR*27*rpm;
-          if(r.tail)r.tail.rotation.x+=dtR*135*rpm;
+          // The artist GLB's rotor pivots specify their local spin axes.
+          const mainAxis=r.main?.userData?.centurionRotorAxis||"z";
+          const tailAxis=r.tail?.userData?.centurionRotorAxis||"y";
+          if(r.main&&["x","y","z"].includes(mainAxis))r.main.rotation[mainAxis]+=dtR*27*rpm;
+          if(r.tail&&["x","y","z"].includes(tailAxis))r.tail.rotation[tailAxis]+=dtR*135*rpm;
         }''')
 
 # No artificial stall warnings for a rotorcraft hovering below 75 m/s.
