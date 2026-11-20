@@ -25,12 +25,17 @@
       '<path d="M32 23 33.8 28.5H39.6L34.9 31.9 36.7 37.5 32 34.1 27.3 37.5 29.1 31.9 24.4 28.5H30.2Z" fill="#c0392b"/>'),
     VOLO: toppa('#138a7e', '#7fe0d0',
       '<path d="M15 48C21 44 25 40 28.5 35.5" fill="none" stroke="#f4f8ff" stroke-opacity=".75" stroke-width="2.4" stroke-linecap="round" stroke-dasharray="1 4.2"/>' +
-      '<path d="' + JET + '" transform="translate(36 27) rotate(40) scale(.62)" fill="#f4f8ff"/>')
+      '<path d="' + JET + '" transform="translate(36 27) rotate(40) scale(.62)" fill="#f4f8ff"/>'),
+    COMANDANTE: toppa('#4b6584', '#c9dcee',
+      '<path d="M17 23 26 19 38 23 47 19V41L38 45 26 41 17 45Z" fill="#f4f8ff"/>' +
+      '<path d="M26 19V41M38 23V45" stroke="#4b6584" stroke-width="1.4"/>' +
+      '<path d="M20 39C24 34 28 37 31.5 33" fill="none" stroke="#4b6584" stroke-width="1.6" stroke-linecap="round" stroke-dasharray="1.5 2.6"/>' +
+      '<path d="M36 21.5c-3.6 0-6.4 2.8-6.4 6.3 0 4.6 6.4 10.2 6.4 10.2s6.4-5.6 6.4-10.2c0-3.5-2.8-6.3-6.4-6.3Z" fill="#e74c3c"/><circle cx="36" cy="27.8" r="2.2" fill="#f4f8ff"/>')
   };
   function emblemi(root) {   // sostituisce le emoji dei ruoli (anche nella scelta delle postazioni in rete)
     if (!root) return;
     root.querySelectorAll('.role-btn').forEach(b => {
-      const ruolo = b.dataset.role || b.dataset.sm, big = b.querySelector('.big');
+      const ruolo = b.dataset.role || b.dataset.sm || (b.id === 'cmd-home' ? 'COMANDANTE' : ''), big = b.querySelector('.big');
       if (big && EMBLEMI[ruolo] && !big.querySelector('svg')) big.innerHTML = EMBLEMI[ruolo];
     });
   }
@@ -73,9 +78,14 @@
     flight.innerHTML = '<span class="big">' + EMBLEMI.VOLO + '</span><b>VOLO LIBERO</b><small>Pilota tu: Typhoon, F‑16, F‑22, Su‑57 e altri velivoli</small>';
     flight.title = 'Pilota direttamente un caccia';
     emblemi(roles);
+    // COMANDANTE ha la classe role-btn e app.js gli assegna il clic dei ruoli (setRuolo senza ruolo → errore in UI.briefing):
+    // in fase di cattura, prima che il clic arrivi al riquadro, quel gestore si toglie e resta solo l'apertura dell'editor
+    roles.addEventListener('click', event => { const c = event.target.closest('#cmd-home'); if (c && c.onclick) c.onclick = null; }, true);
+    // ingressi aggiunti da altri moduli (es. COMANDANTE) e scelta delle postazioni in rete: stesso stemma, stesso stile
+    new MutationObserver(() => emblemi(roles)).observe(roles, {childList:true});
     new MutationObserver(() => emblemi(multi)).observe(multi, {childList:true, subtree:true});
     const sub = q('#splash .splash-sub');
-    if (sub) sub.textContent = 'Seleziona una delle quattro modalità. Tutte le altre funzioni si trovano in Trainer.';
+    if (sub) sub.textContent = 'Seleziona una modalità. Tutte le altre funzioni si trovano in Trainer.';
 
     toggle = document.createElement('button');
     toggle.type = 'button';
