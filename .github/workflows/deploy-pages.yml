@@ -6,11 +6,14 @@ on:
       - 'CENTURION2_GITHUB_MOBILE.zip'
       - '.github/workflows/deploy-pages.yml'
       - '.github/ef2000/**'
+      - '.github/airbus/**'
+      - '.github/blackhawk/**'
       - '.github/models/**'
       - '.github/maps/**'
       - '.github/cadet/**'
       - '.github/aar/**'
       - '.github/home/**'
+      - '.github/commander/**'
       - '.github/mission_upgrade/**'
       - '.github/veneto/**'
       - '.github/freeflight/**'
@@ -236,6 +239,10 @@ jobs:
           node --check extracted/site/js/missioni.js
           node --check extracted/site/js/mondo3d.js
           python3 .github/home/patch_home.py extracted/site
+          python3 .github/commander/patch_commander.py extracted/site
+          node --check extracted/site/js/commander_core.js
+          node --check extracted/site/js/commander_commander.js
+          python3 -m py_compile .github/commander/patch_commander.py
           node --check extracted/site/js/home_hub.js
           node --check extracted/site/js/cadet_core.js
           node --check extracted/site/js/cadet.js
@@ -247,8 +254,30 @@ jobs:
           python3 -m py_compile .github/pod/patch_pod_armi.py
           node --check extracted/site/js/pod.js
           cp .github/ef2000/viewer.html extracted/site/ef2000/viewer.html
+          cp .github/ef2000/livrea51.js extracted/site/ef2000/livrea51.js
+          cp .github/ef2000/airbus_local.js extracted/site/ef2000/airbus_local.js
+          node --check extracted/site/ef2000/airbus_local.js
+          test -s extracted/site/ef2000/livrea51.js
+          node --check extracted/site/ef2000/livrea51.js
           cp .github/ef2000/launcher.js extracted/site/ef2000/launcher.js
           cp .github/ef2000/home.js extracted/site/ef2000/home.js
+          python3 .github/airbus/patch_a380.py extracted/site
+          # Independent CENTURION Black Hawk; the Michał Sketchfab embed remains untouched.
+          python3 .github/blackhawk/consolidate_uh60m.py extracted/site/models/uh60-centurion.glb
+          python3 .github/blackhawk/publish_uh60.py extracted/site
+          cp .github/blackhawk/heli_fdm.js extracted/site/js/heli_fdm.js
+          python3 .github/blackhawk/patch_rotor.py extracted/site
+          node --check extracted/site/js/heli_fdm.js
+          node --check extracted/site/js/volo.js
+          node .github/blackhawk/test_heli.cjs
+          python3 -m py_compile .github/blackhawk/patch_rotor.py
+          python3 -m py_compile .github/blackhawk/build_uh60.py .github/blackhawk/publish_uh60.py
+          python3 -m py_compile .github/airbus/patch_a380.py
+          node --check extracted/site/js/a380.js
+          node --check extracted/site/js/volo.js
+          node --check extracted/site/js/vista3d.js
+          node --check extracted/site/js/aero_core.js
+          node --check extracted/site/ef2000/livrea51.js
           python3 - <<'PY'
           from pathlib import Path
           path=Path('extracted/site/index.html')
@@ -271,6 +300,18 @@ jobs:
           assert "showDrone(m,created)" in page, 'Drone viewer missing'
           assert "ensureDroneFactory()" in page, 'Mission drone asset loader missing'
           assert "id:'geran2'" in page, 'Geran-2 missing from hangar'
+          assert "id:'f16'" in page, 'F-16C missing from aircraft selection menu'
+          assert "id:'a380'" in page, 'A380 missing from hangar selector'
+          assert 'Consolida Airbus' in page, 'Airbus archive interface missing'
+          assert "from './airbus_local.js'" in page, 'Airbus module not imported in hangar'
+          assert Path('extracted/site/ef2000/airbus_local.js').is_file(), 'Airbus consolidation module absent'
+          assert "id:'uh60'" in page, 'Michał Sketchfab Black Hawk preview missing'
+          assert "id:'uh60-centurion'" in page, 'Original CENTURION UH-60 missing'
+          volo=Path('extracted/site/js/volo.js').read_text(encoding='utf-8')
+          assert 'UH60:{nome:' in volo, 'UH-60 rotorcraft not selectable in free flight'
+          assert 'CENTURION_HELI_FDM.step' in volo, 'UH-60 rotor physics not connected'
+          assert Path('extracted/site/js/heli_fdm.js').is_file(), 'UH60 physics script missing'
+          assert 'A380:{nome:' in Path('extracted/site/js/volo.js').read_text(), 'A380 missing from free flight'
           # Browser Three.js import map script is a module. Check the complete script
           # without requiring CDN modules during a Node syntax-only build.
           start=page.index('<script type="module">')+len('<script type="module">')
@@ -375,10 +416,20 @@ jobs:
           # l'impronta dei file in cache-first, calcolata dopo la compressione dei GLB, e cambia
           # solo quando questi cambiano davvero.
           cd extracted/site
-          impronta=$(find modelli audio assets -type f 2>/dev/null | LC_ALL=C sort | xargs -r -d '\n' sha256sum | sha256sum | cut -c1-10)
+          impronta=$(find modelli audio assets js css ef2000 -type f 2>/dev/null | LC_ALL=C sort | xargs -r -d '\n' sha256sum | sha256sum | cut -c1-10)
           grep -q "^const VERSIONE = \".*-${impronta}\";" sw.js || sed -i -E "s/^const VERSIONE = \"([^\"]+)\";/const VERSIONE = \"\1-${impronta}\";/" sw.js
           grep -q "^const VERSIONE = \".*-${impronta}\";" sw.js || { echo "::error::sw.js: VERSIONE non trovata, la cache offline non verrebbe aggiornata"; exit 1; }
           grep -m1 "^const VERSIONE" sw.js
+      - name: Add browser login screen when encrypted hosting is not configured
+        env:
+          SITE_PASSWORD: ${{ secrets.SITE_PASSWORD }}
+        run: |
+          if [ -z "$SITE_PASSWORD" ]; then
+            python3 .github/security/apply_gate.py extracted/site
+            node --check extracted/site/security/access-lock.js
+          else
+            echo "SITE_PASSWORD configured: encrypted password login takes precedence"
+          fi
       - name: Encrypt the published site (password in the SITE_PASSWORD secret)
         env:
           SITE_PASSWORD: ${{ secrets.SITE_PASSWORD }}

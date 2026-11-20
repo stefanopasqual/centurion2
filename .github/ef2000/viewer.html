@@ -8,6 +8,16 @@ button{background:#193b57;color:#edf9ff;border:1px solid #4782a5;padding:9px 12p
 button:hover,button:focus-visible{background:#235579}button:disabled{opacity:.6;cursor:wait}
 main{height:calc(100dvh - 58px);display:grid;grid-template-columns:210px minmax(0,1fr)}nav{padding:12px;background:#081a2a;overflow:auto;border-right:1px solid #234761}nav button{width:100%;text-align:left;margin-bottom:7px;border-color:#2b526e}nav button.active{background:#19719a;border-color:#7dd9ff}nav button small{display:block;color:#a9c2d5;margin-top:4px}
 #stage{min-width:0;min-height:0;display:grid;grid-template-rows:minmax(0,1fr) auto}#view{position:relative;overflow:hidden;background:radial-gradient(ellipse at 50% 35%,#1d3e57,#07111f 75%)}#view canvas{display:block;width:100%;height:100%;touch-action:none}
+#airbus-panel{display:none;position:absolute;inset:12px;background:#081522f2;border:1px solid #447497;border-radius:12px;z-index:22;overflow:auto;padding:14px;box-shadow:0 12px 40px #000b}
+#airbus-panel.open{display:block}
+#airbus-panel h2{margin:0 0 8px;font-size:18px}
+#airbus-panel p{font-size:12px;line-height:1.5;color:#abc8dd;margin:6px 0 14px}
+#airbus-items{display:grid;gap:9px;padding-bottom:14px}
+.airbus-item{background:#13283d;border:1px solid #335573;border-radius:9px;padding:10px;overflow-wrap:anywhere}
+.airbus-item strong{display:block;font-size:13px;margin-bottom:4px}
+.airbus-item small{display:block;color:#a9c8dc;line-height:1.4}
+.airbus-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
+#airbus-message{color:#cce5f3;font-size:12px;margin:9px 0;min-height:20px}
 #status{position:absolute;top:12px;left:12px;right:12px;pointer-events:none;font-size:12px;color:#c5e2f7;text-shadow:0 1px 5px #000}
 #floor{position:absolute;bottom:15px;left:15px;opacity:.7;font-size:11px;pointer-events:none}
 footer{padding:11px 14px;background:#0b1b2c;border-top:1px solid #28455f;display:grid;grid-template-columns:1fr auto;gap:6px 12px;align-items:center}footer h1{margin:0 0 4px;font-size:17px}footer p{color:#a8c5d9;margin:0;font-size:12px}#credit{font-size:11px;color:#d9bf8b}
@@ -17,14 +27,20 @@ footer{padding:11px 14px;background:#0b1b2c;border-top:1px solid #28455f;display
 <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.160.1/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.160.1/examples/jsm/"}}</script>
 </head><body>
 <header><button id="back">← Indietro</button><div><b>CENTURION2 · HANGAR 3D</b><br><small>MODELLI REALISTICI · ASSET ORIGINALI</small></div></header>
-<main><nav id="aircraft"></nav><div id="stage"><div id="view"><div id="status">Caricamento…</div><div id="floor">Ruota trascinando · Zoom con due dita o rotellina</div></div><footer><div><h1 id="title">Eurofighter Typhoon</h1><p id="credit">Modelli di bohmerang, Sketchfab — CC BY-NC-SA 4.0</p><p id="hint">Importa un file GLB convertito dal sorgente Blender originale.</p></div><div class="actions"><button id="import">Importa GLB</button><button id="reset">Centra</button><button id="source">Modello originale</button><input type="file" id="upload" accept=".glb,model/gltf-binary"></div></footer></div></main>
+<main><nav id="aircraft"></nav><div id="stage"><div id="view"><div id="status">Caricamento…</div><div id="floor">Ruota trascinando · Zoom con due dita o rotellina</div><section id="airbus-panel" aria-label="Airbus locali"><div style="display:flex;align-items:center;justify-content:space-between;gap:10px"><h2>Consolida Airbus</h2><button id="airbus-close">Chiudi</button></div><p>I GLB caricati con «Importa GLB» sono salvati soltanto in questo browser. Attiva un Airbus per famiglia, conserva le altre varianti ed esporta un ZIP con gli originali per integrarli stabilmente nel progetto.</p><div class="airbus-actions"><button id="airbus-scan">Analizza import</button><button id="airbus-consolidate">Consolida locali</button><button id="airbus-export">Esporta ZIP</button></div><div id="airbus-message" role="status"></div><div id="airbus-items"></div></section></div><footer><div><h1 id="title">Eurofighter Typhoon</h1><p id="credit">Modelli di bohmerang, Sketchfab — CC BY-NC-SA 4.0</p><p id="hint">Importa un file GLB convertito dal sorgente Blender originale.</p></div><div class="actions"><button id="import">Importa GLB</button><button id="airbus-open">Consolida Airbus</button><button id="reset">Centra</button><button id="source">Modello originale</button><input type="file" id="upload" accept=".glb,model/gltf-binary"></div></footer></div></main>
 <script type="module">
 import * as THREE from 'three';
 import {OrbitControls} from 'three/addons/controls/OrbitControls.js';
 import {GLTFLoader} from 'three/addons/loaders/GLTFLoader.js';
+import {apply51Stormo} from './livrea51.js';
+import {scanAirbus,consolidateAirbus,activateAirbus,archiveImportedAirbus,makeAirbusArchive,downloadArchive,canonicalAirbusId} from './airbus_local.js';
 const MODELS=[
 {id:'f22',name:'Lockheed Martin F-22 Raptor',tag:'F-22',url:'https://sketchfab.com/3d-models/f22-raptor-ec44bd6cffa649b4927799a7b19c703b'},
-{id:'typhoon',name:'Eurofighter Typhoon',tag:'EF-2000',url:'https://sketchfab.com/3d-models/eurofighter-typhoon-fighter-jet-free-992bcc8987964ca09d55410330aa8579'},
+{id:'f16',name:'General Dynamics F-16C Fighting Falcon',tag:'F-16C',url:'',info:'F-16C Fighting Falcon · modello originale semplificato CENTURION2, carrello retratto'},
+{id:'f16-studiolab',name:'F-16 Fighting Falcon · Studio Lab (Sketchfab)',tag:'F-16 · STUDIO LAB',url:'https://sketchfab.com/3d-models/f-16-f-16-fighting-falcon-fighter-jet-8be8ab656304467eb6ddcbb244ae8574',info:'Anteprima 3D interattiva di Studio Lab · per usarlo nel Volo libero occorre un GLB autorizzato',embedOnly:true},
+{id:'uh60',name:'Sikorsky UH-60 Black Hawk · Michał Flodrowski',tag:'UH-60 · BLACK HAWK',url:'https://sketchfab.com/3d-models/uh-60-black-hawk-4682e6566cee481cb94d387fb7845243',info:'Anteprima 3D Sketchfab di Michał Flodrowski · volo elicottero non ancora integrato',embedOnly:true},
+{id:'uh60-centurion',name:'CENTURION UH-60 · modello originale',tag:'UH-60 · CENTURION',url:'',info:'Sikorsky UH-60M · modello originale con rotori articolati · CC BY 4.0',ownHelicopter:true},
+{id:'typhoon',name:'Eurofighter Typhoon · 51° Stormo Istrana',tag:'EF-2000',url:'https://sketchfab.com/3d-models/eurofighter-typhoon-fighter-jet-free-992bcc8987964ca09d55410330aa8579'},
 {id:'f15e',name:'F-15E Strike Eagle',tag:'F-15E',url:'https://sketchfab.com/3d-models/f-15e-strike-eagle-fighter-jet-free-fff7d75490474e9b964d90cc031c8d01'},
 {id:'su57',name:'Sukhoi Su-57',tag:'Su-57',url:'https://sketchfab.com/3d-models/sukhoi-su-57-felon-p-fighter-jet-free-31127bc63bc048debb694aa88bbaafae'},
 {id:'su35',name:'Sukhoi Su-35S',tag:'Su-35',url:'https://sketchfab.com/3d-models/sukhoi-su-35-fighter-jet-free-3213a404e5cb4fb68f778b9acae5109c'},
@@ -33,7 +49,7 @@ const MODELS=[
 {id:'uav-fixed',name:'UAV da ricognizione ad ala fissa',tag:'UAV · FIXED',url:'',drone:'fixed',summary:'Ricognitore originale non armato, ali rastremate, ottica orientabile ed elica animata.'},
 {id:'uav-quad',name:'Drone quadricottero ISR',tag:'UAV · QUAD',url:'',drone:'quad',summary:'Multirotore originale non armato con quattro rotori, carrello ed ottica stabilizzata.'},
 {id:'geran2',name:'Geran-2 (Shahed-136) · drone ostile',tag:'GERAN-2',url:'https://sketchfab.com/3d-models/geranium-2-8f12f601efe44a73b47e30a7077cf249',info:'Drone ostile delle missioni M12–M15 (Donbass e Zaporižžja) · apertura alare 2,5 m, lunghezza 3,5 m'}];
-const CREDITI={f22:'sxnneh / Sketchfab — Sketchfab Standard',ea18:'Rhine_Lab_Muelsyse / Sketchfab — CC BY 4.0',geran2:'Karosio / Sketchfab — CC BY-NC-SA 4.0'};
+const CREDITI={'uh60-centurion':'Muhamad Mirza Arrafi / Sketchfab · CC BY 4.0 · geometria originale adattata da CENTURION2',uh60:'Michał Flodrowski (WR5) · Sketchfab · anteprima incorporata','f16-studiolab':'Studio Lab · Sketchfab · anteprima incorporata, nessuna licenza di redistribuzione verificata',f16:'CENTURION2 · modello originale semplificato (procedurale)',f22:'sxnneh / Sketchfab — Sketchfab Standard',ea18:'Rhine_Lab_Muelsyse / Sketchfab — CC BY 4.0',geran2:'Karosio / Sketchfab — CC BY-NC-SA 4.0'};
 const $=s=>document.querySelector(s),view=$('#view'),status=$('#status');
 const scene=new THREE.Scene();scene.background=new THREE.Color(0x07111f);
 const camera=new THREE.PerspectiveCamera(40,1,0.05,2000);camera.position.set(16,10,18);
@@ -42,7 +58,7 @@ scene.add(new THREE.HemisphereLight(0xd9ebff,0x243344,2));const key=new THREE.Di
 const rim=new THREE.DirectionalLight(0x80c6ff,1.3);rim.position.set(10,5,-12);scene.add(rim);
 const grid=new THREE.GridHelper(60,30,0x2f526b,0x17334a);grid.position.y=-5.5;scene.add(grid);
 const controls=new OrbitControls(camera,renderer.domElement);controls.enableDamping=true;controls.minDistance=2;controls.maxDistance=180;
-const loader=new GLTFLoader();let selected=MODELS[0],aircraft=null,token=0,animationDriver=null,procedural=false,droneLoad=null;
+const loader=new GLTFLoader();let selected=MODELS[0],aircraft=null,token=0,animationDriver=null,procedural=false,droneLoad=null,livery51=null;
 async function ensureDroneFactory(){
  if(window.CENTURION_REALISM?.drone)return window.CENTURION_REALISM;
  if(!droneLoad){
@@ -60,6 +76,7 @@ async function ensureDroneFactory(){
 }
 function note(t){status.textContent=t;}
 function clear(){
+ if(livery51){livery51.dispose();livery51=null;}
  document.getElementById('sketchfab-fallback')?.remove();
  $('#floor').style.display='';
  $('#floor').textContent='Ruota trascinando · Zoom con due dita o rotellina';
@@ -70,7 +87,33 @@ function clear(){
  animationDriver=null;procedural=false;
 }
 function frame(obj){const box=new THREE.Box3().setFromObject(obj);const dimensions=box.getSize(new THREE.Vector3());const largest=Math.max(dimensions.x,dimensions.y,dimensions.z);if(!largest||!Number.isFinite(largest))throw Error('Geometria non valida');obj.scale.multiplyScalar(16/largest);box.setFromObject(obj);const c=box.getCenter(new THREE.Vector3());obj.position.sub(c);camera.position.set(15,10,19);controls.target.set(0,0,0);controls.update();}
-function place(glb){clear();aircraft=glb.scene;if(selected.info)$('#hint').textContent=selected.info+' · mostrato ingrandito alla stessa scala dei jet';const gearDown=[];aircraft.traverse(o=>{const n=(o.name||'').toLowerCase().replace(/[\s_.-]/g,'');if(/landingon|gearon|geardown|gearout|refuelon|landinglights|undercarriage(?!off|up)|wheel(?!off|up)|tire(?!off|up)|tyre(?!off|up)/.test(n))gearDown.push(o);});gearDown.forEach(o=>{if(o.parent)o.parent.remove(o);});scene.add(aircraft);frame(aircraft);note(selected.drone?'GLB UAV importato · orbita e zoom attivi':'Modello 3D originale · carrello retratto · orbita e zoom attivi');}
+function place(glb){clear();aircraft=glb.scene;if(selected.info)$('#hint').textContent=selected.info+' · mostrato ingrandito alla stessa scala dei jet';const gearDown=[];if(!selected.id.startsWith('a3'))aircraft.traverse(o=>{const n=(o.name||'').toLowerCase().replace(/[\s_.-]/g,'');if(/landingon|gearon|geardown|gearout|refuelon|landinglights|undercarriage(?!off|up)|wheel(?!off|up)|tire(?!off|up)|tyre(?!off|up)/.test(n))gearDown.push(o);});gearDown.forEach(o=>{if(o.parent)o.parent.remove(o);});scene.add(aircraft);frame(aircraft);
+ if(selected.ownHelicopter){
+   const main=aircraft.getObjectByName('CENTURION_UH60_MAIN_ROTOR');
+   const tail=aircraft.getObjectByName('CENTURION_UH60_TAIL_ROTOR');
+   // The original UH-60M GLB uses rotor-local axes recorded in
+   // node extras: main = Z, tail = Y (not generic Three.js Y/X).
+   const axisFor=(node,fallback)=>{
+     const axis=node?.userData?.centurionRotorAxis;
+     return axis==='x'||axis==='y'||axis==='z'?axis:fallback;
+   };
+   const mainAxis=axisFor(main,'z'),tailAxis=axisFor(tail,'y');
+   animationDriver=(dt)=>{
+     if(main)main.rotation[mainAxis]+=dt*27;
+     if(tail)tail.rotation[tailAxis]+=dt*135;
+   };
+   $('#hint').textContent=selected.info;
+   $('#floor').textContent='Modello originale · quattro pale e rotore di coda animati · ruota / zoom';
+   note('UH-60 CENTURION · GLB originale · '+(main&&tail?'rotori animati':'parti rotoriche statiche'));
+   return;
+ }
+ if(selected.id==='typhoon'){
+  try{
+   livery51=apply51Stormo(THREE,scene,aircraft);
+   $('#hint').textContent='Eurofighter Typhoon · livrea 51° Stormo, Istrana · insegne artistiche ispirate ai Gatti Neri';
+   note(livery51.applied ? '51° Stormo di Istrana · ' + livery51.applied + ' decalcomanie applicate · carrello retratto' : 'Eurofighter originale · livrea 51° non proiettata sul modello');
+  }catch(e){console.warn('Eurofighter 51 Stormo:',e);note('Eurofighter originale · livrea 51° non disponibile');}
+ }else note(selected.drone?'GLB UAV importato · orbita e zoom attivi':'Modello 3D originale · carrello retratto · orbita e zoom attivi');}
 function showDrone(m,created){
  if(!created?.g)throw Error('Geometria UAV mancante');
  clear();aircraft=created.g;aircraft.name=m.name;scene.add(aircraft);
@@ -80,10 +123,27 @@ function showDrone(m,created){
  $('#floor').textContent='Trascina per ruotare · Pizzica per zoom · Eliche e sensori animati';
  note('UAV procedurale originale · nessun armamento · orbita e zoom attivi');
 }
-async function openModel(m){const id=++token;selected=m;$('#hint').textContent='Caricamento 3D: GLB locale, file importato oppure anteprima Sketchfab.';$('#title').textContent=m.name;$('#credit').textContent=m.drone?'CENTURION2 · modello procedurale originale, non armato':(CREDITI[m.id]||'bohmerang / Sketchfab — CC BY-NC-SA 4.0');
+async function openModel(m){const id=++token;selected=m;$('#hint').textContent='Caricamento 3D: GLB locale, file importato oppure anteprima Sketchfab.';$('#title').textContent=m.name;$('#credit').textContent=m.id?.startsWith('a3')&&m.id!=='a380'?'GLB importato localmente · diritti e licenza originali da verificare':(m.drone?'CENTURION2 · modello procedurale originale, non armato':(CREDITI[m.id]||'bohmerang / Sketchfab — CC BY-NC-SA 4.0'));
  $('#source').onclick=m.url?()=>window.open(m.url,'_blank','noopener,noreferrer'):null;document.querySelectorAll('nav button').forEach(b=>b.classList.toggle('active',b.dataset.id===m.id));note('Caricamento '+m.name+'…');try{let stored=null;
  try{stored=await readStored(m.id);}catch(err){console.warn('Archivio locale non accessibile',err);}
- if(id!==token)return;if(stored){const g=await loader.parseAsync(await stored.arrayBuffer(),'');if(id===token){place(g);return;}}if(m.drone){
+ if(id!==token)return;
+ if(m.embedOnly){
+   clear();
+   const match=m.url.match(/([0-9a-f]{32})$/i);
+   if(!match)throw Error('URL Sketchfab non valido');
+   const f=document.createElement('iframe');
+   f.id='sketchfab-fallback';f.title=m.name;
+   f.src='https://sketchfab.com/models/'+match[1]+'/embed?autostart=1&ui_controls=1';
+   f.allow='autoplay; fullscreen; xr-spatial-tracking';
+   f.setAttribute('allowfullscreen','');
+   Object.assign(f.style,{position:'absolute',inset:'0',width:'100%',height:'100%',border:'0',zIndex:'8',background:'#07111f'});
+   $('#view').appendChild(f);
+   $('#floor').style.display='none';
+   $('#hint').textContent=m.info||'Anteprima Sketchfab';
+   note('Anteprima Sketchfab · '+m.name+' · per il volo serve un modello GLB locale');
+   return;
+ }
+ if(stored && m.id!=='typhoon'){const g=await loader.parseAsync(await stored.arrayBuffer(),'');if(id===token){place(g);return;}}if(m.drone){
   const factory=await ensureDroneFactory();
   if(id===token){showDrone(m,factory.drone(m.drone==='quad'));return;}
  }
@@ -98,6 +158,7 @@ async function openModel(m){const id=++token;selected=m;$('#hint').textContent='
    Object.assign(f.style,{position:'absolute',inset:'0',width:'100%',height:'100%',border:'0',zIndex:'1'});
    view.append(f);
    $('#floor').style.display='none';
+  if(m.id==='typhoon')$('#hint').textContent='GLB del Typhoon non caricato: il modello Sketchfab originale non usa la livrea italiana. Riprova ad aprire il sito dopo il deploy.';
    $('#hint').textContent='Anteprima 3D originale via Sketchfab. Per il motore di volo serve il GLB convertito.';
    note('Anteprima Sketchfab in caricamento');
  }else{
@@ -108,7 +169,84 @@ for(const m of MODELS){const b=document.createElement('button');b.dataset.id=m.i
 function db(){return new Promise((ok,bad)=>{let r=indexedDB.open('centurion2-glb-v1',1);r.onupgradeneeded=()=>r.result.createObjectStore('files');r.onsuccess=()=>ok(r.result);r.onerror=()=>bad(r.error);});}
 async function readStored(id){const database=await db();try{return await new Promise((resolve,reject)=>{const r=database.transaction('files').objectStore('files').get(id);r.onsuccess=()=>resolve(r.result);r.onerror=()=>reject(r.error);});}finally{database.close();}}
 async function saveStored(id,file){const database=await db();try{await new Promise((resolve,reject)=>{const t=database.transaction('files','readwrite');t.objectStore('files').put(file,id);t.oncomplete=resolve;t.onerror=()=>reject(t.error);});}finally{database.close();}}
-$('#import').onclick=()=>$('#upload').click();$('#upload').onchange=async()=>{const f=$('#upload').files[0];if(!f)return;try{note('Importazione '+f.name+'…');const g=await loader.parseAsync(await f.arrayBuffer(),'');place(g);await saveStored(selected.id,f);note(f.name+' · salvato localmente su questo dispositivo');}catch(e){note('Errore GLB: '+String(e.message||e));}$('#upload').value='';};
+async function refreshLocalAirbusMenu(){
+ const {candidates}=await scanAirbus();
+ const names=new Map();
+ for(const entry of candidates){
+  const id=canonicalAirbusId(entry.family);
+  if(!id||entry.key!==id||MODELS.some(model=>model.id===id))continue;
+  if(!names.has(id))names.set(id,entry);
+ }
+ for(const [id,entry] of names){
+  const m={id,name:'Airbus '+entry.family+' · import locale',tag:entry.family,
+   info:'GLB Airbus importato localmente su questo dispositivo · '+entry.name};
+  MODELS.push(m);
+  const b=document.createElement('button');b.dataset.id=m.id;
+  const strong=document.createElement('strong');strong.textContent=m.tag;
+  const small=document.createElement('small');small.textContent=m.name;
+  b.append(strong,small);b.onclick=()=>openModel(m);$('#aircraft').append(b);
+ }
+}
+function airbusMessage(message){$('#airbus-message').textContent=message;}
+function airbusElement(tag,value){const n=document.createElement(tag);n.textContent=String(value);return n;}
+async function refreshAirbus(){
+ const result=await scanAirbus();
+ const list=$('#airbus-items');list.replaceChildren();
+ if(!result.candidates.length){
+  const empty=airbusElement('p','Nessun GLB Airbus rilevato in questo browser. Gli import di un altro telefono o browser non sono accessibili qui.');
+  list.appendChild(empty);
+  airbusMessage('Nessun Airbus locale trovato.');
+  return result;
+ }
+ for(const entry of result.candidates){
+  const card=document.createElement('div');card.className='airbus-item';
+  card.appendChild(airbusElement('strong',(entry.family||'Airbus')+' · '+entry.name));
+  card.appendChild(airbusElement('small','Archivio: '+entry.key+' · '+(entry.size/1048576).toFixed(2)+' MB'));
+  if(canonicalAirbusId(entry.family)===entry.key){
+   card.appendChild(airbusElement('small','Attivo in questo browser per '+entry.family));
+  }else if(canonicalAirbusId(entry.family)){
+   const actions=document.createElement('div');actions.className='airbus-actions';
+   const activate=airbusElement('button','Usa '+entry.family+' nell’hangar');
+   activate.onclick=async()=>{
+    try{
+     activate.disabled=true;
+     const out=await activateAirbus(entry.key,entry.family);
+     airbusMessage(out.name+' attivato come '+entry.family+'. Le varianti precedenti sono conservate.');
+     await refreshAirbus();
+   await refreshLocalAirbusMenu();
+    }catch(e){airbusMessage('Errore attivazione: '+(e.message||e));activate.disabled=false;}
+   };
+   actions.appendChild(activate);card.appendChild(actions);
+  }
+  list.appendChild(card);
+ }
+ airbusMessage(result.candidates.length+' Airbus locali rilevati. Originali preservati.');
+ return result;
+}
+$('#airbus-open').onclick=async()=>{$('#airbus-panel').classList.add('open');try{await refreshAirbus();}catch(e){airbusMessage('Archivio locale non accessibile: '+(e.message||e));}};
+$('#airbus-close').onclick=()=>$('#airbus-panel').classList.remove('open');
+$('#airbus-scan').onclick=async()=>{try{await refreshAirbus();}catch(e){airbusMessage(String(e.message||e));}};
+$('#airbus-consolidate').onclick=async()=>{
+ try{
+  const out=await consolidateAirbus();
+  await refreshAirbus();
+  await refreshLocalAirbusMenu();
+  airbusMessage('Consolidate '+out.actions.length+' famiglie Airbus su questo dispositivo. Esporta lo ZIP per portarle su GitHub.');
+ }catch(e){airbusMessage('Consolidamento non riuscito: '+(e.message||e));}
+};
+$('#airbus-export').onclick=async()=>{
+ try{
+  airbusMessage('Preparazione ZIP Airbus…');
+  const out=await makeAirbusArchive();downloadArchive(out);
+  airbusMessage('Esportati '+out.unique+' GLB unici da '+out.count+' archivi locali. Importante: lo ZIP è sul dispositivo, non su GitHub.');
+ }catch(e){airbusMessage('Esportazione non riuscita: '+(e.message||e));}
+};
+$('#import').onclick=()=>$('#upload').click();$('#upload').onchange=async()=>{const f=$('#upload').files[0];if(!f)return;try{note('Importazione '+f.name+'…');const g=await loader.parseAsync(await f.arrayBuffer(),'');place(g);
+ const archived=await archiveImportedAirbus(f,selected.id);
+ await saveStored(selected.id,f);
+ await refreshLocalAirbusMenu();
+ note(f.name+' · salvato localmente su questo dispositivo'+(archived?' · Airbus archiviato: '+archived.family:''));
+}catch(e){note('Errore GLB: '+String(e.message||e));}$('#upload').value='';};
 $('#reset').onclick=()=>{if(aircraft)frame(aircraft);};
 $('#back').onclick=()=>{if(window.parent!==window)window.parent.postMessage({type:'centurion2-ef2000-close'},location.origin);else location.href='../';};
 function resize(){let w=view.clientWidth,h=view.clientHeight;if(!w||!h)return;renderer.setSize(w,h,false);camera.aspect=w/h;camera.updateProjectionMatrix();}new ResizeObserver(resize).observe(view);resize();const clock=new THREE.Clock();
@@ -118,4 +256,5 @@ renderer.setAnimationLoop(()=>{
  controls.update();renderer.render(scene,camera);
 });
 openModel(MODELS.find(m=>m.id===new URLSearchParams(location.search).get('aircraft'))||MODELS[0]);
+refreshLocalAirbusMenu().catch(e=>console.warn('Airbus locali:',e));
 </script></body></html>

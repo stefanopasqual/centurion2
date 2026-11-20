@@ -1,0 +1,59 @@
+name: Validate Airbus A380 and helicopter physics
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/blackhawk/**'
+      - '.github/aero/**'
+      - '.github/workflows/verify-physics.yml'
+      - 'model-sources/uh60m_b64/**'
+      - '.github/workflows/deploy-pages.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/blackhawk/**'
+      - '.github/aero/**'
+      - '.github/workflows/verify-physics.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  physics:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@v4
+      - name: Syntax and physics regression
+        run: |
+          node --check .github/blackhawk/heli_fdm.js
+          node --check .github/blackhawk/test_heli.cjs
+          node --check .github/aero/fdm6.js
+          node .github/aero/test_fdm6.cjs
+          node .github/blackhawk/test_heli.cjs
+          node .github/blackhawk/test_pilot.cjs
+          node .github/blackhawk/test_heli_edge.cjs
+          python3 .github/blackhawk/consolidate_uh60m.py /tmp/uh60m-centurion.glb
+          python3 - <<'PY'
+          import json,struct
+          from pathlib import Path
+          p=Path('/tmp/uh60m-centurion.glb')
+          with p.open('rb') as f:
+              magic,ver,size=struct.unpack('<4sII',f.read(12))
+              assert magic==b'glTF' and ver==2 and size==p.stat().st_size
+              n,tag=struct.unpack('<I4s',f.read(8))
+              assert tag==b'JSON'
+              gltf=json.loads(f.read(n))
+          nodes={x.get('name') for x in gltf['nodes']}
+          assert {'CENTURION_UH60_MAIN_ROTOR','CENTURION_UH60_TAIL_ROTOR'}<=nodes
+          assert gltf['asset']['extras']['centurion']['license'].startswith('CC-BY-4.0')
+          assert len(gltf['meshes'])==12
+          print('PASS original UH-60M artist mesh + both rotor pivots + license')
+          PY
+          python3 -m py_compile .github/blackhawk/patch_rotor.py .github/airbus/patch_a380.py
+      - name: Upload virtual pilot telemetry
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: uh60-virtual-test-pilot
+          path: .github/blackhawk/reports/
+          if-no-files-found: warn
