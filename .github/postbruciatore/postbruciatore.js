@@ -91,7 +91,7 @@ void main() {
   vec3 cDiam = mix(vec3(1.0, 0.52, 0.76), vec3(1.0, 0.84, 0.58), caldo);
   vec3 cInv0 = mix(vec3(0.58, 0.34, 1.0), vec3(1.0, 0.46, 0.11), caldo);
   float sNucleo = 0.30 + 0.16 * ab;              // il nucleo luminoso si chiude a questa frazione del getto
-  // diamanti più evidenti di notte; di giorno restano accennati
+  // diamanti piu' evidenti di notte; di giorno restano accennati
   float nDiam = 1.5 + 4.5 * ab, kDiam = smoothstep(0.2, 0.55, ab) * (0.45 + 0.55 * uNotte);
   float rm = sqrt(uR.x * uR.y);
   float ds = (t1 - t0) / float(PASSI);
@@ -110,7 +110,7 @@ void main() {
     // involucro: turbolento, sfuma verso la coda
     float turb = 0.74 + 0.26 * sin(x * 5.7 - uT * 41.0 + uSeme + p.y * 7.0) * sin(x * 2.3 - uT * 23.0 + uSeme * 1.7 - p.x * 7.0);
     float inv = exp(-q2 * 1.4) * (1.0 - smoothstep(0.35, 1.0, s)) * turb;
-    // diamanti d'urto: lenti allungate sull'asse, più strette del getto e sempre più deboli
+    // diamanti d'urto: lenti allungate sull'asse, piu' strette del getto e sempre piu' deboli
     float ph = x / uPasso - 0.7; float k = floor(ph + 0.5); float f = ph - k;
     float dia = (k >= 0.0 && k < nDiam) ? exp(-f * f / 0.05) * exp(-q2 / (0.16 * (1.0 - 0.08 * k))) * exp(-0.3 * k) : 0.0;
     vec3 cInv = mix(cInv0, vec3(0.9, 0.2, 0.04), s);
@@ -120,7 +120,7 @@ void main() {
   }
   float nebbia = smoothstep(fogNear, fogFar, vFogDepth);
   float kI = uIntens * (1.0 - nebbia);
-  // esposizione: di giorno l'occhio (e la camera) è adattato alla luce e la fiamma appare meno abbagliante e più colorata;
+  // esposizione: di giorno l'occhio (e la camera) e' adattato alla luce e la fiamma appare meno abbagliante e piu' colorata;
   // un po' di copertura del cielo dietro la mantiene arancio invece che bianca
   float esp = mix(0.42, 1.0, uNotte);
   float alfa = (1.0 - exp(-tau * 0.9)) * mix(0.5, 0.18, uNotte) * kI;
@@ -156,9 +156,9 @@ void main() {
   // centro giallo-bianco, bordo arancio (i petali sono meno caldi); con poco postbruciatore una sfumatura viola
   vec3 cAB = mix(mix(vec3(1.0, 0.86, 0.6), vec3(1.0, 0.45, 0.12), smoothstep(0.15, 0.95, r)), vec3(0.78, 0.62, 1.0), (1.0 - caldo) * 0.45 * (1.0 - r));
   vec3 cMil = vec3(0.9, 0.22, 0.04) * (1.0 - 0.5 * r * r);
-  // anello dei petali più scuro al bordo
+  // anello dei petali piu' scuro al bordo
   float bordo = 1.0 - smoothstep(0.82, 1.0, r);
-  float mil = uMil * 0.32 * uNotte;                // a motore militare l'interno è rosso cupo: si vede solo di notte
+  float mil = uMil * 0.32 * uNotte;                // a motore militare l'interno e' rosso cupo: si vede solo di notte
   vec3 col = (cAB * uAB * (1.9 - 0.9 * r * r) + cMil * mil) * bordo;
   float nebbia = smoothstep(fogNear, fogFar, vFogDepth);
   float kI = uIntens * (1.0 - nebbia);

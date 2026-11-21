@@ -25,13 +25,13 @@
   // Approximate external geometry only. Coefficient calibration unavailable.
   // Profiles are not exact aircraft-specific CFD or wind-tunnel tables.
   const PROFILES=Object.freeze({
-    f16:{span:9.96,criticalMach:.89,waveRise:.092,oswald:.79},
-    f15:{span:13.05,criticalMach:.89,waveRise:.099,oswald:.78},
-    typhoon:{span:10.95,criticalMach:.91,waveRise:.082,oswald:.70},
-    f22:{span:13.56,criticalMach:.91,waveRise:.077,oswald:.72},
-    su35:{span:15.30,criticalMach:.89,waveRise:.097,oswald:.78},
-    su57:{span:14.0,criticalMach:.91,waveRise:.077,oswald:.75},
-    ea18:{span:13.60,criticalMach:.86,waveRise:.094,oswald:.80},
+    f16:{span:9.96,criticalMach:.89,waveRise:.055,oswald:.79,supersonico:true},
+    f15:{span:13.05,criticalMach:.89,waveRise:.050,oswald:.78,supersonico:true},
+    typhoon:{span:10.95,criticalMach:.91,waveRise:.023,oswald:.70,supersonico:true},
+    f22:{span:13.56,criticalMach:.91,waveRise:.019,oswald:.72,supersonico:true},
+    su35:{span:15.30,criticalMach:.89,waveRise:.045,oswald:.78,supersonico:true},
+    su57:{span:14.0,criticalMach:.91,waveRise:.023,oswald:.75,supersonico:true},
+    ea18:{span:13.60,criticalMach:.86,waveRise:.039,oswald:.80,supersonico:true},
     kc30:{span:60.30,criticalMach:.76,waveRise:.130,oswald:.82},
     e7:{span:35.80,criticalMach:.73,waveRise:.138,oswald:.81},
     'uav-fixed':{span:8.50,criticalMach:.61,waveRise:.025,oswald:.82},
@@ -49,7 +49,8 @@
       1/(PI*aspectRatio*oswald);
     return {span,area,aspectRatio,oswald,kInduced,
       criticalMach:Number(spec.criticalMach||base?.criticalMach||.84),
-      waveRise:Number(spec.waveRise||base?.waveRise||.09)};
+      waveRise:Number(spec.waveRise||base?.waveRise||.09),
+      supersonico:!!(spec.supersonico??base?.supersonico)};
   }
   function isa(h){
     const alt=clamp(Number(h)||0,0,30000);
@@ -89,10 +90,24 @@
     const induced=geometry.kInduced*CL*CL*groundFactor;
     // Localized drag rise; positive supersonic residual. This is only a
     // phenomenological model, not validated transonic wave drag.
-    const center=geometry.criticalMach+.13;
-    const rise=geometry.waveRise*Math.exp(-Math.pow((mach-center)/.19,2));
-    const residual=(geometry.waveRise*.25)*smooth(center,center+.48,mach);
-    const wave=rise+residual;
+    let wave;
+    if(geometry.supersonico){
+      // Fighters: rise from the critical Mach to a peak near Mach 1.1, then
+      // decline towards half of the peak (supersonic wave drag falls with Mach).
+      // waveRise is calibrated on flight behaviour with this engine model, not
+      // on drag tables: at military power F-16, F-15 and Su-35 stop near Mach 1,
+      // F-22, Typhoon and Su-57 supercruise; on reheat every fighter goes through
+      // Mach 1.2 at 9 km in 25-40 s (EA-18G with pods: about 110 s).
+      const peak=geometry.criticalMach+.22;
+      const rise=smooth(geometry.criticalMach-.02,peak,mach);
+      const fall=mach>peak?.5+.5*Math.exp(-(mach-peak)/.35):1;
+      wave=geometry.waveRise*rise*fall;
+    }else{
+      const center=geometry.criticalMach+.13;
+      const rise=geometry.waveRise*Math.exp(-Math.pow((mach-center)/.19,2));
+      const residual=(geometry.waveRise*.25)*smooth(center,center+.48,mach);
+      wave=rise+residual;
+    }
     const separation=.25*Math.pow(smooth(stallAlpha-.02,stallAlpha+.21,magnitude),2);
     const CD=Math.max(.001,Number(spec.cd0)||.02)+induced+wave+separation
       +(state.gear?.035:0)+(state.brake?.065:0)+.18*beta*beta;
@@ -111,8 +126,12 @@
     const mThrust=Math.max(0,Number(spec.Tmil)||0)*clamp(spool,0,1);
     const abThrust=Math.max(0,Number(spec.Tab||spec.Tmil)||0)-
       Math.max(0,Number(spec.Tmil)||0);
-    const thrust=(mThrust+abThrust*clamp(afterburner,0,1))*lapse;
-    return {thrust:Math.max(0,thrust),lapse};
+    // The afterburner increment gains much more from ram pressure than dry
+    // thrust: this is what lets fighters accelerate through the transonic drag
+    // rise on reheat while staying near Mach 1 at military power.
+    const abRam=1+.9*smooth(.3,2,m);
+    const thrust=(mThrust+abThrust*abRam*clamp(afterburner,0,1))*lapse;
+    return {thrust:Math.max(0,thrust),lapse,abRam};
   }
   function sample(spec,state){
     const at=isa(state.alt||0);
