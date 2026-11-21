@@ -264,7 +264,8 @@ void main() {
     W.calotta = add(paracadute()); W.calotta.scale.set(1, 0.07, 1.25); piazzaSuolo(W.calotta, { x: L.ip.x + 9, z: L.ip.z + 6 }, 0.3); W.calotta.rotation.set(0.08, 0.6, 0.05); W.calotta.userData.linee.visible = false; W.calotta.visible = false;
     W.albero = add(new THREE.Group()); W.albero.add(mesh(new THREE.CylinderGeometry(0.16, 0.3, 4.5, 8), mStd(0x4a3a28), 0, 2.2, 0));
     [[2.6, 3.4, 3.6], [2.1, 3.0, 5.6], [1.5, 2.6, 7.4], [0.9, 2.0, 9.0]].forEach(([r, h, y], i) => { const c = mesh(new THREE.ConeGeometry(r, h, 11), mStd(i % 2 ? 0x2b4527 : 0x30502c, 0.95), 0, y, 0); c.rotation.y = i; W.albero.add(c); });
-    piazzaSuolo(W.albero, { x: L.ip.x - 1.6, z: L.ip.z - 1.2 });
+    W.posAlbero = (() => { const v = Math.hypot(W.vento.x, W.vento.z) || 1, lx = -W.vento.z / v, lz = W.vento.x / v; return { x: L.ip.x - lx * 2.2 + W.vento.x / v * 0.6, z: L.ip.z - lz * 2.2 + W.vento.z / v * 0.6 }; })();
+    piazzaSuolo(W.albero, W.posAlbero);
     W.pannello = add(new THREE.Mesh(new THREE.PlaneGeometry(1.8, 0.6), new THREE.MeshStandardMaterial({ color: 0xff5a10, roughness: 0.8, emissive: 0x401000 }))); W.pannello.rotation.x = -PI / 2; piazzaSuolo(W.pannello, L.lz, 0.12);
     // minaccia: squadra con MANPADS e veicolo
     W.ostili = add(new THREE.Group()); piazzaSuolo(W.ostili, L.minaccia); W.ostili.add(camion());
@@ -276,7 +277,7 @@ void main() {
   // il rilievo arriva a riquadri: finché un riquadro non è caricato la quota vale 0. Gli oggetti fissi si riallineano.
   function riallinea() {
     if (!W) return; const L = LUOGHI;
-    [[W.relitto, L.relitto, 0], [W.ip, L.ip, 0], [W.albero, { x: L.ip.x - 1.6, z: L.ip.z - 1.2 }, 0], [W.pannello, L.lz, 0.12], [W.ostili, L.minaccia, 0], [W.calotta, { x: L.ip.x + 9, z: L.ip.z + 6 }, 0.3]]
+    [[W.relitto, L.relitto, 0], [W.ip, L.ip, 0], [W.albero, W.posAlbero, 0], [W.pannello, L.lz, 0.12], [W.ostili, L.minaccia, 0], [W.calotta, { x: L.ip.x + 9, z: L.ip.z + 6 }, 0.3]]
       .forEach(([o, p, dy]) => { if (o) o.position.y = suolo(p.x, p.z) + dy; });
   }
   function terrenoPronto() { const d = VOLO.debug, m = d && /^(\d+)\/(\d+)$/.exec(String(d.terreno || "")); return !!m && +m[2] > 0 && +m[1] >= +m[2]; }
@@ -495,8 +496,8 @@ void main() {
           else { seg.position.addScaledVector(E.vel, dt).add(V3(0, -4 * dt, 0)); seg.rotation.x += 2.5 * dt; pil.position.copy(E.pos); pil.quaternion.slerp(new THREE.Quaternion(), Math.min(1, dt * 3)); posa(pil, "appeso", 0, ss(E.sepT, E.gonfio, t)); }
           if (razzo) { W.fuoco.emetti({ pos: E.pos.clone().addScaledVector(su, -0.4), vel: su.clone().multiplyScalar(-30), vita: 0.18, s0: 1.6, s1: 0.5, a0: 1, col: 0xfff2c0, col1: 0xff6a10 }); scia(W.fumo, E, "pSeg", E.pos.clone().addScaledVector(su, -0.6), 0.8, q => ({ pos: q, vel: V3(rnd(-1.5, 1.5), rnd(-1.5, 1.5), rnd(-1.5, 1.5)), vita: rnd(2.5, 3.5), s0: 0.6, s1: 4.5, a0: 0.5, col: 0xdcd8d0, drag: 1.6 })); }
           if (t >= E.aperto) { para.visible = true; const k = ss(E.aperto, E.gonfio, t); para.position.copy(E.pos).add(V3(0, -1.5, 0)); para.scale.set(0.15 + 0.85 * k, 0.4 + 0.6 * k, 0.15 + 0.85 * k); }
-          if (t >= E.gonfio - 0.01 && !E.dep) E.dep = E.pos.clone();
         }
+        if (E.pos && t >= E.gonfio && !E.dep) E.dep = E.pos.clone();
         if (E.dep && t >= E.gonfio) {
           seg.visible = t < 12; seg.position.y -= 40 * dt;
           const p = posPara(t), arrivato = t >= tTocco;
@@ -526,11 +527,10 @@ void main() {
         else if (t < 6.2) { didascalia(t < 4.5 ? "MANPADS" : "Colpito al motore destro", t < 4.5 ? "Missile spalleggiabile da una squadra ostile sul versante" : "Fuoco al motore, il pilota cabra per guadagnare quota");
           inquadra(cam, J.clone().addScaledVector(avH, -38).addScaledVector(alto, 7).addScaledVector(sx, 8), J.clone().addScaledVector(avH, 20), 50, t < 2.45 ? 0 : 6, dt); }
         else if (t < 8.6) { didascalia("Eiezione", "Tettuccio, razzo del seggiolino, separazione, apertura del paracadute");
-          if (!C.ancora) C.ancora = { p: J.clone().addScaledVector(sx, 15).addScaledVector(alto, 3).addScaledVector(avH, 3), v: velJet(t) };
-          const kv = t < te + 0.5 ? 1 : Math.max(0.35, 1 - (t - te - 0.5) * 0.9); C.ancora.p.addScaledVector(C.ancora.v, dt * kv);
-          const g = E.pos ? E.pos.clone() : J.clone().addScaledVector(fw, 4.6); inquadra(cam, C.ancora.p, g, 40, 6, dt); }
+          if (!C.ancora) { const pe = posJet(te), ve = velJet(te), ah = V3(ve.x, 0, ve.z).normalize(), sh = V3(-ah.z, 0, ah.x); C.ancora = pe.clone().addScaledVector(ah, 40).addScaledVector(sh, 24).add(V3(0, 9, 0)); }
+          const g = E.pos ? E.pos.clone().add(V3(0, 1, 0)) : J.clone().addScaledVector(fw, 4.6); inquadra(cam, C.ancora, g, 38, t < 6.25 ? 0 : 7, dt); }
         else if (t < 10.9) { didascalia("Il velivolo senza pilota", "Il paracadute è aperto, il Typhoon scende verso il versante");
-          inquadra(cam, J.clone().addScaledVector(avH, -70).addScaledVector(alto, 16), J.clone().addScaledVector(avH, 30), 48, t < 8.65 ? 0 : 4, dt); }
+          inquadra(cam, J.clone().addScaledVector(sx, 75).addScaledVector(avH, -25).addScaledVector(alto, 12), J.clone().addScaledVector(avH, 15), 40, t < 8.65 ? 0 : 3, dt); }
         else if (t < 13.2) { didascalia("Impatto", "Il relitto brucia: la colonna di fumo si vede a chilometri");
           const bers = Wp.clone().add(V3(0, 25, 0)); if (!C.sE) { const b = Wp.clone().addScaledVector(r, 420).add(V3(0, 40, 0)); b.y = Math.max(b.y, suolo(b.x, b.z) + 40); C.sE = libera(b, bers); }
           inquadra(cam, C.sE, bers, 32, 0, dt); }
