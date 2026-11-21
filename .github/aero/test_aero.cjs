@@ -41,4 +41,19 @@ assert.ok(aero.profile(spec).aspectRatio>aero.profile(base).aspectRatio,'Airline
 const numerical=[...Array(100)].map((_,i)=>aero.sample(base,{speed:i*10,alt:Math.min(30000,i*380),alpha:(i%48-24)*Math.PI/180,agl:i%40}));
 for(const s of numerical)for(const key of ['CL','CD','induced','wave','liftN','dragN','qbar','mach'])
  assert.ok(Number.isFinite(s[key]),'Finite '+key);
-console.log('PASS: 16 aero regression groups, ISA, qS, stall, transonic, engine and geometry');
+// Supersonic behaviour in level flight (lift = weight): reheat goes through the
+// transonic drag rise, military power stops near Mach 1, the F-22 supercruises.
+function surplus(spec,alt,mach,ab){
+ const at=aero.isa(alt),W=spec.m*aero.GRAVITY,v=mach*at.soundSpeed,q=.5*at.rho*v*v;
+ let lo=-.2,hi=.6;
+ for(let i=0;i<40;i++){const mid=(lo+hi)/2;const c=aero.coefficients(spec,{alpha:mid,mach,qbar:q,agl:5000});if(c.CL*q*spec.S<W)lo=mid;else hi=mid;}
+ const c=aero.coefficients(spec,{alpha:lo,mach,qbar:q,agl:5000});
+ return aero.engine(spec,at,mach,1,ab).thrust-c.CD*q*spec.S;
+}
+assert.ok(surplus(base,9000,1.2,1)>0,'F-16 on reheat accelerates through Mach 1.2 at 9 km');
+assert.ok(surplus(base,9000,1.1,0)<0,'F-16 at military power stays below Mach 1.1 at 9 km');
+const raptor={icona:'f22',m:29000,S:78,cla:3.2,astall:45,cd0:.018,Tmil:232000,Tab:312000};
+assert.ok(surplus(raptor,12500,1.45,0)>0,'F-22 supercruises at military power');
+assert.ok(!aero.profile({icona:'a380',S:845}).supersonico,'Transports keep their transonic model');
+assert.ok(aero.engine(base,high,1.5,1,1).abRam>aero.engine(base,high,.2,1,1).abRam,'Reheat ram gain grows with Mach');
+console.log('PASS: 21 aero regression groups, ISA, qS, stall, transonic, supersonic, engine and geometry');

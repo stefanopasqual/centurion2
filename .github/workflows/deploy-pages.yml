@@ -26,6 +26,7 @@ on:
       - '.github/security/**'
       - '.github/pod/**'
       - '.github/postbruciatore/**'
+      - '.github/sar/**'
       - 'model-sources/**'
   workflow_dispatch:
 
@@ -375,6 +376,15 @@ jobs:
           node --check extracted/site/js/modelli3d.js
           node --check extracted/site/js/volo.js
           grep -q 'src="js/postbruciatore.js"' extracted/site/index.html
+      - name: Personnel Recovery mission with the STOS (academy)
+        run: |
+          # missione dell'Accademia: elicottero di recupero, team STOS Pararescue, filmati di schianto e recupero
+          python3 .github/sar/patch_sar.py extracted/site
+          python3 -m py_compile .github/sar/patch_sar.py
+          node --check extracted/site/js/soccorso.js
+          node --check extracted/site/js/volo.js
+          node --check extracted/site/js/accademia.js
+          grep -q 'src="js/soccorso.js"' extracted/site/index.html
       - name: Refresh offline cache for 3D hangar
         run: |
           # Force a fresh offline cache for the cinematic model and scene assets.

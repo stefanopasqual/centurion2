@@ -26,26 +26,29 @@ change("volo.js",
       ? Math.max(0,Math.min(1,+APP.sc.meteo.umidita/100)):.68;
     if(!S.sonicVisual&&window.CENTURION_SONIC)
       S.sonicVisual=CENTURION_SONIC.make(scene);
+    // cono di vapore in scala con l'aereo (geometria pensata per un caccia di 15 m)
+    const LUNGH={F16:15,F15:19.4,F2000:16,F22:18.9,SU35:21.9,SU57:20.1,EA18:18.3};
     if(S.sonicVisual)
-      S.sonicVisual.update(P.pos,P.Q,mach,humidity,S.t,1);
+      S.sonicVisual.update(P.pos,P.Q,mach,humidity,S.t,(LUNGH[S.cfg.aereo]||15)/15);
     const exterior=S.cam!=="cockpit"&&S.cam!=="helmet";
-    if(mach>1.025 && (S.sonicLastMach||0)<=1.0 && exterior
-        && AU&&S.cfg.audio && window.CENTURION_SONIC){
-      // Camera is a simulated outside observer. Shock-front arrival delay
-      // approximated by current separation from aircraft / local sound speed.
+    // Il muro si passa una volta e si riarma solo tornando sotto Mach 0,97. (Prima serviva un salto da
+    // 1,000 a 1,025 in un solo fotogramma, impossibile accelerando: il bang non partiva mai.)
+    if(mach<.97)S.sonicArmato=true;
+    if(S.sonicArmato!==false&&mach>1.005){
+      S.sonicArmato=false;
+      // La camera esterna fa da osservatore: l'onda d'urto la raggiunge dopo distanza / velocita' del suono.
       const distance=camera?camera.position.distanceTo(P.pos):25;
       const sos=isa(P.pos.y).a||340;
-      const delay=Math.min(2.5,Math.max(.03,distance/sos));
-      S.sonicPending={t:S.t+delay,played:false};
+      S.sonicPending={t:S.t+Math.min(2.5,Math.max(.03,distance/sos))};
+      // il pilota non sente il bang: in cabina solo l'indicazione del Mach
+      messaggio(exterior?"MACH 1 · BANG SONICO":"MACH 1 · SUPERSONICO",2.4);
     }
-    S.sonicLastMach=mach;
-    if(S.sonicPending&&!S.sonicPending.played&&S.t>=S.sonicPending.t){
-      S.sonicPending.played=true;
-      if(S.cfg.audio&&AU&&exterior){
-        CENTURION_SONIC.boom(AU.ctx,AU.master,.21);
-        messaggio("ONDA D'URTO · MACH "+mach.toFixed(2),1.3);
-      }
+    if(S.sonicPending&&S.t>=S.sonicPending.t){
       S.sonicPending=null;
+      if(S.cam!=="cockpit"&&S.cam!=="helmet"){
+        if(S.fx)S.fx.scossa=Math.max(S.fx.scossa||0,.5);
+        if(S.cfg.audio&&AU&&window.CENTURION_SONIC)CENTURION_SONIC.boom(AU.ctx,AU.master,.24);
+      }
     }
   }
   function aggiorna(dtR) {''')
