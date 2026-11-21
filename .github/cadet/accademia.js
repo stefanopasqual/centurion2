@@ -75,6 +75,31 @@ const ACCADEMIA = (() => {
   const fuoriAsse = (s, p) => Math.abs(angd(s.hdg, brgXZ(s, p)));
   // angolo d'aspetto: quanto il giocatore è "in coda" al bersaglio (0° = esattamente dietro)
   function aspetto(s, e) { const b = brgXZ(e.pos, s); const h = e.hdg * R2D; return Math.abs(angd(h + 180, b)); }
+  // D2: conta i missili del giocatore che il bersaglio ha ingannato (traverso, contromisure, lancio troppo di lato)
+  function contaInganni(s, c) {
+    missiliMiei(s.S).forEach(m => { const motivo = m.perso || m.ingannato; if (!motivo || m.accContato) return;
+      m.accContato = true; c.persi = (c.persi || 0) + 1; c.persoT = s.S.t; c.persoMotivo = motivo; c["perso_" + motivo] = (c["perso_" + motivo] || 0) + 1; });
+  }
+  // D2: consiglio di tiro secondo l'arma, la distanza e quello che è appena successo ai missili
+  function consiglioTiro(s, c) {
+    const S = s.S, P = s.P, lk = s.lock && s.lock.ok && S.nemici.includes(s.lock.t) ? s.lock.t : null;
+    if (c.persoT != null && S.t - c.persoT < 6) return c.persoMotivo === "gimbal" ? "Missile perso: bersaglio troppo di lato al lancio."
+      : c.persoMotivo === "notch" ? "Ingannato dal traverso (notch): chiudi sotto i 10 km."
+      : "Ingannato dalle contromisure: rilancia più vicino.";
+    if (P.armi.AIM120 <= 0 && P.armi.AIM9X > 0 && s.arma !== "AIM9X") return "AMRAAM finiti: ARMA (X) fino al Sidewinder.";
+    if (missiliMiei(S).some(m => m.vivo && !m.perso && !m.ingannato)) return "Missile in volo: tieni il bersaglio davanti.";
+    if (!lk) return "LOCK (T) sull'incursore più vicino.";
+    const d = lk.pos.distanceTo(P.pos), lim = 10000;
+    if (fuoriAsse(s, lk.pos) > 30) return "Porta l'incursore davanti al muso, poi lancia.";
+    if (d > lim) return s.arma === "AIM9X" ? "Sidewinder: chiudi sotto i 10 km." : `SHOOT, ma a ${fmt(d / 1000)} km sfugge: chiudi sotto i 10.`;
+    return "Distanza buona, bersaglio davanti: FUOCO.";
+  }
+  function datiTiro(s, c) {
+    const lk = s.lock && s.lock.ok && s.S.nemici.includes(s.lock.t) ? s.lock.t : null, d = lk ? lk.pos.distanceTo(s.P.pos) : null, lim = 10000;
+    return [D("Bersaglio agganciato", d != null ? fmt(d / 1000, 1) + " km" : "—", d != null && d < lim, "< 10 km"),
+      D("Più vicino a Venezia", c.dMin < 1e8 ? fmt(c.dMin / 1000) + " km" : "—", c.dMin > 15000, "> 15"),
+      D("Abbattuti", s.S.nemici.filter(e => !e.vivo).length + " di 2", nemiciVivi(s.S) === 0, "")];
+  }
 
   /* ---------- posizionamento dopo l'avvio del Free Flight ---------- */
   function quat(hdg, pitch, roll) { return VOLO._acc.assetto(hdg * D2R, (pitch || 0) * D2R, (roll || 0) * D2R); }
@@ -481,33 +506,41 @@ const ACCADEMIA = (() => {
       stelle: c => (c.rilanci || 0) === 0 ? ((c.chaffUsati || 0) <= 12 ? 3 : 2) : c.rilanci === 1 ? 2 : 1 },
 
     { id: "D2", modulo: "difesa", titolo: "Difesa aerea", sotto: "CAP sopra Treviso contro due incursori", durata: "7 min", nemici: 2, diff: "recluta",
-      obiettivo: "Lasciare la pattuglia al momento giusto e abbattere i due incursori prima che arrivino a 15 km da Venezia.",
+      obiettivo: "Lasciare la pattuglia al momento giusto e abbattere i due incursori prima che arrivino a 15 km da Venezia, lanciando da vicino, dove non fanno in tempo a difendersi.",
       teoria: [
         ["La difesa aerea", "La difesa aerea (DCA, Defensive Counter Air) protegge un'area: i caccia restano in pattuglia (CAP, Combat Air Patrol) fra la minaccia e ciò che difendono, guidati dai radar a terra o da un aereo radar (AWACS)."],
         ["Il commit", "Quando gli incursori superano una linea stabilita (criterio di commit) i caccia lasciano la pattuglia e li intercettano. Più avanti li si ingaggia, più tempo resta per un secondo tentativo prima che arrivino sull'obiettivo."],
-        ["La rotta di collisione", "Non si punta dove sono, ma dove saranno: rotta di collisione. Con i missili radar si lancia appena dentro la portata, poi si passa subito al secondo bersaglio."],
+        ["La rotta di collisione", "Non si punta dove sono, ma dove saranno: rotta di collisione. Così la distanza si chiude in fretta e l'incursore resta davanti al muso, dentro il cono del radar e del missile (60°): un missile lanciato con il bersaglio di lato lo perde appena partito."],
+        ["SHOOT non vuol dire colpito", "Il SHOOT del visore compare appena il bersaglio entra in Rmax, la portata contro un bersaglio che continua dritto: qui 40–50 km. Da così lontano l'AMRAAM arriva dopo più di mezzo minuto e un incursore basso fa in tempo a virare di traverso: con la velocità tutta di lato il radar del missile, che scarta gli echi fermi rispetto al suolo, lo confonde con il terreno e lo perde (notch). Nel simulatore, contro questi incursori, l'AMRAAM colpisce circa tre volte su quattro da 8 km, poco più di metà da 10 km, una su tre da 20 km e quasi mai da 40. Da lontano si lancia per costringere l'avversario a difendersi; per abbatterlo serve il colpo da vicino."],
+        ["Il Sidewinder", "Sotto i 10 km l'AIM-9X (tasto X) è l'arma migliore: segue il calore dei motori, il traverso non lo inganna e solo ogni tanto un flare lo devia. Colpisce circa quattro volte su cinque, anche da dietro. Con quattro AMRAAM e due Sidewinder per due incursori puoi permetterti un secondo tentativo, non di sprecarli da lontano."],
         ["Regole d'ingaggio", "In tempo di pace serve l'identificazione visiva (come nella QRA); in uno scenario di guerra l'identificazione è elettronica (IFF, radar, AWACS). Qui gli incursori sono dichiarati ostili: volano bassi e veloci verso Venezia e si difendono solo se li minacci da vicino."]
       ],
-      numeri: [["Incursori", "un Su-35 e un Su-57 a 1.500 m, 480 kt, diretti su Venezia"], ["Linea da difendere", "15 km da Venezia Tessera"], ["Armamento", "4 AIM-120 + 2 AIM-9X"], ["La tua CAP", "FL200 sopra Treviso"]],
+      numeri: [["Incursori", "un Su-35 e un Su-57 a 1.500 m, 480 kt, diretti su Venezia"], ["Linea da difendere", "15 km da Venezia Tessera"], ["Armamento", "4 AIM-120 + 2 AIM-9X"], ["La tua CAP", "FL200 sopra Treviso"], ["Lancio consigliato", "sotto i 10 km con l'incursore davanti al muso, AMRAAM o Sidewinder"]],
       setup(S) { piazza(S, { lat: 45.66, lon: 12.25, ft: 20000, kcas: 330, hdg: 60, thr: 0.6 }); armi(S, { AIM120: 4, AIM9X: 2, sel: "AIM120" });
         const ves = xz(TESSERA.lat, TESSERA.lon);
         const verso = e => { const toP = Math.hypot(e.pos.x - S.pl.pos.x, e.pos.z - S.pl.pos.z); const avant = Math.abs(angd(e.hdg * R2D, brgXZ(e.pos, S.pl.pos))) < 35;
           return { hdg: Math.atan2(ves.x - e.pos.x, -(ves.z - e.pos.z)), alt: 1500, v: 247, g: 3, stato: toP < 8000 && avant ? "attacco" : "transito" }; };
         piazzaNemico(S, 0, { lat: 45.93, lon: 12.86, ft: 4900, kt: 480, hdg: 230, missili: { R73: 1 }, nome: "Incursore 1", guida: verso });
         piazzaNemico(S, 1, { lat: 45.88, lon: 12.92, ft: 4900, kt: 480, hdg: 230, missili: { R73: 1 }, nome: "Incursore 2", guida: verso }); },
-      sempre(s, c) { const ves = xz(TESSERA.lat, TESSERA.lon); c.dMin = Math.min(...s.S.nemici.filter(e => e.vivo).map(e => distXZ(e.pos, ves)), 1e9); },
+      sempre(s, c) { const ves = xz(TESSERA.lat, TESSERA.lon); c.dMin = Math.min(...s.S.nemici.filter(e => e.vivo).map(e => distXZ(e.pos, ves)), 1e9);
+        c.lanci = Math.max(0, 4 - s.P.armi.AIM120) + Math.max(0, 2 - s.P.armi.AIM9X);
+        if (c.lanci > 0 && c.rPrimo == null) { const t = s.lock && s.lock.t && s.S.nemici.includes(s.lock.t) ? s.lock.t : null; c.rPrimo = t ? t.pos.distanceTo(s.P.pos) : 0; }
+        contaInganni(s, c); },
       fasi: [
         { titolo: "Commit e aggancio", testo: "Gli incursori arrivano da nord-est. Vai verso di loro e agganciane uno con il radar (AIM-120, LOCK).",
           check: (s, c) => { const ok = (s.arma === "AIM120" && !!(s.lock && s.lock.ok && s.S.nemici.includes(s.lock.t))) || s.S.nemici.some(e => !e.vivo);
             return { ok, dati: [D("Incursore più vicino a Venezia", fmt(c.dMin / 1000) + " km", c.dMin > 15000, "> 15"), D("Aggancio", ok ? "LOCK" : "—", ok, "")], msg: "Rotta verso nord-est, poi LOCK." }; } },
-        { titolo: "Primo abbattimento", testo: "Lancia e abbatti il primo incursore.",
-          check: (s, c) => ({ ok: s.S.nemici.filter(e => !e.vivo).length >= 1, dati: [D("Abbattuti", s.S.nemici.filter(e => !e.vivo).length + " di 2", false, ""), D("Più vicino a Venezia", fmt(c.dMin / 1000) + " km", c.dMin > 15000, "> 15")], msg: "FUOCO in portata, poi il secondo." }) },
-        { titolo: "Secondo abbattimento", testo: "Agganciane il secondo e abbattilo prima della linea dei 15 km.",
-          check: (s, c) => ({ ok: nemiciVivi(s.S) === 0, dati: [D("Abbattuti", s.S.nemici.filter(e => !e.vivo).length + " di 2", nemiciVivi(s.S) === 0, ""), D("Più vicino a Venezia", c.dMin < 1e8 ? fmt(c.dMin / 1000) + " km" : "—", c.dMin > 15000, "> 15")], msg: "LOCK sul secondo e FUOCO." }) }
+        { titolo: "Primo abbattimento", testo: "Chiudi in rotta di collisione e lancia sotto i 10 km, con l'incursore davanti al muso.",
+          check: (s, c) => ({ ok: s.S.nemici.filter(e => !e.vivo).length >= 1, dati: datiTiro(s, c), msg: consiglioTiro(s, c) }) },
+        { titolo: "Secondo abbattimento", testo: "Abbatti il secondo prima della linea dei 15 km; se ti ha superato, inseguilo col Sidewinder.",
+          check: (s, c) => ({ ok: nemiciVivi(s.S) === 0, dati: datiTiro(s, c), msg: consiglioTiro(s, c) }) }
       ],
-      fallimento: (s, c) => c.dMin < 15000 ? "Un incursore ha superato la linea dei 15 km da Venezia." : (s.P.armi.AIM120 + s.P.armi.AIM9X <= 0 && nemiciVivi(s.S) && !missiliMiei(s.S).some(m => m.vivo) ? "Missili esauriti." : null),
-      debrief: c => [c.dMin < 1e8 ? "" : "Entrambi gli incursori abbattuti prima della linea di difesa.", "La CAP serve a essere già in quota e nel punto giusto: il tempo guadagnato vale un secondo tentativo."].filter(Boolean),
-      stelle: (c, R) => R.S.pl.armi.AIM120 >= 2 ? 3 : 2 },
+      fallimento: (s, c) => c.dMin < 15000 ? "Un incursore ha superato la linea dei 15 km da Venezia." : (s.P.armi.AIM120 + s.P.armi.AIM9X <= 0 && nemiciVivi(s.S) && !missiliMiei(s.S).some(m => m.vivo && !m.perso && !m.ingannato) ? "Missili esauriti." : null),
+      debrief: (c, R) => [R.esito === "ok" ? "Entrambi gli incursori abbattuti prima della linea di difesa." : "",
+        c.lanci ? `Missili lanciati: ${c.lanci}${c.persi ? `, ingannati ${c.persi}` : ", nessuno ingannato"}${c.perso_notch ? ` (${c.perso_notch} dal traverso a bassa quota, il notch)` : ""}${c.perso_gimbal ? ` · ${c.perso_gimbal} lanciati con il bersaglio troppo di lato` : ""}.` : "",
+        c.rPrimo > 15000 ? `Primo lancio a ${fmt(c.rPrimo / 1000)} km: da così lontano un incursore basso fa in tempo a difendersi. Sotto i 10 km il colpo è molto più sicuro.` : "",
+        "La CAP serve a essere già in quota e nel punto giusto: il tempo guadagnato vale un secondo tentativo."].filter(Boolean),
+      stelle: c => c.lanci <= 3 ? 3 : c.lanci <= 5 ? 2 : 1 },
 
     { id: "D3", modulo: "difesa", tipo: "missione", titolo: "Polizia aerea", sotto: "Missione «LAGUNA QRA»: scramble e intercettazione di un aereo di linea", durata: "20 min",
       obiettivo: "In tempo di pace la difesa è la QRA: decollo su ordine, intercettazione ICAO in tre fasi, scorta a distanza." },
@@ -778,6 +811,7 @@ const ACCADEMIA = (() => {
     #acc-pan .acc-msg{margin-top:5px;padding:5px 7px;border-radius:7px;background:#16324f;color:#d6ecff}#acc-pan .acc-msg.warn{background:#5a2a12;color:#ffd7b8}
     #acc-pan .acc-esito{font-weight:800;font-size:15px;padding:4px 0}#acc-pan .acc-esito.ok{color:#7dffb0}#acc-pan .acc-esito.ko{color:#ffb38a}
     #acc-pan.compatto{font-size:12px}#acc-pan.compatto .acc-ph{padding:4px 6px}#acc-pan.compatto .acc-ph b{font-size:12px}#acc-pan.compatto button{height:24px;min-width:26px;font-size:12px}#acc-pan.compatto .acc-pb{padding:4px 7px 6px}#acc-pan.compatto .acc-testo{font-size:12px;margin:2px 0 4px}#acc-pan.compatto .acc-dato small{min-width:44px}#acc-pan.compatto .acc-msg{padding:3px 6px}
+    #acc-pan.compatto:not(.min) .acc-pb{display:flex;flex-direction:column}#acc-pan.compatto .acc-testo{order:1}#acc-pan.compatto .acc-msg{order:2;margin:2px 0 4px}#acc-pan.compatto .acc-bar,#acc-pan.compatto .acc-hold{order:3}#acc-pan.compatto .acc-dato{order:4}
     #acc-toast{position:absolute;left:50%;top:22%;transform:translateX(-50%);z-index:6;background:#1e8449ee;color:#fff;font:800 16px "Segoe UI",Roboto,Arial,sans-serif;padding:8px 16px;border-radius:999px;opacity:0;pointer-events:none}
     #acc-toast.on{animation:accT 2.2s ease}@keyframes accT{0%{opacity:0}10%{opacity:1}75%{opacity:1}100%{opacity:0}}
     .acc-modal{position:absolute;inset:0;z-index:8;background:#060c14d9;display:flex;align-items:center;justify-content:center;padding:12px;overflow:auto}
