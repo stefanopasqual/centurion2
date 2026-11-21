@@ -118,7 +118,8 @@ const ACCADEMIA = (() => {
     { id: "volo", ico: "✈", titolo: "Modulo 1 · Rudimenti di volo", sotto: "Le basi del pilotaggio sul Typhoon: assetto e potenza, virate, energia, decollo e atterraggio." },
     { id: "armi", ico: "🎯", titolo: "Modulo 2 · Sistemi d'arma", sotto: "Cannone, missili aria-aria a infrarossi e radar, missile aria-superficie: come funzionano e quando si usano." },
     { id: "attacco", ico: "💥", titolo: "Modulo 3 · Attacco", sotto: "Penetrare una difesa missilistica a bassa quota, poi pianificare un attacco come un comandante." },
-    { id: "difesa", ico: "🛡", titolo: "Modulo 4 · Difesa", sotto: "Sopravvivere ai missili, difendere lo spazio aereo, la polizia aerea in tempo di pace." }
+    { id: "difesa", ico: "🛡", titolo: "Modulo 4 · Difesa", sotto: "Sopravvivere ai missili, difendere lo spazio aereo, la polizia aerea in tempo di pace." },
+    { id: "soccorso", ico: "⛑", titolo: "Modulo 5 · Personnel Recovery", sotto: "Con gli STOS dell'Aeronautica Militare: localizzare, mettere in sicurezza, soccorrere e recuperare personale isolato in area ostile." }
   ];
 
   const LEZIONI = [
@@ -509,7 +510,49 @@ const ACCADEMIA = (() => {
       stelle: (c, R) => R.S.pl.armi.AIM120 >= 2 ? 3 : 2 },
 
     { id: "D3", modulo: "difesa", tipo: "missione", titolo: "Polizia aerea", sotto: "Missione «LAGUNA QRA»: scramble e intercettazione di un aereo di linea", durata: "20 min",
-      obiettivo: "In tempo di pace la difesa è la QRA: decollo su ordine, intercettazione ICAO in tre fasi, scorta a distanza." }
+      obiettivo: "In tempo di pace la difesa è la QRA: decollo su ordine, intercettazione ICAO in tre fasi, scorta a distanza." },
+
+    { id: "S1", modulo: "soccorso", titolo: "SOS · pilota isolato", sotto: "Personnel Recovery con il team STOS Pararescue sul Grappa", durata: "10 min", aereo: "UH60", partenza: "volo",
+      obiettivo: "Raggiungere a bassa quota il pilota abbattuto, localizzarlo con il radiofaro e i segnali a vista, atterrare nella zona indicata, far lavorare gli STOS e portarlo fuori dall'area ostile.",
+      teoria: [
+        ["Personnel Recovery", "È l'insieme delle attività per riportare a casa personale rimasto isolato (un equipaggio abbattuto, una squadra separata) in un'area ostile o non permissiva. Si articola in cinque compiti: segnalare (report), localizzare (locate), sostenere (support), recuperare (recover) e reintegrare (reintegrate), cioè cure, rientro e debriefing."],
+        ["Gli STOS", "Gli STOS (Supporto Tattico alle Operazioni Speciali) sono operatori dell'Aeronautica Militare del comparto operazioni speciali (COMOS). Gli STOS Pararescue sono specializzati nel Personnel Recovery: individuano il personale isolato, mettono in sicurezza la zona, prestano le prime cure e lo recuperano, operando con gli elicotteri (per esempio gli HH-101) e con i reparti di forze speciali. Svolgono anche ricognizione di zone di atterraggio e aviolancio e supporto tattico."],
+        ["Localizzare", "Il pilota eiettato attiva il radiofaro personale (PLB): il segnale a 406 MHz è captato dai satelliti COSPAS-SARSAT, che danno una posizione approssimata; il segnale a 121,5/243 MHz permette all'elicottero di 'puntarlo' con il radiogoniometro. Da vicino contano i segnali a vista: fumogeno arancione di giorno, pannello segnaletico, luce stroboscopica o infrarossa di notte."],
+        ["Autenticare", "In area ostile il nemico può tendere trappole con falsi segnali. Prima della missione ogni equipaggio compila la scheda ISOPREP con domande personali e codici: il soccorritore le usa per verificare che la persona a terra sia davvero il pilota."],
+        ["Entrare e uscire", "L'elicottero vola basso e usa il terreno per nascondersi alle armi contraeree spalleggiabili (MANPADS) e alle armi leggere: creste e vallate interrompono la linea di vista. I caccia di scorta proteggono dall'alto. La zona di atterraggio (LZ) va scelta pianeggiante, sgombra da ostacoli e il più vicina possibile al personale isolato."],
+        ["A terra", "Gli operatori formano un perimetro di sicurezza; il Pararescue raggiunge il pilota, lo autentica e applica le regole del soccorso in combattimento (TCCC): controllo delle emorragie, vie aeree, immobilizzazione, poi l'evacuazione. L'elicottero resta a terra il meno possibile."]
+      ],
+      numeri: [["Radiofaro", "406 MHz (satellite) · 121,5/243 MHz (radiogoniometro): ago arancione nel riquadro PLB in alto a sinistra"], ["Minaccia nel simulatore", "squadra con MANPADS a nord-est del pilota: entro 3,2 km sopra 300 ft dal suolo sei esposto; 12 s di esposizione e ti ingaggiano"], ["Zona di atterraggio", "prato con pannello arancione, 150 m a sud-est del pilota: posati entro 60 m, oppure hovering sotto 15 m e 10 kt per 3 s"], ["Elicottero (UH-60M nel simulatore)", "collettivo con la manetta (circa 64% per l'hovering), ciclico con la barra, pedaliera Q/E"], ["Punto di consegna", "8 km a sud del pilota, fuori dall'area ostile"]],
+      setup(S, c) { c.t0 = S.t; if (typeof SOCCORSO === "undefined") return; SOCCORSO.precarica(); SOCCORSO.prepara(S); c.pronto = true;
+        setTimeout(() => { if (VOLO.stato === S) SOCCORSO.filmatoSchianto(S, () => { c.film1 = true; }); }, 600); },
+      sempre(s, c, dt) { if (typeof SOCCORSO !== "undefined") SOCCORSO.aggiorna(dt, s.S); if (typeof SOCCORSO !== "undefined") { const k = SOCCORSO.info(s.S); c.espMax = Math.max(c.espMax || 0, k.esposizione); } },
+      chiusura() { if (typeof SOCCORSO !== "undefined") SOCCORSO.chiudi(); },
+      fasi: [
+        { titolo: "Allarme SOS", testo: "LUPO 21 è stato abbattuto sul Grappa e si è eiettato. Il suo radiofaro trasmette: parte il Personnel Recovery.",
+          check: (s, c) => ({ ok: !!c.film1 || typeof SOCCORSO === "undefined", dati: [D("Filmato", c.film1 ? "concluso" : "in corso", !!c.film1, "")], msg: "Guarda il filmato, poi si parte." }) },
+        { titolo: "Ingresso a bassa quota", testo: "Segui l'ago arancione del radiogoniometro verso il pilota. Nell'area della minaccia resta sotto 300 ft dal suolo.",
+          inizio: (s, c) => { c.tIngresso = s.S.t; },
+          check: (s, c) => { const k = SOCCORSO.info(s.S); return { ok: k.dIP < 2500, dati: [D("Distanza PLB", (k.dIP / 1000).toFixed(1) + " km", k.dIP < 2500, "< 2,5"), D("Rotta PLB", Math.round(k.brgIP) + "°", true, ""), D("Quota", fmt(k.aglFt) + " ft", !k.esposto, k.inMinaccia ? "< 300" : ""), D("Esposizione", fmt(k.esposizione, 1) + " s", k.esposizione < 6, "< 12")],
+            msg: k.esposto ? "Sei in vista della squadra ostile: scendi sotto 300 ft." : k.kt < 40 ? "Ciclico avanti per accelerare verso il segnale." : "Tieni l'ago arancione davanti a te." }; } },
+        { titolo: "Localizzazione", testo: "Il pilota ha acceso il fumogeno arancione: cerca il pannello arancione della zona di atterraggio (LZ), 150 m a sud-est di lui.",
+          check: (s, c) => { const k = SOCCORSO.info(s.S), ok = k.dLZ < 400 && k.aglFt < 400; return { ok, dati: [D("Distanza LZ", fmt(k.dLZ) + " m", k.dLZ < 400, "< 400"), D("Quota", fmt(k.aglFt) + " ft", k.aglFt < 400, "< 400"), D("Velocità", fmt(k.kt) + " kt", k.kt < 80, "")],
+            msg: k.dLZ > 1200 ? "Il rombo arancione indica il pilota, quello verde la LZ." : "Riduci velocità e quota: avvicinati alla LZ." }; } },
+        { titolo: "Atterraggio nella LZ", testo: "Posati sul prato entro 60 m dal pannello arancione, oppure tieni l'hovering sotto 15 m dal suolo e sotto 10 kt.", tenere: 3,
+          check: (s, c) => { const k = SOCCORSO.info(s.S), posato = k.aTerra && k.dLZ < 70, hover = k.dLZ < 60 && k.agl < 15 && k.kt < 10; c.tLZ = c.tLZ || (posato || hover ? s.S.t : null);
+            return { ok: posato || hover, dati: [D("Distanza LZ", fmt(k.dLZ) + " m", k.dLZ < 60, "< 60"), D("Altezza", fmt(k.agl) + " m", k.agl < 15 || k.aTerra, "< 15"), D("Velocità", fmt(k.kt) + " kt", k.kt < 10, "< 10")],
+              msg: k.kt > 10 ? "Ciclico indietro: rallenta sopra il pannello." : k.agl > 15 ? "Collettivo giù (manetta sotto il 60%): scendi piano." : "Così: tieni fermo l'elicottero." }; } },
+        { titolo: "Recupero con gli STOS", testo: "Il team STOS mette in sicurezza la zona; il Pararescue autentica il pilota, lo cura e lo porta a bordo.",
+          inizio: (s, c) => { c.tRecupero = s.S.t; SOCCORSO.filmatoRecupero(s.S, () => { c.film2 = true; }); },
+          check: (s, c) => ({ ok: !!c.film2, dati: [D("Recupero", c.film2 ? "superstite a bordo" : "in corso", !!c.film2, "")], msg: "Gli STOS sono a terra." }) },
+        { titolo: "Uscita e consegna", testo: "Esci a bassa quota verso il punto di consegna, 8 km a sud: il pilota va consegnato alle cure mediche.",
+          check: (s, c) => { const k = SOCCORSO.info(s.S); return { ok: k.dConsegna < 1500, dati: [D("Punto di consegna", (k.dConsegna / 1000).toFixed(1) + " km", k.dConsegna < 1500, "< 1,5"), D("Rotta", Math.round(k.brgConsegna) + "°", true, ""), D("Quota", fmt(k.aglFt) + " ft", !k.esposto, k.inMinaccia ? "< 300" : "")],
+            msg: k.esposto ? "Ancora esposto: giù sotto 300 ft." : "Rotta sud, bassi e veloci." }; } }
+      ],
+      fallimento: (s, c) => { if (typeof SOCCORSO === "undefined") return null; const k = SOCCORSO.info(s.S); if (k.esposizione >= 12) return "Ingaggiato da un MANPADS: in area ostile l'elicottero vola basso, nascosto dal terreno.";
+        return k.dIP > 22000 ? "Troppo lontano dall'area del pilota: il recupero è fallito." : null; },
+      debrief: c => [c.espMax > 0.5 ? `Esposizione massima alla minaccia: ${fmt(c.espMax, 1)} s.` : "Mai esposto alla minaccia: ingresso mascherato dal terreno.",
+        "Personnel Recovery: report, locate, support, recover, reintegrate. Il pilota è stato localizzato con il radiofaro e i segnali a vista, autenticato e curato dagli STOS, consegnato alle cure mediche."],
+      stelle: (c, R) => 1 + ((c.espMax || 0) < 4 ? 1 : 0) + (R.durata < 600 ? 1 : 0) }
   ];
   LEZIONI.forEach(L => { if (L.samDef) { L.sam = L.samDef; } });
 
@@ -543,7 +586,7 @@ const ACCADEMIA = (() => {
     try { APP.play(false); } catch (e) {}
     APP.sc = scenario(L); APP.vista3dAuto = false; try { APP.ricostruisci(); } catch (e) { console.warn("Accademia", e); }
     if (!VOLO.attivo) VOLO.apri();
-    VOLO.avvia({ aereo: "F2000", partenza: L.partenza || "volo", nemici: L.nemici || 0, sam: !!L.sam, diff: L.diff || "recluta", ora: "giorno" });
+    VOLO.avvia({ aereo: L.aereo || "F2000", partenza: L.partenza || "volo", nemici: L.nemici || 0, sam: !!L.sam, diff: L.diff || "recluta", ora: L.ora || "giorno" });
     const S = VOLO.stato; if (!S) return;
     R = { L, S, i: 0, hold: 0, c: {}, t0: S.t, tempi: [], finita: false, esito: null, uiT: 0, avviata: false };
     S.ondataFinita = true; S.msg = null;
@@ -589,7 +632,7 @@ const ACCADEMIA = (() => {
     if (!VOLO.attivo || VOLO.stato !== R.S) { if (!R.uscita) esci(); return; }   // Free Flight chiuso o riavviato dal suo menu: si torna all'accademia
   }
   function esci(versoAccademia) {
-    if (!R) return; R.uscita = true; clearInterval(mon); const S = R.S; if (S) S.lezione = null; R = null;
+    if (!R) return; R.uscita = true; clearInterval(mon); const S = R.S; if (S) S.lezione = null; try { R.L.chiusura && R.L.chiusura(); } catch (e) {} R = null;
     togliPannello(); chiudiSchermo(); try { if (VOLO.attivo) VOLO.chiudi(); } catch (e) {}
     try { window.speechSynthesis && speechSynthesis.cancel(); } catch (e) {}
     ripristinaStato(); if (versoAccademia !== false) apri();
