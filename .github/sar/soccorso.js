@@ -118,6 +118,20 @@ void main() {
     return { emetti, aggiorna, dispose, mesh };
   }
 
+  // scia continua: particelle ogni "passo" metri lungo il tratto percorso dall'ultimo fotogramma (niente file di palline)
+  function scia(sys, stato, chiave, pos, passo, fopt) {
+    const prima = stato[chiave]; stato[chiave] = pos.clone(); if (!prima) return;
+    const d = prima.distanceTo(pos), n = Math.min(40, Math.max(1, Math.round(d / passo)));
+    for (let i = 1; i <= n; i++) sys.emetti(fopt(prima.clone().lerp(pos, i / n), i / n));
+  }
+  // alza la camera finché la linea di vista sul soggetto non è libera dal rilievo
+  function libera(cam, tgt) {
+    for (let k = 0; k < 15; k++) { let ok = true;
+      for (let i = 1; i < 12; i++) { const u = i / 12, x = mix(cam.x, tgt.x, u), z = mix(cam.z, tgt.z, u), y = mix(cam.y, tgt.y, u); if (y < suolo(x, z) + 4) { ok = false; break; } }
+      if (ok) break; cam.y += 35; }
+    return cam;
+  }
+
   /* ======================= modelli procedurali ======================= */
   const mStd = (c, r, m) => new THREE.MeshStandardMaterial({ color: c, roughness: r == null ? 0.85 : r, metalness: m || 0 });
   function mesh(geo, mat, x, y, z) { const o = new THREE.Mesh(geo, mat); o.position.set(x || 0, y || 0, z || 0); o.castShadow = true; return o; }
@@ -236,7 +250,9 @@ void main() {
     W.ip = add(persona({ nome: "LUPO 21", tuta: 0x56653a, giubbotto: 0x3d4a2c, casco: 0xd9d8cf, visore: true }));
     piazzaSuolo(W.ip, L.ip); W.ip.rotation.y = 2.4; posa(W.ip, "seduto"); W.ip.visible = false;
     W.calotta = add(paracadute()); W.calotta.scale.set(1, 0.07, 1.25); piazzaSuolo(W.calotta, { x: L.ip.x + 9, z: L.ip.z + 6 }, 0.3); W.calotta.rotation.set(0.08, 0.6, 0.05); W.calotta.userData.linee.visible = false; W.calotta.visible = false;
-    W.albero = add(new THREE.Group()); W.albero.add(mesh(new THREE.CylinderGeometry(0.18, 0.28, 4, 8), mStd(0x4a3a28), 0, 2, 0)); W.albero.add(mesh(new THREE.ConeGeometry(2.2, 6.5, 10), mStd(0x2e4a2a), 0, 6.4, 0)); piazzaSuolo(W.albero, { x: L.ip.x - 1.6, z: L.ip.z - 1.2 });
+    W.albero = add(new THREE.Group()); W.albero.add(mesh(new THREE.CylinderGeometry(0.16, 0.3, 4.5, 8), mStd(0x4a3a28), 0, 2.2, 0));
+    [[2.6, 3.4, 3.6], [2.1, 3.0, 5.6], [1.5, 2.6, 7.4], [0.9, 2.0, 9.0]].forEach(([r, h, y], i) => { const c = mesh(new THREE.ConeGeometry(r, h, 11), mStd(i % 2 ? 0x2b4527 : 0x30502c, 0.95), 0, y, 0); c.rotation.y = i; W.albero.add(c); });
+    piazzaSuolo(W.albero, { x: L.ip.x - 1.6, z: L.ip.z - 1.2 });
     W.pannello = add(new THREE.Mesh(new THREE.PlaneGeometry(1.8, 0.6), new THREE.MeshStandardMaterial({ color: 0xff5a10, roughness: 0.8, emissive: 0x401000 }))); W.pannello.rotation.x = -PI / 2; piazzaSuolo(W.pannello, L.lz, 0.12);
     // minaccia: squadra con MANPADS e veicolo
     W.ostili = add(new THREE.Group()); piazzaSuolo(W.ostili, L.minaccia); W.ostili.add(camion());
@@ -254,7 +270,7 @@ void main() {
   function terrenoPronto() { const d = VOLO.debug, m = d && /^(\d+)\/(\d+)$/.exec(String(d.terreno || "")); return !!m && +m[2] > 0 && +m[1] >= +m[2]; }
   function piazzaElicottero(S, p, hdgDeg, agl, v) {
     const P = S.pl, h = hdgDeg * D2R; P.pos.set(p.x, suolo(p.x, p.z) + agl, p.z);
-    P.Q.copy(VOLO._acc.assetto(h, 0, 0)); P.vel.set(Math.sin(h) * v, 0, -Math.cos(h) * v); P.rigid6 = null; P.aTerra = false; P.carrello = true; S.thr = 0.64;
+    P.Q.copy(VOLO._acc.assetto(h, 0, 0)); P.vel.set(Math.sin(h) * v, 0, -Math.cos(h) * v); P.rigid6 = null; P.rotorSim = null; P.aTerra = false;   // il simulatore del rotore si ricrea dalla nuova posizione P.carrello = true; S.thr = 0.64;
     if (P.obj) { P.obj.position.copy(P.pos); P.obj.quaternion.copy(P.Q); }
   }
   // stato utile alla lezione
@@ -444,8 +460,8 @@ void main() {
         const fw = V3(0, 0, 1).applyQuaternion(Q), su = V3(0, 1, 0).applyQuaternion(Q), dx = V3(-1, 0, 0).applyQuaternion(Q);
         // --- MANPADS ---
         if (t >= tLancio && t < tImp) { const k = (t - tLancio) / (tImp - tLancio), bersaglio = posJet(tImp).addScaledVector(fw, -6); const p = lancio.clone().lerp(bersaglio, k); p.y += Math.sin(k * PI) * 120; mg.visible = true; mg.position.copy(p); mg.lookAt(bersaglio);
-          W.fumo.emetti({ pos: p, vel: V3(rnd(-0.5, 0.5), rnd(0, 1), rnd(-0.5, 0.5)), vita: rnd(2.5, 3.5), s0: 0.8, s1: 5, a0: 0.6, col: 0xe8e6e0, drag: 1.2 });
-          W.fuoco.emetti({ pos: p, vita: 0.12, s0: 1.4, s1: 0.4, a0: 1, col: 0xffe0a0 }); }
+          scia(W.fumo, E, "pMis", p, 2.5, q => ({ pos: q.add(V3(rnd(-0.3, 0.3), rnd(-0.3, 0.3), rnd(-0.3, 0.3))), vel: V3(rnd(-0.6, 0.6), rnd(0, 0.8), rnd(-0.6, 0.6)), vita: rnd(2.8, 4), s0: 0.9, s1: 6, a0: 0.5, col: 0xefede8, drag: 1.2 }));
+          W.fuoco.emetti({ pos: p, vita: 0.1, s0: 2.2, s1: 0.6, a0: 1, col: 0xfff0c0, col1: 0xff8a30 }); }
         else mg.visible = false;
         if (t >= tImp && !colpito) { colpito = true; lampo(0.35); const p = J.clone().addScaledVector(fw, -6);
           for (let i = 0; i < 26; i++) W.fuoco.emetti({ pos: p, vel: V3(rnd(-25, 25), rnd(-15, 25), rnd(-25, 25)), vita: rnd(0.4, 0.9), s0: rnd(3, 6), s1: 10, a0: 1, col: 0xfff0b0, col1: 0xff4a10, drag: 2 });
@@ -454,7 +470,7 @@ void main() {
         // motore in fiamme e scia nera
         if (colpito && !impattato) { const p = J.clone().addScaledVector(fw, -7.2).addScaledVector(dx, 0.5).addScaledVector(su, -1.2), v = velJet(t);
           W.fuoco.emetti({ pos: p, vel: v.clone().multiplyScalar(0.6).add(V3(rnd(-3, 3), rnd(-3, 3), rnd(-3, 3))), vita: rnd(0.25, 0.5), s0: rnd(2.2, 3.4), s1: 0.8, a0: 1, col: 0xffd070, col1: 0xff3a08, drag: 3 });
-          if (Math.random() < 0.7) W.fumo.emetti({ pos: p, vel: v.clone().multiplyScalar(0.25), vita: rnd(4, 6), s0: 2.5, s1: 16, a0: 0.55, col: 0x262422, col1: 0x55524e, drag: 1.4, su: 0.4 }); }
+          scia(W.fumo, E, "pMot", p, 3.5, q => ({ pos: q, vel: v.clone().multiplyScalar(0.18).add(V3(rnd(-1, 1), rnd(-1, 1), rnd(-1, 1))), vita: rnd(4, 6.5), s0: 2.2, s1: 15, a0: 0.42, col: 0x2a2725, col1: 0x5c5853, drag: 1.4, su: 0.4 })); }
         // --- eiezione ---
         if (t >= te && !E.pos) { E.pos = J.clone().addScaledVector(fw, 4.6).addScaledVector(su, 1.0); E.vel = velJet(t).multiplyScalar(0.92).addScaledVector(su, 34); E.q = Q.clone();
           tetFis.p = E.pos.clone().addScaledVector(su, 0.6); tetFis.v = velJet(t).multiplyScalar(0.9).addScaledVector(su, 22); tet.visible = true; if (tettoGLB) tettoGLB.visible = false; }
@@ -464,7 +480,7 @@ void main() {
           E.pos.addScaledVector(E.vel, dt);
           if (t < E.sepT) { seg.visible = true; seg.position.copy(E.pos); seg.quaternion.copy(E.q); pil.visible = true; pil.position.copy(E.pos); pil.quaternion.copy(E.q); posa(pil, "seggiolino"); }
           else { seg.position.addScaledVector(E.vel, dt).add(V3(0, -4 * dt, 0)); seg.rotation.x += 2.5 * dt; pil.position.copy(E.pos); pil.quaternion.slerp(new THREE.Quaternion(), Math.min(1, dt * 3)); posa(pil, "appeso", 0, ss(E.sepT, E.gonfio, t)); }
-          if (razzo) { W.fuoco.emetti({ pos: E.pos.clone().addScaledVector(su, -0.4), vel: su.clone().multiplyScalar(-30), vita: 0.18, s0: 1.6, s1: 0.5, a0: 1, col: 0xfff2c0, col1: 0xff6a10 }); W.fumo.emetti({ pos: E.pos.clone().addScaledVector(su, -0.6), vel: V3(rnd(-2, 2), rnd(-2, 2), rnd(-2, 2)), vita: 3, s0: 0.8, s1: 6, a0: 0.55, col: 0xd8d4cc, drag: 1.5 }); }
+          if (razzo) { W.fuoco.emetti({ pos: E.pos.clone().addScaledVector(su, -0.4), vel: su.clone().multiplyScalar(-30), vita: 0.18, s0: 1.6, s1: 0.5, a0: 1, col: 0xfff2c0, col1: 0xff6a10 }); scia(W.fumo, E, "pSeg", E.pos.clone().addScaledVector(su, -0.6), 0.8, q => ({ pos: q, vel: V3(rnd(-1.5, 1.5), rnd(-1.5, 1.5), rnd(-1.5, 1.5)), vita: rnd(2.5, 3.5), s0: 0.6, s1: 4.5, a0: 0.5, col: 0xdcd8d0, drag: 1.6 })); }
           if (t >= E.aperto) { para.visible = true; const k = ss(E.aperto, E.gonfio, t); para.position.copy(E.pos).add(V3(0, -1.5, 0)); para.scale.set(0.15 + 0.85 * k, 0.4 + 0.6 * k, 0.15 + 0.85 * k); }
           if (t >= E.gonfio - 0.01 && !E.dep) E.dep = E.pos.clone();
         }
@@ -473,7 +489,8 @@ void main() {
           const p = posPara(t), arrivato = t >= tTocco;
           if (!arrivato) { para.visible = true; const resp = 1 + 0.03 * Math.sin(t * 2.3); para.scale.set(resp, 1 / resp, resp); para.position.copy(p).add(V3(0, -1.55, 0)); para.rotation.y += dt * 0.15; pil.position.copy(p).add(V3(0, -1.55, 0)); posa(pil, "appeso", t, 1); }
           else { // a terra: la calotta si affloscia sottovento, il pilota si siede e accende il radiofaro
-            const k = ss(tTocco, tTocco + 1.6, t); para.position.copy(atterra).add(V3(vento.x * 2.4 * k, 0, vento.z * 2.4 * k)); para.scale.set(1 + 0.25 * k, Math.max(0.07, 1 - k), 1 + 0.25 * k); para.rotation.z = -1.2 * k; para.userData.linee.visible = k < 0.6;
+            const k = ss(tTocco, tTocco + 1.6, t), vd = vento.clone().setY(0).normalize(); para.position.copy(atterra).addScaledVector(vd, 4 + 6 * k); para.position.y = suolo(para.position.x, para.position.z) + 0.3 * (1 - k) + 0.2;
+            para.scale.set(1 + 0.15 * k, Math.max(0.06, 1 - k), 1 + 0.15 * k); para.rotation.set(0, 0, -0.08 * k); para.userData.linee.visible = k < 0.6;
             pil.position.copy(atterra); pil.rotation.set(0, 2.4, 0); pil.quaternion.setFromEuler(pil.rotation); posa(pil, t < tTocco + 1.2 ? "cammina" : "seduto", t);
             const j = pil.userData.j; if (j && t > 22.4) j.strobo.visible = (t % 1) < 0.1;
           }
@@ -481,25 +498,34 @@ void main() {
         // --- impatto sul versante ---
         if (t >= 11 && !impattato) { impattato = true; jet.visible = false; lampo(0.8);
           const p = Wp.clone().add(V3(0, 3, 0));
-          for (let i = 0; i < 90; i++) W.fuoco.emetti({ pos: p.clone().add(V3(rnd(-10, 10), rnd(0, 6), rnd(-10, 10))), vel: V3(rnd(-28, 28), rnd(8, 46), rnd(-28, 28)), vita: rnd(1.0, 2.6), s0: rnd(8, 14), s1: rnd(18, 34), a0: 1, col: 0xfff2b8, col1: 0xb02a06, drag: 1.6, su: 2 });
-          for (let i = 0; i < 70; i++) W.fumo.emetti({ pos: p.clone().add(V3(rnd(-12, 12), rnd(0, 10), rnd(-12, 12))), vel: V3(rnd(-18, 18), rnd(6, 30), rnd(-18, 18)), vita: rnd(6, 11), s0: 9, s1: 46, a0: 0.75, col: 0x1e1c1a, col1: 0x57534f, drag: 0.8, su: 0.6, vento: 0.6 });
+          for (let i = 0; i < 16; i++) W.fuoco.emetti({ pos: p.clone().add(V3(rnd(-6, 6), rnd(0, 6), rnd(-6, 6))), vel: V3(rnd(-10, 10), rnd(4, 14), rnd(-10, 10)), vita: rnd(0.25, 0.5), s0: rnd(26, 40), s1: 50, a0: 0.55, col: 0xfff4d0, col1: 0xffa040, drag: 2 });
+          for (let i = 0; i < 120; i++) W.fuoco.emetti({ pos: p.clone().add(V3(rnd(-12, 12), rnd(0, 8), rnd(-12, 12))), vel: V3(rnd(-26, 26), rnd(10, 44), rnd(-26, 26)), vita: rnd(1.2, 3.0), s0: rnd(7, 13), s1: rnd(20, 36), a0: 0.42, inA: 0.04, col: 0xffb347, col1: 0x8a1c04, drag: 1.5, su: 2.5 });
+          for (let i = 0; i < 90; i++) W.fumo.emetti({ pos: p.clone().add(V3(rnd(-14, 14), rnd(2, 16), rnd(-14, 14))), vel: V3(rnd(-14, 14), rnd(10, 34), rnd(-14, 14)), vita: rnd(8, 14), s0: 10, s1: 55, a0: 0.8, inA: 0.15, col: 0x1b1917, col1: 0x4d4945, drag: 0.8, su: 0.8, vento: 0.6 });
           for (let i = 0; i < 40; i++) { const a = i / 40 * PI * 2; W.fumo.emetti({ pos: p.clone().add(V3(Math.cos(a) * 6, -1, Math.sin(a) * 6)), vel: V3(Math.cos(a) * 42, 2, Math.sin(a) * 42), vita: rnd(2, 3.4), s0: 5, s1: 20, a0: 0.5, col: 0x7a6a55, drag: 1.4 }); }
-          for (let i = 0; i < 40; i++) W.fuoco.emetti({ pos: p, vel: V3(rnd(-60, 60), rnd(20, 70), rnd(-60, 60)), vita: rnd(1.5, 3), s0: 1.2, s1: 0.4, a0: 1, col: 0xffd080, col1: 0xff4010, drag: 0.4, su: -9.8 });
+          for (let i = 0; i < 60; i++) W.fuoco.emetti({ pos: p, vel: V3(rnd(-60, 60), rnd(20, 75), rnd(-60, 60)), vita: rnd(1.5, 3.2), s0: 1.4, s1: 0.5, a0: 1, col: 0xffd080, col1: 0xff4010, drag: 0.4, su: -9.8 });
           W.relitto.visible = true; }
         if (impattato) { lampo(Math.max(0, 0.8 - (t - 11) * 2.4)); effettiFissiCinema(dt); }   // la colonna di fumo continua
-        // --- inquadrature ---
+        // --- inquadrature (orizzonte stabile: offset con l'alto del mondo, non con il rollio del jet) ---
+        const avH = V3(fw.x, 0, fw.z).normalize(), alto = V3(0, 1, 0), sx = V3(-avH.z, 0, avH.x);   // sx: sinistra del jet sul piano
         if (t < 2.4) { didascalia("Area non permissiva · Monte Grappa", "LUPO 21 · Eurofighter Typhoon in ricognizione armata a bassa quota"); dissolvenza(Math.max(0, 1 - t * 1.5));
-          const base = posJet(1.6).addScaledVector(r, -320); base.y = suolo(base.x, base.z) + 55; inquadra(cam, base, J, 34, 0, dt); }
-        else if (t < 6.2) { didascalia(t < 4.5 ? "MANPADS" : "Colpito al motore destro", t < 4.5 ? "Missile spalleggiabile da una squadra ostile sul versante" : "Fuoco al motore, il pilota cabra per guadagnare quota"); inquadra(cam, J.clone().addScaledVector(fw, -52).addScaledVector(su, 9).addScaledVector(dx, -10), J.clone().addScaledVector(fw, 25), 52, t < 2.5 ? 0 : 6, dt); }
-        else if (t < 8.9) { didascalia("Eiezione", "Tettuccio, razzo del seggiolino, separazione, apertura del paracadute");
-          if (!C.ancora) C.ancora = { p: J.clone().addScaledVector(dx, 24).addScaledVector(su, 5).addScaledVector(fw, 2), v: velJet(t).multiplyScalar(0.75) }; C.ancora.p.addScaledVector(C.ancora.v, dt);
-          const g = E.pos ? E.pos.clone() : J.clone(); inquadra(cam, C.ancora.p, g, 46, 5, dt); }
-        else if (t < 13) { didascalia(t < 11 ? "Il velivolo senza pilota" : "Impatto", t < 11 ? "Il paracadute è aperto, il Typhoon scende verso il versante" : "Il relitto brucia: la colonna di fumo si vede a chilometri");
-          const p = Wp.clone().addScaledVector(r, -1150).addScaledVector(f, -350); p.y = Math.max(suolo(p.x, p.z) + 90, gW + 60); inquadra(cam, p, Wp.clone().add(V3(0, 120, 0)), 40, 0, dt); }
+          if (!C.sA) { const j = posJet(1.4), b = j.clone().addScaledVector(r, -150); b.y = j.y - 22; C.sA = libera(b, j); }
+          inquadra(cam, C.sA, J, 30, 0, dt); }
+        else if (t < 6.2) { didascalia(t < 4.5 ? "MANPADS" : "Colpito al motore destro", t < 4.5 ? "Missile spalleggiabile da una squadra ostile sul versante" : "Fuoco al motore, il pilota cabra per guadagnare quota");
+          inquadra(cam, J.clone().addScaledVector(avH, -38).addScaledVector(alto, 7).addScaledVector(sx, 8), J.clone().addScaledVector(avH, 20), 50, t < 2.45 ? 0 : 6, dt); }
+        else if (t < 8.6) { didascalia("Eiezione", "Tettuccio, razzo del seggiolino, separazione, apertura del paracadute");
+          if (!C.ancora) C.ancora = { p: J.clone().addScaledVector(sx, 15).addScaledVector(alto, 3).addScaledVector(avH, 3), v: velJet(t) };
+          const kv = t < te + 0.5 ? 1 : Math.max(0.35, 1 - (t - te - 0.5) * 0.9); C.ancora.p.addScaledVector(C.ancora.v, dt * kv);
+          const g = E.pos ? E.pos.clone() : J.clone().addScaledVector(fw, 4.6); inquadra(cam, C.ancora.p, g, 40, 6, dt); }
+        else if (t < 10.9) { didascalia("Il velivolo senza pilota", "Il paracadute è aperto, il Typhoon scende verso il versante");
+          inquadra(cam, J.clone().addScaledVector(avH, -70).addScaledVector(alto, 16), J.clone().addScaledVector(avH, 30), 48, t < 8.65 ? 0 : 4, dt); }
+        else if (t < 13.2) { didascalia("Impatto", "Il relitto brucia: la colonna di fumo si vede a chilometri");
+          const bers = Wp.clone().add(V3(0, 25, 0)); if (!C.sE) { const b = Wp.clone().addScaledVector(r, 420).add(V3(0, 40, 0)); b.y = Math.max(b.y, suolo(b.x, b.z) + 40); C.sE = libera(b, bers); }
+          inquadra(cam, C.sE, bers, 32, 0, dt); }
         else if (t < 20.8) { didascalia("Discesa", "Il pilota scende verso un prato del versante, sottovento al relitto");
-          const c = posPara(t).add(V3(0, -1.5, 0)), a = mix(0.5, 2.1, ss(13, 20.8, t)); inquadra(cam, c.clone().add(V3(Math.cos(a) * 24, 3 - ss(13, 20.8, t) * 4, Math.sin(a) * 24)), c.clone().add(V3(0, 2, 0)), 50, t < 13.05 ? 0 : 3, dt); }
-        else { const k = ss(20.8, 27, t); didascalia(t < 22.4 ? "LUPO 21 a terra" : t < 24.6 ? "PLB 406 MHz attivo" : "Personale isolato", t < 22.4 ? "Ferito a una gamba, si mette al riparo vicino a un albero" : t < 24.6 ? "Il satellite COSPAS-SARSAT localizza il segnale: «Mayday, LUPO 21 a terra»" : "Si attiva il Personnel Recovery: elicottero con il team STOS Pararescue");
-          const p = atterra.clone().add(V3(mix(9, 5, k), 1.6, mix(-8, -4.5, k))); inquadra(cam, p, atterra.clone().add(V3(0, 0.8, 0)), 38, 0, dt); dissolvenza(ss(25.8, 27, t)); }
+          const c = posPara(t).add(V3(0, -1.5, 0)), a = mix(0.5, 2.1, ss(13, 20.8, t)); inquadra(cam, c.clone().add(V3(Math.cos(a) * 24, 3 - ss(13, 20.8, t) * 4, Math.sin(a) * 24)), c.clone().add(V3(0, 2, 0)), 50, t < 13.25 ? 0 : 3, dt); }
+        else { const k = ss(20.8, 27, t), vd = vento.clone().setY(0).normalize(), lato = V3(-vd.z, 0, vd.x);
+          didascalia(t < 22.4 ? "LUPO 21 a terra" : t < 24.6 ? "PLB 406 MHz attivo" : "Personale isolato", t < 22.4 ? "Ferito a una gamba, si mette al riparo vicino a un albero" : t < 24.6 ? "Il satellite COSPAS-SARSAT localizza il segnale: «Mayday, LUPO 21 a terra»" : "Si attiva il Personnel Recovery: elicottero con il team STOS Pararescue");
+          const p = atterra.clone().addScaledVector(vd, -mix(11, 7, k)).addScaledVector(lato, mix(5, 3, k)); p.y = atterra.y + 1.6; inquadra(cam, p, atterra.clone().add(V3(0, 0.8, 0)), 38, 0, dt); dissolvenza(ss(25.8, 27, t)); }
       }, () => {
         // dopo il filmato: restano relitto, pilota al riparo, calotta a terra; si toglie quello che serviva solo al filmato
         [jet, mg, tet, seg, pil, para].forEach(o => { if (o.parent) o.parent.remove(o); });
