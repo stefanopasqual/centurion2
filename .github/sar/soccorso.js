@@ -134,17 +134,29 @@ void main() {
 
   /* ======================= modelli procedurali ======================= */
   const mStd = (c, r, m) => new THREE.MeshStandardMaterial({ color: c, roughness: r == null ? 0.85 : r, metalness: m || 0 });
+  // mimetica a macchie (tonalità tipo multiterreno), una sola texture condivisa
+  let MIMETICA = null;
+  function mimetica() {
+    if (MIMETICA) return MIMETICA;
+    const c = document.createElement("canvas"); c.width = c.height = 128; const g = c.getContext("2d");
+    g.fillStyle = "#8b7d5d"; g.fillRect(0, 0, 128, 128);
+    ["#6d6648", "#5c6a46", "#a8976f", "#3f3a2c", "#7a6e4f"].forEach((col, k) => { g.fillStyle = col;
+      for (let i = 0; i < 16; i++) { const x = Math.random() * 128, y = Math.random() * 128, rx = 6 + Math.random() * (k === 3 ? 6 : 14), ry = rx * (0.4 + Math.random() * 0.6);
+        g.beginPath(); g.ellipse(x, y, rx, ry, Math.random() * Math.PI, 0, Math.PI * 2); g.fill(); g.beginPath(); g.ellipse((x + 64) % 128, (y + 64) % 128, rx * 0.7, ry * 0.7, Math.random() * Math.PI, 0, Math.PI * 2); g.fill(); } });
+    MIMETICA = new THREE.CanvasTexture(c); MIMETICA.wrapS = MIMETICA.wrapT = THREE.RepeatWrapping; MIMETICA.repeat.set(2, 2);
+    return MIMETICA;
+  }
   function mesh(geo, mat, x, y, z) { const o = new THREE.Mesh(geo, mat); o.position.set(x || 0, y || 0, z || 0); o.castShadow = true; return o; }
   // figura umana articolata (1,78 m): bacino come radice, giunti come gruppi per le pose
   function persona(o) {
     o = o || {};
-    const tuta = mStd(o.tuta || 0x8a7a5c), scuro = mStd(o.attrezzi || 0x3b3a33), pelle = mStd(0xb08a6e, 0.7), casco = mStd(o.casco || 0x6f6650, 0.6);
+    const tuta = o.mimetica ? new THREE.MeshStandardMaterial({ map: mimetica(), roughness: 0.92 }) : mStd(o.tuta || 0x8a7a5c), scuro = mStd(o.attrezzi || 0x3b3a33), pelle = mStd(0xb08a6e, 0.7), casco = mStd(o.casco || 0x6f6650, 0.6);
     const R = new THREE.Group(); R.name = o.nome || "persona";
     const bac = new THREE.Group(); bac.position.y = 0.98; R.add(bac);
     const busto = new THREE.Group(); bac.add(busto);
     busto.add(mesh(new THREE.CapsuleGeometry(0.17, 0.38, 4, 10), tuta, 0, 0.3, 0));
-    if (o.giubbotto !== false) { busto.add(mesh(new THREE.BoxGeometry(0.42, 0.42, 0.28), o.giubbotto ? mStd(o.giubbotto) : scuro, 0, 0.33, 0.02)); }
-    if (o.zaino) busto.add(mesh(new THREE.BoxGeometry(0.34, 0.42, 0.18), mStd(o.zaino), 0, 0.34, -0.22));
+    if (o.giubbotto !== false) { const v = mesh(new THREE.CapsuleGeometry(0.19, 0.22, 4, 12), o.giubbotto ? mStd(o.giubbotto) : scuro, 0, 0.34, 0.01); v.scale.set(1.05, 1, 0.82); busto.add(v); }
+    if (o.zaino) { const z = mesh(new THREE.CapsuleGeometry(0.13, 0.18, 4, 10), mStd(o.zaino), 0, 0.36, -0.2); z.scale.set(1.1, 1, 0.7); busto.add(z); }
     const collo = new THREE.Group(); collo.position.y = 0.62; busto.add(collo);
     collo.add(mesh(new THREE.SphereGeometry(0.11, 12, 10), pelle, 0, 0.1, 0.01));
     const elmo = mesh(new THREE.SphereGeometry(0.135, 14, 10, 0, PI * 2, 0, PI * 0.6), casco, 0, 0.13, 0); collo.add(elmo);
@@ -301,9 +313,10 @@ void main() {
         W.fuoco.emetti({ pos: V3(L.relitto.x + rnd(-9, 9), y + rnd(0.5, 2), L.relitto.z + rnd(-10, 8)), vel: V3(0, rnd(3, 6), 0), vita: rnd(0.5, 1.0), s0: rnd(2.5, 4.5), s1: 1, a0: 0.9, col: 0xffc060, col1: 0xff3a08, drag: 0.4 }); }
     }
     if (W.segnale) {
-      const y = suolo(L.lz.x, L.lz.z);
+      // il fumogeno segna la LZ e il vento: sta sottovento, così l'elicottero si posa a monte del fumo
+      const vd = Math.hypot(W.vento.x, W.vento.z) || 1, fx = L.lz.x + W.vento.x / vd * 25, fz = L.lz.z + W.vento.z / vd * 25, y = suolo(fx, fz);
       W.arancioT = (W.arancioT || 0) - dt; if (W.arancioT <= 0) { W.arancioT = 0.07;
-        W.fumo.emetti({ pos: V3(L.lz.x + 1.5, y + 0.4, L.lz.z), vel: V3(rnd(-0.5, 0.5), rnd(2.5, 4), rnd(-0.5, 0.5)), vita: rnd(7, 10), s0: 1.2, s1: 18, a0: 0.75, col: 0xff7a1c, col1: 0xf2b07a, drag: 0.3, su: 0.15, vento: 1.0 }); }
+        W.fumo.emetti({ pos: V3(fx, y + 0.4, fz), vel: V3(rnd(-0.4, 0.4), rnd(2, 3.2), rnd(-0.4, 0.4)), vita: rnd(6, 9), s0: 0.9, s1: 10, a0: 0.55, col: 0xff7a1c, col1: 0xf2b07a, drag: 0.3, su: 0.12, vento: 1.0 }); }
     }
     if (W.ip.visible) { const j = W.ip.userData.j; if (j && j.strobo) j.strobo.visible = W.plb && (tW % 1) < 0.08; }
     W.fumo.aggiorna(dt, W.vento); W.fuoco.aggiorna(dt, W.vento);
@@ -542,12 +555,14 @@ void main() {
     const sc = W.sc, P = S.pl, L = LUOGHI, it = I();
     const lz = V3(L.lz.x, suolo(L.lz.x, L.lz.z), L.lz.z), ip = V3(L.ip.x, suolo(L.ip.x, L.ip.z), L.ip.z);
     // l'elicottero si posa sulla LZ con la prua verso sud (uscita), qualunque fosse il suo assetto
-    const P0 = P.pos.clone(), Q0 = P.Q.clone(), hdgUscita = Math.atan2(ip.x - lz.x, -(ip.z - lz.z)) + PI, Qa = VOLO._acc.assetto(hdgUscita, 0, 0);
+    // portellone destro verso il pilota: il team corre dritto da lui, lontano dal rotore di coda
+    const vIP = ip.clone().sub(lz).setY(0).normalize(), hdgUscita = Math.atan2(vIP.z, vIP.x);
+    const P0 = P.pos.clone(), Q0 = P.Q.clone(), Qa = VOLO._acc.assetto(hdgUscita, 0, 0);
     const gh = (P.A && P.A.gearHeight) || 1.85, posaH = lz.clone().add(V3(0, gh, 0));
     const fw = V3(Math.sin(hdgUscita), 0, -Math.cos(hdgUscita)), dx = V3(Math.cos(hdgUscita), 0, Math.sin(hdgUscita));   // dx: lato destro
     const porta = posaH.clone().addScaledVector(dx, 2.2).add(V3(0, -gh + 0.1, 0));
     // team STOS Pararescue: capo squadra, PJ con la borsa medica, due operatori di sicurezza
-    const colori = { tuta: 0x8c7d5e, giubbotto: 0x5f5a45, casco: 0x6f6650, fucile: true, zaino: 0x6b6448, visore: true, guanti: true };
+    const colori = { mimetica: true, giubbotto: 0x4f4b3a, casco: 0x5d5a47, attrezzi: 0x2c2a24, fucile: true, zaino: 0x5a5440, visore: true, guanti: true };
     const team = [persona(Object.assign({ nome: "STOS 1 (capo)" }, colori)), persona(Object.assign({ nome: "STOS PJ" }, colori, { borsa: true })), persona(Object.assign({ nome: "STOS 3" }, colori)), persona(Object.assign({ nome: "STOS 4" }, colori))];
     team.forEach(p => { p.visible = false; sc.add(p); W.oggetti.push(p); });
     const perimetro = [45, 135, 225, 315].map(a => { const q = hdgUscita + a * D2R; return lz.clone().add(V3(Math.sin(q) * 16, 0, -Math.cos(q) * 16)); });
@@ -556,15 +571,20 @@ void main() {
     const ruota = (dt, rpm) => { const r = rotori(); if (!r) return; const a = r.main && r.main.userData.centurionRotorAxis || "z", b = r.tail && r.tail.userData.centurionRotorAxis || "y"; if (r.main) r.main.rotation[a] += dt * 27 * rpm; if (r.tail) r.tail.rotation[b] += dt * 135 * rpm; };
     const scorta = []; [0, 1].forEach(() => nuovoJet().then(mod => { if (!mod || !W) return; mod.visible = false; mod.userData.animSar = animatore(mod); sc.add(mod); W.oggetti.push(mod); scorta.push(mod); }));
     W.segnale = true;
+    // in vista cabina il modello esterno è nascosto: per il filmato si passa alla camera esterna e si torna dopo
+    const camPrima = S.cam; S.cam = "chase";
+    try { if (P.obj && window.CENTURION_COCKPIT) CENTURION_COCKPIT.setView(P.obj, S.cfg.aereo, false); } catch (e) {}
     const terraLungo = (a, b, k) => { const p = a.clone().lerp(b, k); p.y = suolo(p.x, p.z); return p; };
     const metti = (p, pos, guardaVerso) => { p.visible = true; p.position.copy(pos); if (guardaVerso) p.rotation.set(0, Math.atan2(guardaVerso.x - pos.x, guardaVerso.z - pos.z), 0); };
     cinema(31, (t, dt, cam) => {
+      // gruppo che rientra (pilota sostenuto): dopo lo stacco parte a 12 m dalla porta e cammina a 1,9 m/s
+      const verso = porta.clone().addScaledVector(versoIP, Math.max(0, 12 - Math.max(0, t - 15.6) * 1.9));
       // --- elicottero: atterraggio (se in hovering), a terra, poi decollo e uscita ---
       let H;
       if (t < 2.6) { const k = ss(0, 2.6, t); H = P0.clone().lerp(posaH, k); P.Q.copy(Q0).slerp(Qa, k); }
       else if (t < 25) { H = posaH.clone(); P.Q.copy(Qa); }
       else { const k = t - 25; H = posaH.clone().add(V3(0, Math.min(k, 3) * 3.2 + Math.max(0, k - 3) * 5, 0)).addScaledVector(fw, Math.max(0, k - 2.2) ** 2 * 3.2); P.Q.copy(VOLO._acc.assetto(hdgUscita, -ss(25.5, 28, t) * 10 * D2R, 0)); }
-      P.pos.copy(H); if (P.obj) { P.obj.position.copy(H); P.obj.quaternion.copy(P.Q); } ruota(dt, 1);
+      P.pos.copy(H); if (P.obj) { P.obj.visible = true; P.obj.position.copy(H); P.obj.quaternion.copy(P.Q); } ruota(dt, 1);
       // --- flusso del rotore: polvere ed erba che corrono via radialmente ---
       const hAGL = H.y - suolo(H.x, H.z);
       if (hAGL < 35 && Math.random() < 0.9) for (let i = 0; i < 3; i++) { const a = rnd(0, PI * 2), rr = rnd(3, 9), p = V3(H.x + Math.cos(a) * rr, suolo(H.x + Math.cos(a) * rr, H.z + Math.sin(a) * rr) + 0.4, H.z + Math.sin(a) * rr), sp = rnd(10, 16) * (1 - hAGL / 40);
@@ -575,13 +595,13 @@ void main() {
         if (t < uscita) { p.visible = false; return; }
         if (i >= 2) {   // sicurezza: corsa al perimetro, in ginocchio rivolti all'esterno, rientro per ultimi
           const dest = perimetro[i === 2 ? 0 : 1], kc = ss(uscita, uscita + 3, t);
-          if (t < 22.3 + i * 0.4) { const pos = terraLungo(porta, dest, kc); metti(p, pos, kc < 1 ? dest : pos.clone().add(dest.clone().sub(lz))); posa(p, kc < 1 ? "corsa" : "ginocchio", t * 1.6); }
-          else { const kr = ss(22.3 + i * 0.4, 24.2 + i * 0.3, t); const pos = terraLungo(dest, porta, kr); metti(p, pos, porta); posa(p, "corsa", t * 1.6); p.visible = kr < 0.98; }
-        } else {        // capo squadra e PJ: verso il pilota, autenticazione, prime cure, lo sostengono fino all'elicottero
-          const lato = i ? 0.9 : -0.9, vicino = presso.clone().addScaledVector(V3(-versoIP.z, 0, versoIP.x), lato);
-          if (t < 8.6) { const k = ss(uscita, 8.6, t) * 0.55; metti(p, terraLungo(porta, vicino, k), vicino); posa(p, "corsa", t * 1.7); }
-          else if (t < 15.6) { const k = 0.55 + 0.45 * ss(8.6, 9.6, t); metti(p, terraLungo(porta, vicino, k), ip); posa(p, k < 0.99 ? "corsa" : (i ? "cura" : "ginocchio"), t * 1.2); }
-          else if (t < 22) { const k = ss(15.6, 22, t); const a = vicino.clone().lerp(porta, k); a.y = suolo(a.x, a.z); metti(p, a, porta); posa(p, "cammina", t * 1.1); }
+          if (t < 21.0 + i * 0.4) { const pos = terraLungo(porta, dest, kc); metti(p, pos, kc < 1 ? dest : pos.clone().add(dest.clone().sub(lz))); posa(p, kc < 1 ? "corsa" : "ginocchio", t * 1.6); }
+          else { const kr = ss(21.0 + i * 0.4, 23.8 + i * 0.3, t); const pos = terraLungo(dest, porta, kr); metti(p, pos, porta); posa(p, "corsa", t * 1.6); p.visible = kr < 0.98; }
+        } else {        // capo squadra e PJ: corsa verso il pilota (stacco), autenticazione e cure, poi lo sostengono fino all'elicottero
+          const lato = i ? 0.9 : -0.9, laterale = V3(-versoIP.z, 0, versoIP.x), vicino = presso.clone().addScaledVector(laterale, lato);
+          if (t < 8.6) { const d = Math.min(30, (t - uscita) * 4.2); const a = porta.clone().addScaledVector(versoIP, d).addScaledVector(laterale, lato); a.y = suolo(a.x, a.z); metti(p, a, vicino); posa(p, "corsa", t * 1.7); }
+          else if (t < 15.6) { const k = ss(8.6, 9.4, t); const a = vicino.clone().addScaledVector(versoIP, -3 * (1 - k)); a.y = suolo(a.x, a.z); metti(p, a, ip); posa(p, k < 0.99 ? "corsa" : (i ? "cura" : "ginocchio"), t * 1.2); }
+          else if (t < 22) { const a = verso.clone().addScaledVector(laterale, lato * 0.7); a.y = suolo(a.x, a.z); metti(p, a, porta); posa(p, "cammina", t * 1.1); }
           else { p.visible = t < 22.6; }
         }
       });
@@ -589,7 +609,7 @@ void main() {
       W.ip.visible = t < 22.4; const j = W.ip.userData.j;
       if (t < 9.5) { posa(W.ip, t > 6 ? "saluta" : "seduto", t); if (t > 6) { j.bac.position.y = 0.2; j.anche.forEach(o => o.rotation.x = -1.45); } }
       else if (t < 15.6) { posa(W.ip, "seduto"); if (!W.laccio && t > 12) { W.laccio = mesh(new THREE.CylinderGeometry(0.085, 0.085, 0.1, 10), mStd(0x111111)); W.laccio.position.set(0, -0.2, 0); j.anche[1].add(W.laccio); } }
-      else if (t < 22) { const k = ss(15.6, 22, t); const a = ip.clone().lerp(porta, k); a.y = suolo(a.x, a.z); W.ip.position.copy(a); W.ip.rotation.set(0, Math.atan2(porta.x - a.x, porta.z - a.z), 0); posa(W.ip, "sostenuto", t * 1.1); }
+      else if (t < 22) { const a = verso.clone(); a.y = suolo(a.x, a.z); W.ip.position.copy(a); W.ip.rotation.set(0, Math.atan2(porta.x - a.x, porta.z - a.z), 0); posa(W.ip, "sostenuto", t * 1.1); }
       // --- scorta: due Typhoon passano sopra durante l'uscita ---
       scorta.forEach((s, i) => { const k = t - 27.2 - i * 0.35; s.visible = k > -1 && k < 3; if (!s.visible) return; const p = posaH.clone().addScaledVector(fw, -900 + k * 260).addScaledVector(dx, -40 + i * 70); p.y = posaH.y + 160 + i * 25; s.position.copy(p); s.quaternion.copy(VOLO._acc.assetto(hdgUscita, 0, (i ? 18 : -10) * D2R)); if (s.userData.animSar) s.userData.animSar({ afterburner: 0, spinta: 1, t }); });
       effettiFissiCinema(dt);
@@ -597,7 +617,8 @@ void main() {
       if (t < 3.5) { didascalia("CAESAR 1 · atterraggio nella LZ", "Il flusso del rotore solleva polvere ed erba; il fumogeno arancione indica il vento"); dissolvenza(Math.max(0, 1 - t * 1.6));
         inquadra(cam, lz.clone().addScaledVector(dx, 38).addScaledVector(fw, 14).add(V3(0, 1.6, 0)), H.clone().add(V3(0, 1, 0)), 44, t < 0.05 ? 0 : 2, dt); }
       else if (t < 8.6) { didascalia("Team STOS a terra", "Due operatori formano il perimetro di sicurezza, capo squadra e Pararescue (PJ) vanno verso il pilota");
-        const c = team[1].visible ? team[1].position.clone() : porta.clone(); inquadra(cam, c.clone().addScaledVector(versoIP, -9).add(V3(3, 2.4, 0)), c.clone().addScaledVector(versoIP, 6).add(V3(0, 1, 0)), 48, 3.5, dt); }
+        // dal fianco del portellone, davanti al muso: si vedono l'elicottero e il team che corre verso il pilota
+        inquadra(cam, porta.clone().addScaledVector(fw, 11).addScaledVector(versoIP, 4).add(V3(0, 2.2, 0)), porta.clone().addScaledVector(versoIP, 16).add(V3(0, 1, 0)), 50, t < 3.55 ? 0 : 2, dt); }
       else if (t < 15.6) { didascalia(t < 11.5 ? "Autenticazione" : "Prime cure (TCCC)", t < 11.5 ? "Il PJ verifica l'identità con le domande della scheda ISOPREP: risposta corretta" : "Emorragia controllata, gamba immobilizzata, valutazione e conforto");
         inquadra(cam, ip.clone().addScaledVector(versoIP, -3.2).add(V3(2.4, 1.3, 1.2)), ip.clone().add(V3(0, 0.7, 0)), 36, t < 8.65 ? 0 : 1.5, dt); }
       else if (t < 22) { didascalia("Verso l'elicottero", "Il pilota, sostenuto da capo squadra e PJ; il perimetro resta in posizione fino all'imbarco");
@@ -609,7 +630,7 @@ void main() {
     }, () => {
       team.forEach(p => { if (p.parent) p.parent.remove(p); }); scorta.forEach(s => { if (s.parent) s.parent.remove(s); });
       // si riprende il volo: in uscita verso sud, 120 ft sul terreno, 40 kt
-      const h = hdgUscita / D2R; piazzaElicottero(S, { x: P.pos.x, z: P.pos.z }, h, 37, 20); S.thr = 0.68;
+      const h = hdgUscita / D2R; piazzaElicottero(S, { x: P.pos.x, z: P.pos.z }, h, 37, 20); S.thr = 0.68; S.cam = camPrima || "chase";
       fine && fine();
     });
   }
