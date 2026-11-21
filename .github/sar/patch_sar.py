@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """CENTURION · missione di Personnel Recovery con gli STOS (Accademia, modulo «Soccorso»).
 
-Copia js/soccorso.js (mondo della missione, radiogoniometro del radiofaro, filmati di schianto e recupero) e prepara
+Copia js/soccorso.js (mondo della missione, navigatore GPS, filmati di schianto e recupero) e prepara
 il Free Flight ai filmati girati nel suo mondo 3D:
 - la camera può essere guidata da un filmato (S.cineCam) al posto delle inquadrature di gioco;
 - il visore si spegne durante i filmati (S.cineHud = false);

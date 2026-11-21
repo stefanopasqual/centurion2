@@ -1,12 +1,13 @@
 /* CENTURION · Personnel Recovery con gli STOS (Supporto Tattico alle Operazioni Speciali, Aeronautica Militare).
 
    Missione dell'Accademia «Soccorso»: un Typhoon colpito da un MANPADS in area non permissiva sul Grappa, il pilota
-   (personale isolato) si eietta e attiva il radiofaro PLB; l'elicottero di recupero con a bordo un team STOS Pararescue
-   entra a bassa quota sfruttando il terreno, localizza il pilota, atterra nella zona indicata; gli STOS mettono in
+   (personale isolato) si eietta; in area ostile tiene spento il radiofaro (il nemico lo localizzerebbe) e invia la sua
+   posizione GPS cifrata con la radio di sopravvivenza; l'elicottero di recupero con a bordo un team STOS Pararescue
+   entra a bassa quota sfruttando il terreno, vola sulle coordinate GPS, atterra nella zona indicata; gli STOS mettono in
    sicurezza l'area, autenticano il pilota, prestano le prime cure (TCCC) e lo imbarcano; poi l'uscita verso il punto
    di consegna.
    Questo modulo contiene il mondo della missione (relitto in fiamme, pilota, minaccia, zona di atterraggio), il
-   radiogoniometro del radiofaro, i marcatori e i due filmati (schianto, recupero) girati nel mondo 3D del Free Flight
+   navigatore GPS dell'elicottero, i marcatori e i due filmati (schianto, recupero) girati nel mondo 3D del Free Flight
    con resa ad alta risoluzione (fino a 3840 px di larghezza, "4K", se lo schermo lo consente).
    Scenario illustrativo: nomi, posizioni e procedure semplificati a scopo didattico. */
 const SOCCORSO = (() => {
@@ -303,7 +304,7 @@ void main() {
     if (!W.segnale && k.dIP < 2000) { W.segnale = true; try { VOLO._acc.messaggio("LUPO 21: «vi sento, fumogeno arancione acceso»", 3.5); } catch (e) {} }
     strumenti(S, k);
   }
-  // effetti persistenti: colonna di fumo e fuochi del relitto, fumogeno arancione del pilota, strobo
+  // effetti persistenti: colonna di fumo e fuochi del relitto, fumogeno arancione del pilota (nessuna luce: area ostile)
   function effettiFissi(dt) {
     if (!W) return; const L = LUOGHI, tW = W.t;
     if (W.relitto.visible) {
@@ -319,40 +320,84 @@ void main() {
       W.arancioT = (W.arancioT || 0) - dt; if (W.arancioT <= 0) { W.arancioT = 0.07;
         W.fumo.emetti({ pos: V3(fx, y + 0.4, fz), vel: V3(rnd(-0.4, 0.4), rnd(2, 3.2), rnd(-0.4, 0.4)), vita: rnd(6, 9), s0: 0.9, s1: 10, a0: 0.55, col: 0xff7a1c, col1: 0xf2b07a, drag: 0.3, su: 0.12, vento: 1.0 }); }
     }
-    if (W.ip.visible) { const j = W.ip.userData.j; if (j && j.strobo) j.strobo.visible = W.plb && (tW % 1) < 0.08; }
+    if (W.ip.visible) { const j = W.ip.userData.j; if (j && j.strobo) j.strobo.visible = false; }
     W.fumo.aggiorna(dt, W.vento); W.fuoco.aggiorna(dt, W.vento);
   }
 
-  /* ======================= strumenti: radiogoniometro del PLB e marcatori ======================= */
+  /* ======================= strumenti: navigatore GPS e marcatori ======================= */
+  // Il pilota tiene spento il radiofaro: la sua radio di sopravvivenza invia la posizione GPS cifrata e l'elicottero
+  // la carica nel navigatore. Niente radiogoniometro: si vola sulle coordinate.
+  const geo = p => ({ lat: CENTRO[0] - p.z / 111320, lon: CENTRO[1] + p.x / M_LON });
+  const gradiMin = (v, pos, neg, cifre) => { const a = Math.abs(v), gr = Math.floor(a), mi = (a - gr) * 60; return `${v >= 0 ? pos : neg}${String(gr).padStart(cifre, "0")}°${mi.toFixed(2).padStart(5, "0")}′`; };
+  const coordinate = p => { const c = geo(p); return gradiMin(c.lat, "N", "S", 2) + " " + gradiMin(c.lon, "E", "W", 3); };
+  const km = d => d < 1000 ? `${Math.round(d)} m` : `${(d / 1000).toFixed(1).replace(".", ",")} km`;
   function strumenti(S, k) {
     const ov = I().overlay; if (!ov) return;
-    if (!W.df) {
-      W.df = document.createElement("canvas"); W.df.id = "soc-df"; W.df.width = 264; W.df.height = 300;
-      Object.assign(W.df.style, { position: "absolute", left: "12px", top: "70px", width: "132px", height: "150px", pointerEvents: "none", zIndex: 30 });
-      ov.appendChild(W.df);
+    if (!W.nav) {
+      W.nav = document.createElement("canvas"); W.nav.id = "soc-gps";
+      Object.assign(W.nav.style, { position: "absolute", left: "12px", top: "70px", pointerEvents: "none", zIndex: 30 });
+      ov.appendChild(W.nav);
       W.mk = document.createElement("canvas"); W.mk.id = "soc-mk"; Object.assign(W.mk.style, { position: "absolute", inset: "0", width: "100%", height: "100%", pointerEvents: "none", zIndex: 29 }); ov.appendChild(W.mk);
     }
     if ((W.uiT = (W.uiT || 0) - 1) > 0) return; W.uiT = 3;
-    const g = W.df.getContext("2d"), s = 2, P = S.pl, f = V3(0, 0, 1).applyQuaternion(P.Q), hdg = (Math.atan2(f.x, -f.z) / D2R + 360) % 360;
-    g.clearRect(0, 0, 264, 300); g.fillStyle = "rgba(6,14,10,0.72)"; g.strokeStyle = "#5dff8f"; g.lineWidth = 1.5 * s;
-    g.beginPath(); g.roundRect ? g.roundRect(2, 2, 260, 296, 16) : g.rect(2, 2, 260, 296); g.fill(); g.stroke();
-    g.fillStyle = "#5dff8f"; g.font = `700 ${11 * s}px Consolas, monospace`; g.textAlign = "center"; g.fillText("PLB 406 · DF", 132, 26);
-    const cx = 132, cy = 128, r = 74;
-    g.beginPath(); g.arc(cx, cy, r, 0, PI * 2); g.stroke();
-    for (let a = 0; a < 360; a += 30) { const q = (a - hdg) * D2R; g.beginPath(); g.moveTo(cx + Math.sin(q) * r, cy - Math.cos(q) * r); g.lineTo(cx + Math.sin(q) * (r - (a % 90 ? 7 : 14)), cy - Math.cos(q) * (r - (a % 90 ? 7 : 14))); g.stroke(); if (a % 90 === 0) { g.font = `700 ${9 * s}px Consolas, monospace`; g.fillText("NESW"[a / 90], cx + Math.sin(q) * (r - 26), cy - Math.cos(q) * (r - 26) + 7); } }
-    const rel = (k.brgIP - hdg) * D2R, forza = clamp(1 - k.dIP / 12000, 0.08, 1);
-    g.strokeStyle = "#ffb04d"; g.fillStyle = "#ffb04d"; g.lineWidth = 3 * s; g.beginPath(); g.moveTo(cx - Math.sin(rel) * 22, cy + Math.cos(rel) * 22); g.lineTo(cx + Math.sin(rel) * (r - 18), cy - Math.cos(rel) * (r - 18)); g.stroke();
-    g.beginPath(); const tx = cx + Math.sin(rel) * (r - 6), ty = cy - Math.cos(rel) * (r - 6); g.moveTo(tx, ty); g.lineTo(tx - Math.sin(rel - 0.35) * 16, ty + Math.cos(rel - 0.35) * 16); g.lineTo(tx - Math.sin(rel + 0.35) * 16, ty + Math.cos(rel + 0.35) * 16); g.fill();
-    g.fillStyle = "#5dff8f"; g.font = `700 ${11 * s}px Consolas, monospace`; g.fillText(`${(k.dIP / 1000).toFixed(1)} km · ${Math.round(k.brgIP)}°`, 132, 234);
-    for (let i = 0; i < 8; i++) { g.fillStyle = i < forza * 8 ? "#5dff8f" : "rgba(93,255,143,0.18)"; g.fillRect(60 + i * 18, 262 - i * 3, 12, 10 + i * 3); }
-    if (k.inMinaccia) { g.fillStyle = k.esposto ? "#ff4d4d" : "#ffb04d"; g.font = `700 ${10 * s}px Consolas, monospace`; g.fillText(k.esposto ? `ESPOSTO ${Math.round(k.esposizione)} s` : "MINACCIA · basso", 132, 292); }
-    // marcatori sullo schermo: pilota (rombo arancione) e zona di atterraggio
+    // sotto la fila di tasti del volo; più stretto sui telefoni per non coprire la velocità; nitido a ogni densità di pixel
+    const fila = ov.querySelector("#vl-top, .vl-top"), rf = fila ? fila.getBoundingClientRect() : null, ro = ov.getBoundingClientRect();
+    const larg = innerHeight < 500 ? 104 : 132, alt = Math.round(larg * 324 / 264), dpr = Math.min(3, window.devicePixelRatio || 1);
+    const top = Math.round((rf && rf.bottom > 0 ? rf.bottom - ro.top : 60) + 10);
+    if (W.navTop !== top || W.navW !== larg) { W.navTop = top; W.navW = larg; Object.assign(W.nav.style, { top: top + "px", width: larg + "px", height: alt + "px" }); W.nav.width = Math.round(larg * dpr); W.nav.height = Math.round(alt * dpr); }
+    const g = W.nav.getContext("2d"), P = S.pl, L = LUOGHI, f = V3(0, 0, 1).applyQuaternion(P.Q), hdg = (Math.atan2(f.x, -f.z) / D2R + 360) % 360;
+    g.setTransform(W.nav.width / 264, 0, 0, W.nav.height / 324, 0, 0);
+    const att = W.recuperato ? { n: "CONSEGNA", p: L.consegna, d: k.dConsegna, b: k.brgConsegna } : { n: "LZ", p: L.lz, d: k.dLZ, b: k.brgLZ };
+    g.clearRect(0, 0, 264, 324); g.fillStyle = "rgba(6,14,10,0.78)"; g.strokeStyle = "#5dff8f"; g.lineWidth = 3;
+    g.beginPath(); g.roundRect ? g.roundRect(2, 2, 260, 320, 16) : g.rect(2, 2, 260, 320); g.fill(); g.stroke();
+    g.font = "700 22px Consolas, monospace"; g.textAlign = "left"; g.fillStyle = "#5dff8f"; g.fillText("GPS", 14, 29);
+    g.textAlign = "right"; g.fillStyle = "#ff6ae6"; g.fillText("▸ " + att.n, 250, 29);
+    // mappa con la prua in alto, scala che contiene il punto attivo
+    const cx = 132, cy = 146, r = 96, scala = [1000, 2000, 5000, 10000, 20000].find(v => att.d < v * 0.85) || 20000, px = r / scala;
+    const scr = q => { const dx = q.x - P.pos.x, dz = q.z - P.pos.z, d = Math.hypot(dx, dz), rb = Math.atan2(dx, -dz) - hdg * D2R; return { x: cx + Math.sin(rb) * d * px, y: cy - Math.cos(rb) * d * px }; };
+    g.save(); g.beginPath(); g.arc(cx, cy, r, 0, PI * 2); g.clip();
+    g.fillStyle = "rgba(12,34,22,0.6)"; g.fillRect(cx - r, cy - r, 2 * r, 2 * r);
+    const mz = scr(L.minaccia); g.fillStyle = "rgba(255,60,60,0.17)"; g.strokeStyle = "rgba(255,95,95,0.95)"; g.lineWidth = 2.5;   // zona della minaccia (intelligence)
+    g.beginPath(); g.arc(mz.x, mz.y, R_MINACCIA * px, 0, PI * 2); g.fill(); g.stroke();
+    g.strokeStyle = "rgba(93,255,143,0.3)"; g.lineWidth = 1.5; g.beginPath(); g.arc(cx, cy, r / 2, 0, PI * 2); g.stroke();
+    // rosa dei venti sotto i simboli, tenue
+    g.strokeStyle = "rgba(93,255,143,0.75)"; g.fillStyle = "rgba(93,255,143,0.5)"; g.lineWidth = 2;
+    for (let d = 0; d < 360; d += 30) { const q = (d - hdg) * D2R, l = d % 90 ? 7 : 13; g.beginPath(); g.moveTo(cx + Math.sin(q) * r, cy - Math.cos(q) * r); g.lineTo(cx + Math.sin(q) * (r - l), cy - Math.cos(q) * (r - l)); g.stroke();
+      if (d % 90 === 0) { g.font = "700 15px Consolas, monospace"; g.textAlign = "center"; g.fillText("NESW"[d / 90], cx + Math.sin(q) * (r - 24), cy - Math.cos(q) * (r - 24) + 5); } }
+    const a = scr(att.p); g.strokeStyle = "#ff6ae6"; g.lineWidth = 3.5; g.beginPath(); g.moveTo(cx, cy); g.lineTo(a.x, a.y); g.stroke();   // rotta GPS
+    // punti: simboli dentro la mappa, etichette disegnate dopo (fuori dal ritaglio, così non si tagliano sul bordo);
+    // l'etichetta va dal lato del centro; se LZ e pilota (150 m) quasi coincidono, «LZ» va dal lato opposto e più in basso
+    const sLZ = scr(L.lz), sIP = scr(L.ip), vicini = !W.recuperato && Math.hypot(sLZ.x - sIP.x, sLZ.y - sIP.y) < 34, etichette = [];
+    const lato = q => q.x > cx + 10 ? -1 : 1;
+    const wp = (q, col, nome, rombo, verso, dy) => { const s = scr(q); g.strokeStyle = col; g.lineWidth = 3; g.beginPath();
+      if (rombo) { g.moveTo(s.x, s.y - 8); g.lineTo(s.x + 8, s.y); g.lineTo(s.x, s.y + 8); g.lineTo(s.x - 8, s.y); g.closePath(); } else g.arc(s.x, s.y, 7, 0, PI * 2);
+      g.stroke(); if (Math.hypot(s.x - cx, s.y - cy) < r + 4) etichette.push({ s, col, nome, verso: verso || lato(s), dy: dy || 6 }); };
+    wp(L.consegna, "#5dff8f", "CONS", false);
+    const vIP = lato(sIP); wp(L.lz, "#5dff8f", "LZ", true, vicini ? -vIP : 0, vicini ? 16 : 6); if (!W.recuperato) wp(L.ip, "#ffb04d", "LUPO 21", true, vIP);
+    g.restore();
+    g.font = "700 17px Consolas, monospace"; g.lineWidth = 4;
+    etichette.forEach(e => { const tx = e.s.x + 12 * e.verso, ty = e.s.y + e.dy; g.textAlign = e.verso < 0 ? "right" : "left";
+      g.strokeStyle = "rgba(6,14,10,0.9)"; g.strokeText(e.nome, tx, ty); g.fillStyle = e.col; g.fillText(e.nome, tx, ty); });
+    g.strokeStyle = "#5dff8f"; g.lineWidth = 2; g.beginPath(); g.arc(cx, cy, r, 0, PI * 2); g.stroke();
+    g.fillStyle = "#ffffff"; g.beginPath(); g.moveTo(cx, cy - 10); g.lineTo(cx + 7, cy + 8); g.lineTo(cx, cy + 4); g.lineTo(cx - 7, cy + 8); g.closePath(); g.fill();   // elicottero
+    g.fillStyle = "rgba(93,255,143,0.85)"; g.font = "700 15px Consolas, monospace"; g.textAlign = "left"; g.fillText(`${scala / 1000} km`, 10, cy + r + 2);
+    g.textAlign = "right"; g.fillText(`PRUA ${String(Math.round(hdg) % 360).padStart(3, "0")}°`, 254, cy + r + 2);
+    // dati del punto attivo: distanza, rotta, tempo stimato, velocità al suolo
+    const gs = k.kt, ete = gs > 5 ? att.d / (gs / 1.94384) : null;
+    g.fillStyle = "#5dff8f"; g.textAlign = "center"; g.font = "700 21px Consolas, monospace";
+    g.fillText(`${km(att.d)} · ${String(Math.round(att.b) % 360).padStart(3, "0")}°`, 132, 268);
+    g.font = "700 17px Consolas, monospace";
+    g.fillText(`ETE ${ete == null ? "--:--" : Math.floor(ete / 60) + ":" + String(Math.floor(ete % 60)).padStart(2, "0")} · GS ${Math.round(gs)} kt`, 132, 292);
+    if (k.inMinaccia) { g.fillStyle = k.esposto ? "#ff4d4d" : "#ffb04d"; g.font = "700 18px Consolas, monospace"; g.fillText(k.esposto ? `ESPOSTO ${Math.round(k.esposizione)} s` : "MINACCIA · resta basso", 132, 314); }
+    else { g.fillStyle = "rgba(93,255,143,0.85)"; g.font = "700 15px Consolas, monospace"; g.fillText(coordinate(att.p), 132, 313); }
+    // punti GPS proiettati sullo schermo (come nel visore del casco): pilota (rombo arancione), LZ, consegna
     const cam = I().camera, mk = W.mk, w = mk.clientWidth, h = mk.clientHeight; if (mk.width !== w) mk.width = w; if (mk.height !== h) mk.height = h;
     const m = mk.getContext("2d"); m.clearRect(0, 0, w, h); if (!cam || S.cam === "cockpit") return;
     const segna = (p, testo, col, dist) => { const v = V3(p.x, suolo(p.x, p.z) + 2, p.z).project(cam); if (v.z > 1 || Math.abs(v.x) > 1 || Math.abs(v.y) > 1) return; const x = (v.x + 1) / 2 * w, y = (1 - v.y) / 2 * h;
       m.strokeStyle = col; m.lineWidth = 2; m.beginPath(); m.moveTo(x, y - 9); m.lineTo(x + 9, y); m.lineTo(x, y + 9); m.lineTo(x - 9, y); m.closePath(); m.stroke(); m.fillStyle = col; m.font = "700 12px Consolas, monospace"; m.textAlign = "left"; m.fillText(`${testo} ${dist < 1000 ? Math.round(dist) + " m" : (dist / 1000).toFixed(1) + " km"}`, x + 13, y + 4); };
-    if (k.dIP < 3500) segna(LUOGHI.ip, "LUPO 21", "#ffb04d", k.dIP);
-    if (k.dLZ < 1500) segna(LUOGHI.lz, "LZ", "#5dff8f", k.dLZ);
+    if (!W.recuperato && k.dIP < 3500) segna(LUOGHI.ip, "LUPO 21", "#ffb04d", k.dIP);
+    if (!W.recuperato && k.dLZ < 1500) segna(LUOGHI.lz, "LZ", "#5dff8f", k.dLZ);
+    if (W.recuperato && k.dConsegna < 4000) segna(LUOGHI.consegna, "CONSEGNA", "#5dff8f", k.dConsegna);
   }
 
   /* ======================= cinema: qualità, inquadrature, didascalie ======================= */
@@ -502,11 +547,11 @@ void main() {
           seg.visible = t < 12; seg.position.y -= 40 * dt;
           const p = posPara(t), arrivato = t >= tTocco;
           if (!arrivato) { para.visible = true; const resp = 1 + 0.03 * Math.sin(t * 2.3); para.scale.set(resp, 1 / resp, resp); para.position.copy(p).add(V3(0, -1.55, 0)); para.rotation.y += dt * 0.15; pil.position.copy(p).add(V3(0, -1.55, 0)); posa(pil, "appeso", t, 1); }
-          else { // a terra: la calotta si affloscia sottovento, il pilota si siede e accende il radiofaro
+          else { // a terra: la calotta si affloscia sottovento, il pilota si siede; radiofaro spento, usa la radio GPS
             const k = ss(tTocco, tTocco + 1.6, t), vd = vento.clone().setY(0).normalize(); para.position.copy(atterra).addScaledVector(vd, 4 + 6 * k); para.position.y = suolo(para.position.x, para.position.z) + 0.3 * (1 - k) + 0.2;
             para.scale.set(1 + 0.15 * k, Math.max(0.06, 1 - k), 1 + 0.15 * k); para.rotation.set(0, 0, -0.08 * k); para.userData.linee.visible = k < 0.6;
             pil.position.copy(atterra); pil.rotation.set(0, 2.4, 0); pil.quaternion.setFromEuler(pil.rotation); posa(pil, t < tTocco + 1.2 ? "cammina" : "seduto", t);
-            const j = pil.userData.j; if (j && t > 22.4) j.strobo.visible = (t % 1) < 0.1;
+            const j = pil.userData.j; if (j) j.strobo.visible = false;
           }
         }
         // --- impatto sul versante ---
@@ -537,12 +582,12 @@ void main() {
         else if (t < 20.8) { didascalia("Discesa", "Il pilota scende verso un prato del versante, sottovento al relitto");
           const c = posPara(t).add(V3(0, -1.5, 0)), a = mix(0.5, 2.1, ss(13, 20.8, t)); inquadra(cam, c.clone().add(V3(Math.cos(a) * 24, 3 - ss(13, 20.8, t) * 4, Math.sin(a) * 24)), c.clone().add(V3(0, 2, 0)), 50, t < 13.25 ? 0 : 3, dt); }
         else { const k = ss(20.8, 27, t), vd = vento.clone().setY(0).normalize(), lato = V3(-vd.z, 0, vd.x);
-          didascalia(t < 22.4 ? "LUPO 21 a terra" : t < 24.6 ? "PLB 406 MHz attivo" : "Personale isolato", t < 22.4 ? "Ferito a una gamba, si mette al riparo vicino a un albero" : t < 24.6 ? "Il satellite COSPAS-SARSAT localizza il segnale: «Mayday, LUPO 21 a terra»" : "Si attiva il Personnel Recovery: elicottero con il team STOS Pararescue");
+          didascalia(t < 22.4 ? "LUPO 21 a terra" : t < 24.6 ? "Radiofaro spento" : "Posizione GPS cifrata", t < 22.4 ? "Ferito a una gamba, si mette al riparo vicino a un albero" : t < 24.6 ? "In area ostile il segnale lo farebbe trovare anche al nemico" : "La radio di sopravvivenza invia le coordinate via satellite: parte il Personnel Recovery con il team STOS");
           const p = atterra.clone().addScaledVector(vd, -mix(11, 7, k)).addScaledVector(lato, mix(5, 3, k)); p.y = atterra.y + 1.6; inquadra(cam, p, atterra.clone().add(V3(0, 0.8, 0)), 38, 0, dt); dissolvenza(ss(25.8, 27, t)); }
       }, () => {
         // dopo il filmato: restano relitto, pilota al riparo, calotta a terra; si toglie quello che serviva solo al filmato
         [jet, mg, tet, seg, pil, para].forEach(o => { if (o.parent) o.parent.remove(o); });
-        W.relitto.visible = true; W.ip.visible = true; W.calotta.visible = true; W.plb = true;
+        W.relitto.visible = true; W.ip.visible = true; W.calotta.visible = true;
         fine && fine();
       });
       C.scala = t => (t > 6.28 && t < 7.7) ? 0.32 : 1;   // eiezione al rallentatore
@@ -631,6 +676,7 @@ void main() {
       team.forEach(p => { if (p.parent) p.parent.remove(p); }); scorta.forEach(s => { if (s.parent) s.parent.remove(s); });
       // si riprende il volo: in uscita verso sud, 120 ft sul terreno, 40 kt
       const h = hdgUscita / D2R; piazzaElicottero(S, { x: P.pos.x, z: P.pos.z }, h, 37, 20); S.thr = 0.68; S.cam = camPrima || "chase";
+      if (W) W.recuperato = true;   // il navigatore GPS passa al punto di consegna
       fine && fine();
     });
   }
@@ -642,7 +688,7 @@ void main() {
     if (C) finisci(true);
     if (!W) return; const w = W; W = null;
     w.oggetti.forEach(o => { if (o.parent) o.parent.remove(o); }); w.fumo.dispose(); w.fuoco.dispose();
-    if (w.df) w.df.remove(); if (w.mk) w.mk.remove();
+    if (w.nav) w.nav.remove(); if (w.mk) w.mk.remove();
   }
 
   return { LUOGHI, R_MINACCIA, AGL_MINACCIA, prepara, aggiorna, info, filmatoSchianto, filmatoRecupero, precarica, chiudi, get mondo() { return W; }, get inFilmato() { return !!C; }, get tFilmato() { return C ? C.t : null; },
