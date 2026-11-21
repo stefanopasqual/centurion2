@@ -25,6 +25,7 @@ on:
       - '.github/aero/**'
       - '.github/security/**'
       - '.github/pod/**'
+      - '.github/postbruciatore/**'
       - 'model-sources/**'
   workflow_dispatch:
 
@@ -364,6 +365,16 @@ jobs:
           else:
               print('::warning::Original jet source archives absent: missions still use procedural fallback')
           PY
+      - name: Realistic afterburner flames on every jet nozzle
+        run: |
+          # fiamma volumetrica (nucleo, involucro, diamanti d'urto), bagliore dell'ugello e alone su ogni ugello misurato
+          python3 .github/postbruciatore/patch_postbruciatore.py extracted/site
+          python3 -m py_compile .github/postbruciatore/patch_postbruciatore.py
+          node --check extracted/site/js/postbruciatore.js
+          node --check extracted/site/js/vista3d.js
+          node --check extracted/site/js/modelli3d.js
+          node --check extracted/site/js/volo.js
+          grep -q 'src="js/postbruciatore.js"' extracted/site/index.html
       - name: Refresh offline cache for 3D hangar
         run: |
           # Force a fresh offline cache for the cinematic model and scene assets.

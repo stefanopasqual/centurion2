@@ -103,13 +103,15 @@ const VENETO_CINE = (() => {
     const W = new THREE.Group(); W.add(m); W.updateMatrixWorld(true);
     const bb = new THREE.Box3().setFromObject(m), size = bb.getSize(V3()), yN = bb.min.y + size.y * 0.3;
     const fiamme = [];
-    [-0.5, 0.5].forEach(x => {
+    // il modello glTF ha già le fiamme vere sugli ugelli (js/postbruciatore.js): coni propri solo per il modello di riserva
+    const animMdl = typeof POSTBRUCIATORE !== "undefined" && m.userData && m.userData.anim && m.getObjectByName("postbruciatore") ? m.userData.anim : null;
+    if (!animMdl) [-0.5, 0.5].forEach(x => {
       const f = new THREE.Mesh(new THREE.ConeGeometry(0.42, 3.6, 14, 1, true), new THREE.MeshBasicMaterial({ color: lin(0xff7a1e), transparent: true, opacity: 0.6, depthWrite: false, side: THREE.DoubleSide })); f.rotation.x = -Math.PI / 2; f.position.set(x, yN, bb.min.z - 1.75); W.add(f); fiamme.push(f);
       const c = new THREE.Mesh(new THREE.ConeGeometry(0.22, 1.6, 12, 1, true), new THREE.MeshBasicMaterial({ color: lin(0xffe2a0), transparent: true, opacity: 0.85, depthWrite: false, side: THREE.DoubleSide })); c.rotation.x = -Math.PI / 2; c.position.set(x, yN, bb.min.z - 0.75); W.add(c); fiamme.push(c);
       const g = new THREE.Sprite(new THREE.SpriteMaterial({ map: VENETO.puntoLuce(), color: 0xff9440, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, opacity: 0.6 })); g.position.set(x, yN, bb.min.z + 0.05); g.scale.set(1.2, 1.2, 1); W.add(g); fiamme.push(g);
     });
     fiamme.forEach(f => { f.visible = false; });
-    W.userData = { fiamme, bb, terra: bb.min.y - 1.35 };
+    W.userData = { fiamme, bb, terra: bb.min.y - 1.35, animMdl };
     if (conCarrello) {
       const G = new THREE.Group(), gomma = new THREE.MeshStandardMaterial({ color: 0x15181b, roughness: 0.95 }), met = new THREE.MeshStandardMaterial({ color: 0xb7bfc5, metalness: 0.6, roughness: 0.35 }), yT = W.userData.terra;
       const gamba = (x, z, r) => { const h = bb.min.y + 0.35 - (yT + r); const c = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.09, h, 8), met); c.position.set(x, yT + r + h / 2, z); G.add(c);
@@ -122,7 +124,7 @@ const VENETO_CINE = (() => {
   function fumo(sc, n) {   // nuvolette (pneumatici, inversori): sprite riutilizzati
     const out = []; for (let i = 0; i < n; i++) { const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: puff(), color: 0xdfe3e6, transparent: true, opacity: 0, depthWrite: false })); s.visible = false; sc.add(s); out.push(s); } return out;
   }
-  function postbruciatore(W, k, t) { (W.userData.fiamme || []).forEach((f, i) => { f.visible = k > 0.02; if (f.isMesh) { f.scale.set(1, 0.45 + k * (0.75 + 0.1 * Math.sin(t * 43 + i)), 1); f.material.opacity = (i % 3 === 1 ? 0.5 : 0.25) + 0.4 * k; } else { f.material.opacity = 0.25 + 0.45 * k; const s = 0.9 + 0.9 * k; f.scale.set(s, s, 1); } }); }
+  function postbruciatore(W, k, t) { if (W.userData.animMdl) { W.userData.animMdl({ afterburner: k, spinta: 1, t }); return; } (W.userData.fiamme || []).forEach((f, i) => { f.visible = k > 0.02; if (f.isMesh) { f.scale.set(1, 0.45 + k * (0.75 + 0.1 * Math.sin(t * 43 + i)), 1); f.material.opacity = (i % 3 === 1 ? 0.5 : 0.25) + 0.4 * k; } else { f.material.opacity = 0.25 + 0.45 * k; const s = 0.9 + 0.9 * k; f.scale.set(s, s, 1); } }); }
 
   /* ---------- scena 1: SCRAMBLE a Istrana, pista 08 ---------- */
   async function scenaScramble() {
