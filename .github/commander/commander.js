@@ -11,6 +11,11 @@
  const colorFor=(k,e)=>k==="sam"?"#e85c62":k==="target"?"#facd64":e.lato==="RED"?"#f47576":"#66b5ee";
  function toast(s){if(typeof UI!=="undefined")UI.toast(esc(s));else alert(s);}
  function top(){return $("#commander-overlay")}
+ // missioni del catalogo da cui partire (mappe e scenari già pronti); le lezioni di volo dell'Accademia non sono scenari da comandante
+ function partenze(){
+  if(typeof MISSIONI==="undefined"||!Array.isArray(MISSIONI.ELENCO)||typeof MISSIONI.scenario!=="function")return [];
+  return MISSIONI.ELENCO.filter(m=>m&&m.id&&!m.accademia&&!m.cadet).map(m=>({id:m.id,nome:(m.codice?m.codice+" · ":"")+(m.titolo||m.id)}));
+ }
  function render() {
   const root=top();if(!root||!state.sc)return;
   const s=state.sc;
@@ -63,7 +68,9 @@
    (shared.length?"":'<p>Nessuna missione condivisa: usa 🌐 Condividi</p>')+'</div>';
   root.innerHTML='<header class="cmd-header"><div><b>✪ MODALITÀ COMANDANTE</b><small>Crea e salva le tue missioni</small></div><button class="cmd-save" data-action="save">💾 Salva</button><button data-action="share" title="Pubblica la missione per tutti i dispositivi">🌐 Condividi</button><button data-action="close">✕</button></header>'+
    '<div class="cmd-layout"><aside class="cmd-controls">'+library+
-   '<div class="cmd-card"><h3>Scenario</h3>'+field("Nome missione","meta.nome",s.meta.nome)+
+   '<div class="cmd-card"><h3>Scenario</h3>'+
+   '<label>Parti da una mappa o missione<select id="cmd-start"><option value="">— scegli dal catalogo —</option>'+partenze().map(m=>'<option value="'+esc(m.id)+'">'+esc(m.nome)+'</option>').join("")+'</select></label>'+
+   field("Nome missione","meta.nome",s.meta.nome)+
    field("Centro mappa (lat)","mappa.centro.lat",s.mappa.centro[0],"number","any")+
    field("Centro mappa (lon)","mappa.centro.lon",s.mappa.centro[1],"number","any")+
    '<button data-action="go-location">Vai alla posizione</button><button data-action="use-map-center">Usa centro mappa</button>'+
@@ -107,6 +114,11 @@
   dom.querySelectorAll("[data-load]").forEach(el=>el.addEventListener("click",()=>{const v=C().readSaved(el.dataset.load);if(v){state.savedId=v.id;state.sc=C().importMission(v);state.selection=null;state.placing=null;redrawDetails(false);}}));
   dom.querySelectorAll("[data-load-shared]").forEach(el=>el.addEventListener("click",()=>{C().readShared(el.dataset.loadShared).then(sc=>{state.sc=sc;state.savedId=null;state.selection=null;state.placing=null;redrawDetails(false);toast("Missione condivisa aperta: salvala per modificarla su questo dispositivo");}).catch(e=>alert("Comandante: "+e.message));}));
   dom.querySelectorAll("[data-erase]").forEach(el=>el.addEventListener("click",()=>{if(confirm("Eliminare definitivamente la missione salvata?")){C().remove(el.dataset.erase);if(state.savedId===el.dataset.erase)state.savedId=null;redrawDetails();}}));
+  const st=$("#cmd-start");if(st)st.addEventListener("change",()=>{const id=st.value;if(!id)return;const m=partenze().find(x=>x.id===id);
+   if(!confirm("Sostituire la missione in modifica con «"+(m?m.nome:id)+"»? Le modifiche non salvate restano nella bozza automatica.")){st.value="";return;}
+   try{bozza();const sc=MISSIONI.scenario(id);if(!sc)throw Error("Missione non disponibile");state.sc=C().copyCurrent(sc);state.savedId=null;state.selection=null;state.placing=null;redrawDetails(false);
+    try{const c=state.sc.mappa&&state.sc.mappa.centro;if(state.layer&&c)state.layer.setView(c,state.sc.mappa.zoom||9);}catch(e){}
+    toast("Nuova missione da «"+(m?m.nome:id)+"»: modifica e premi 💾 Salva");}catch(e){alert("Comandante: "+e.message);}});
   $("#cmd-import").addEventListener("change",async ev=>{const f=ev.target.files[0];if(!f)return;try{const o=JSON.parse(await f.text());state.sc=C().importMission(o);state.savedId=null;state.selection=null;redrawDetails(false);toast("Missione importata");}catch(e){alert("Importazione non riuscita: "+e.message);}});
  }
  function fieldChange(el) {
