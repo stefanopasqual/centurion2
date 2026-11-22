@@ -69,3 +69,12 @@
 .cmd-cat h3{margin:0 0 8px}
 .cmd-cat-item{display:flex;flex-wrap:wrap;align-items:center;gap:6px;padding:6px 0;border-top:1px solid rgba(255,255,255,.08)}
 .cmd-cat-item b{flex:1 1 160px}.cmd-cat-item small{flex:1 1 140px;opacity:.7}
+
+/* liste con aggiunta ed eliminazione diretta */
+#commander-overlay .cmd-item{display:flex;gap:4px;align-items:stretch}
+#commander-overlay .cmd-item>button:first-child{flex:1 1 auto;text-align:left}
+#commander-overlay .cmd-item.on>button:first-child{outline:1px solid #66b5ee}
+#commander-overlay .cmd-del{flex:0 0 40px;min-height:36px;color:#ffb3b3}
+#commander-overlay .cmd-add{width:100%;margin-top:6px;min-height:40px;font-weight:700;border-style:dashed}
+#commander-overlay .cmd-add.on{background:#2f7d4f;color:#fff;border-style:solid}
+#commander-overlay #cmd-import{display:none!important}

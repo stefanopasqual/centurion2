@@ -5,6 +5,8 @@
  const esc=s=>String(s==null?"":s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
  const state={sc:null,savedId:null,selection:null,placing:null,layer:null,panel:null,open:false,copy:null};
  const titles={basi:"Basi aeree",target:"Obiettivi da attaccare",sam:"Difese antiaeree",cap_box:"Pattuglie CAP",gate:"Punti ingresso/uscita",aar:"Rifornimento aereo",orbite:"Sorveglianza AEW"};
+ const singolare={basi:"base",target:"obiettivo",sam:"difesa antiaerea",cap_box:"pattuglia CAP",gate:"punto di ingresso/uscita",aar:"rifornimento",orbite:"orbita AEW"};
+ const suggerimento=()=>state.placing?"Tocca la mappa per aggiungere: "+titles[state.placing]+". Puoi toccare più volte; premi di nuovo il pulsante per finire.":"Trascina i simboli per riposizionarli";
  const icons={basi:"✈",target:"▲",sam:"◆",cap_box:"◯",gate:"⬡",aar:"⛽",orbite:"◎"};
  const colorFor=(k,e)=>k==="sam"?"#e85c62":k==="target"?"#facd64":e.lato==="RED"?"#f47576":"#66b5ee";
  function toast(s){if(typeof UI!=="undefined")UI.toast(esc(s));else alert(s);}
@@ -14,8 +16,9 @@
   const s=state.sc;
   const key=state.selection, selected=key&&s[key.kind]&&s[key.kind].find(x=>x.id===key.id);
   const choice=(arr,id)=>arr.map(x=>'<option value="'+esc(x.id)+'"'+(id===x.id?' selected':'')+'>'+esc(x.nome||x.callsign||x.id)+'</option>').join("");
-  const list=(cat)=>'<details'+(state.selection&&state.selection.kind===cat?' open':'')+'><summary>'+icons[cat]+' '+titles[cat]+' <b>'+s[cat].length+'</b></summary>'+
-   '<div class="cmd-items">'+s[cat].map(x=>'<button type="button" data-select="'+cat+':'+esc(x.id)+'">'+esc(x.nome||x.id)+'</button>').join("")+'</div></details>';
+  const list=(cat)=>'<details'+((state.selection&&state.selection.kind===cat)||state.placing===cat?' open':'')+'><summary>'+icons[cat]+' '+titles[cat]+' <b>'+s[cat].length+'</b></summary>'+
+   '<div class="cmd-items">'+s[cat].map(x=>'<div class="cmd-item'+(key&&key.kind===cat&&key.id===x.id?' on':'')+'"><button type="button" data-select="'+cat+':'+esc(x.id)+'">'+esc(x.nome||x.id)+'</button><button type="button" class="cmd-del" data-del="'+cat+':'+esc(x.id)+'" title="Elimina" aria-label="Elimina '+esc(x.nome||x.id)+'">✕</button></div>').join("")+
+   '<button type="button" class="cmd-add'+(state.placing===cat?' on':'')+'" data-place="'+cat+'">'+(state.placing===cat?'✓ Fine aggiunta':'+ Aggiungi '+singolare[cat])+'</button></div></details>';
   const field=(label,key,val,type,step)=>'<label>'+label+'<input data-field="'+key+'" type="'+(type||"text")+'" value="'+esc(val??"")+'"'+(step?' step="'+step+'"':'')+'></label>';
   const elementFields=selected?'<div class="cmd-card"><h3>Modifica '+esc(selected.id)+'</h3>'+
    field("Nome","nome",selected.nome)+field("Latitudine","lat",selected.lat,"number","any")+
@@ -76,7 +79,7 @@
    '<div class="cmd-card"><h3>Aerei e attacchi</h3><button data-action="add-blue">+ Formazione BLUE</button><button data-action="add-red">+ Formazione RED</button>'+forming+'</div>'+
    '<div class="cmd-card"><h3>Difesa aerea RED</h3><button data-action="add-cap">+ Turno CAP</button>'+caps+'</div>'+
    '</aside>'+
-   '<section class="cmd-world"><div class="cmd-map" id="cmd-map"></div><div class="cmd-toolbar"><span id="cmd-hint">'+(state.placing?"Tocca la mappa per posizionare: "+titles[state.placing]:"Trascina i simboli per riposizionarli")+'</span>'+
+   '<section class="cmd-world"><div class="cmd-map" id="cmd-map"></div><div class="cmd-toolbar"><span id="cmd-hint">'+suggerimento()+'</span>'+
    '<div class="cmd-buttons"><button data-action="new">Nuova</button><button data-action="duplicate">Copia attuale</button><button data-action="save">💾 Salva</button><button data-action="share">🌐 Condividi</button><button data-action="export">⇩ JSON</button><button data-action="import">⇧ Importa</button><button data-action="play">▶ Avvia missione</button></div></div>'+
    '<input type="file" id="cmd-import" accept=".json,application/json" hidden></section></div>';
   state.selection=selected?state.selection:null;
@@ -91,7 +94,9 @@
  function attach() {
   const dom=top();
   dom.querySelectorAll("[data-action]").forEach(b=>b.addEventListener("click",()=>action(b.dataset.action)));
-  dom.querySelectorAll("[data-place]").forEach(b=>b.addEventListener("click",()=>{state.placing=state.placing===b.dataset.place?null:b.dataset.place;dom.querySelectorAll("[data-place]").forEach(x=>x.classList.toggle("on",x.dataset.place===state.placing));$("#cmd-hint").textContent=state.placing?"Tocca la mappa per posizionare: "+titles[state.placing]:"Trascina i simboli per riposizionarli";}));
+  dom.querySelectorAll("[data-place]").forEach(b=>b.addEventListener("click",()=>{state.placing=state.placing===b.dataset.place?null:b.dataset.place;redrawDetails();
+   if(state.placing){const m=$("#cmd-map");if(m&&m.scrollIntoView)m.scrollIntoView({behavior:"smooth",block:"center"});toast(suggerimento());}}));
+  dom.querySelectorAll("[data-del]").forEach(b=>b.addEventListener("click",ev=>{ev.stopPropagation();const [kind,id]=b.dataset.del.split(":");try{eliminaPunto(kind,id);}catch(e){alert("Comandante: "+e.message);}}));
   dom.querySelectorAll("[data-select]").forEach(b=>b.addEventListener("click",()=>{const [kind,id]=b.dataset.select.split(":");state.selection={kind,id};redrawDetails();}));
   dom.querySelectorAll("[data-field]").forEach(el=>el.addEventListener("change",()=>fieldChange(el)));
   dom.querySelectorAll("[data-form]").forEach(el=>el.addEventListener("change",()=>{const [id,k]=el.dataset.form.split(":");const f=state.sc.formazioni.find(x=>x.id===id);if(f){f[k]=k==="numero"?Number(el.value):el.value;redrawDetails();}}));
@@ -132,7 +137,7 @@
    dark:L.tileLayer("https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png",{maxZoom:18,attribution:"© CARTO"})
   };
   layers[s.mappa.tile_default]?.addTo(map);
-  map.on("click",e=>{if(!state.placing)return;const kind=state.placing,side=$("#cmd-side").value;try{const p=C().addEntity(s,kind,{lat:e.latlng.lat,lon:e.latlng.lng},side);state.selection={kind,id:p.id};state.placing=null;redrawDetails();}catch(err){alert(err.message);}});
+  map.on("click",e=>{if(!state.placing)return;const kind=state.placing,side=$("#cmd-side").value;try{const p=C().addEntity(s,kind,{lat:e.latlng.lat,lon:e.latlng.lng},side);state.selection={kind,id:p.id};redrawDetails();toast("Aggiunto: "+p.nome+" · totale "+s[kind].length);}catch(err){alert(err.message);}});
   for(const kind of C().categories)for(const item of s[kind]){
    const color=colorFor(kind,item);const html='<span class="cmd-marker" style="border-color:'+color+';color:'+color+'">'+icons[kind]+'</span>';
    const marker=L.marker([item.lat,item.lon],{draggable:true,icon:L.divIcon({className:"cmd-icon",html,iconSize:[30,30],iconAnchor:[15,15]})}).addTo(map);
@@ -165,6 +170,13 @@
   try{MAPPA.setBase(s.mappa.tile_default||"osm");}catch(e){}
   toast("Missione ad hoc pronta: scegli Piano o Esecuzione");
  }
+ function eliminaPunto(kind,id){
+  const s=state.sc,x=s[kind]&&s[kind].find(e=>e.id===id);if(!x)return;
+  if(kind==="basi"&&s.formazioni.some(f=>f.base===id))throw Error("Sposta le formazioni prima di eliminare la base");
+  if(!confirm("Eliminare «"+(x.nome||id)+"»?"))return;
+  s[kind]=s[kind].filter(e=>e.id!==id);if(state.selection&&state.selection.id===id)state.selection=null;
+  C().reconcile(s);redrawDetails();toast("Eliminato: "+(x.nome||id)+" · restano "+s[kind].length);
+ }
  function action(name) {
   try{
    const s=state.sc;
@@ -182,10 +194,7 @@
    if(name==="export"){C().reconcile(s);const payload={schema:"centurion-commander-1",exportedAt:new Date().toISOString(),scenario:s};DATAIO.downloadJSON(payload,(s.meta.nome||"missione").replace(/[^a-z0-9_-]/gi,"_")+".json");return;}
    if(name==="play"){gioca(s);return;}
    if(name==="delete-point"){
-    if(!state.selection||!confirm("Eliminare il punto selezionato?"))return;
-    const {kind,id}=state.selection;
-    if(kind==="basi"&&state.sc.formazioni.some(f=>f.base===id))throw Error("Sposta le formazioni prima di eliminare la base");
-    s[kind]=s[kind].filter(x=>x.id!==id);state.selection=null;redrawDetails();return;
+    if(!state.selection)return;eliminaPunto(state.selection.kind,state.selection.id);return;
    }
    if(name==="go-location"){const a=+s.mappa.centro[0],b=+s.mappa.centro[1];if(!C().latOK(a)||!C().lonOK(b))throw Error("Coordinate fuori intervallo");state.layer.setView([a,b],s.mappa.zoom||10);return;}
    if(name==="use-map-center"){const p=state.layer.getCenter();s.mappa.centro=[p.lat,p.lng];redrawDetails();return;}
