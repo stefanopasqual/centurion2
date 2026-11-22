@@ -40,21 +40,22 @@ change("volo.js",
       const distance=camera?camera.position.distanceTo(P.pos):25;
       const sos=isa(P.pos.y).a||340;
       S.sonicPending={t:S.t+Math.min(2.5,Math.max(.03,distance/sos))};
-      // il pilota non sente il bang: in cabina solo l'indicazione del Mach
+      // il pilota non sente il bang di chi sta a terra: in cabina il colpo sordo dell'onda d'urto sul tettuccio
       messaggio(exterior?"MACH 1 · BANG SONICO":"MACH 1 · SUPERSONICO",2.4);
+      if(!exterior&&S.cfg.audio&&AU&&window.CENTURION_SONIC)CENTURION_SONIC.boom(AU.ctx,AU.master,.75,{attutito:true});
     }
     if(S.sonicPending&&S.t>=S.sonicPending.t){
       S.sonicPending=null;
       if(S.cam!=="cockpit"&&S.cam!=="helmet"){
         if(S.fx)S.fx.scossa=Math.max(S.fx.scossa||0,.9);
-        if(S.cfg.audio&&AU&&window.CENTURION_SONIC)CENTURION_SONIC.boom(AU.ctx,AU.master,.24);
+        if(S.cfg.audio&&AU&&window.CENTURION_SONIC)CENTURION_SONIC.boom(AU.ctx,AU.master,1.0);
       }
     }
-    // Buffet transonico: oltre Mach 0,86 le onde d'urto sull'ala oscillano e scuotono la cellula, sempre di piu'
-    // avvicinandosi a Mach 1; resta al massimo finche' il bang non arriva, poi in pieno supersonico il flusso si
-    // assesta e il volo torna liscio. Piu' forte a bassa quota (pressione dinamica alta).
+    // Buffet transonico: da Mach 0,95 le onde d'urto sull'ala oscillano e scuotono la cellula, sempre di piu'
+    // avvicinandosi a Mach 1; resta al massimo finche' il bang non arriva, poi appena supersonico (Mach 1,03) il
+    // flusso si assesta e il volo torna liscio. Piu' forte a bassa quota (pressione dinamica alta).
     const liscia=(a,b,x)=>{const k=Math.max(0,Math.min(1,(x-a)/(b-a)));return k*k*(3-2*k);};
-    let buffet=Math.pow(liscia(.86,.995,mach),1.6)*(1-liscia(1.01,1.08,mach));
+    let buffet=Math.pow(liscia(.95,.995,mach),1.3)*(1-liscia(1.005,1.03,mach));
     if(S.sonicPending)buffet=1;
     if(S.fx)S.fx.buffet=buffet*Math.max(.45,Math.min(1.25,(P.qbar||0)/25000));
   }

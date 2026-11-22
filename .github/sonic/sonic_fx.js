@@ -9,7 +9,7 @@
  * da dietro è un disco bianco pieno e sfrangiato, di lato un cono con il bordo netto.
  * L'onda d'urto in sé non si vede: il bang lo sente un osservatore esterno quando il cono d'urto lo raggiunge, non il pilota.
  *
- * API invariata: make(root) -> {update(pos, quat, mach, umidita 0..1, t, scala), dispose()}; boom(ctx, uscita, guadagno).
+ * API: make(root) -> {update(pos, quat, mach, umidita 0..1, t, scala), dispose()}; boom(ctx, uscita, guadagno, {attutito}).
  */
 (function(){
   'use strict';
@@ -133,36 +133,38 @@
     function dispose(){root.remove(group);material.dispose();}
     return {update,dispose};
   }
-  // bang a "N": due impulsi (onda d'urto di prua e di coda) a 0,19 s, con coda di rimbombo
-  function boom(ctx,output,gain){
+  // Bang a "N" udibile anche dagli altoparlanti del telefono: due schiocchi secchi (onda d'urto di prua e di coda, a
+  // 0,15 s), il "corpo" della N di pressione (si sente in cuffia) e un rimbombo che si incupisce e si spegne in circa
+  // 2 s, come l'eco del terreno. Il vecchio bang aveva il 96% dell'energia a 40 Hz: sul telefono non si sentiva.
+  // opz.attutito: in cabina, colpo sordo del passaggio dell'onda d'urto sul tettuccio (il bang vero lo sente chi sta fuori).
+  function boom(ctx,output,gain,opz){
     if(!ctx||!output)return;
-    const duration=1.55,rate=ctx.sampleRate;
-    const n=Math.floor(duration*rate),buffer=ctx.createBuffer(1,n,rate);
-    const v=buffer.getChannelData(0);
-    let seed=1845769,noise=0;
-    function impulse(t){
-      if(t<0)return 0;
-      if(t<.008)return Math.sin(t/.008*PI/2);
-      if(t<.055)return 1-1.7*(t-.008)/.047;
-      if(t<.11)return -.7*(1-(t-.055)/.055);
-      return .28*Math.exp(-(t-.11)*7)*Math.sin((t-.11)*2*PI*29);
-    }
+    const attutito=!!(opz&&opz.attutito),rate=ctx.sampleRate,dur=attutito?1.0:2.2;
+    const n=Math.floor(dur*rate),buffer=ctx.createBuffer(1,n,rate),v=buffer.getChannelData(0);
+    let seed=1845769,a1=0,b1=0,b2=0,b3=0;
+    const rnd=()=>{seed=(Math.imul(seed,1664525)+1013904223)>>>0;return seed/4294967296*2-1;};
+    const dN=.15;
+    const nwave=t=>t<0?0:t<.003?t/.003:t<dN?1-2*(t-.003)/(dN-.003):t<dN+.003?-1+(t-dN)/.003:0;
+    let picco=0;
     for(let i=0;i<n;i++){
-      const t=i/rate;
-      seed=(Math.imul(seed,1664525)+1013904223)>>>0;
-      noise+=((seed/4294967296*2-1)-noise)*.08;
-      const p=impulse(t)*.65+impulse(t-.19)*.50;
-      const tail=t>.03?Math.exp(-t*4)*noise*.35:0;
-      v[i]=clamp((p+tail)*.62,-1,1);
+      const t=i/rate,w=rnd();
+      const sc=(t<.1?Math.exp(-t/.025):0)+(t>dN&&t<dN+.1?.85*Math.exp(-(t-dN)/.025):0);
+      a1+=(w-a1)*.5;const crack=2.4*sc*(w-.6*a1);
+      b1+=(nwave(t)-b1)*.02;const corpo=b1*.45;
+      const k=.02+.3*Math.exp(-t/.3);b2+=(w-b2)*k;b3+=(b2-b3)*k;
+      const coda=t>.03?b3*2.2*Math.exp(-(t-.03)/.7)*Math.min(1,(t-.03)/.05):0;
+      v[i]=attutito?(corpo*1.2+coda*.9+crack*.15):(crack+corpo+coda);
+      picco=Math.max(picco,Math.abs(v[i]));
     }
+    if(picco>0)for(let i=0;i<n;i++)v[i]/=picco;
     const src=ctx.createBufferSource();src.buffer=buffer;
-    const low=ctx.createBiquadFilter();low.type='lowpass';low.frequency.value=1700;
+    const f1=ctx.createBiquadFilter();f1.type='lowpass';f1.frequency.value=attutito?700:5000;
     const g=ctx.createGain();const t0=ctx.currentTime;
-    g.gain.setValueAtTime(Math.min(.5,Math.max(.03,gain||.22)),t0);
-    g.gain.exponentialRampToValueAtTime(.001,t0+duration);
-    src.connect(low);low.connect(g);g.connect(output);
-    src.start(t0);src.stop(t0+duration+.02);
-    src.onended=()=>{src.disconnect();low.disconnect();g.disconnect();};
+    g.gain.setValueAtTime(Math.min(1.2,Math.max(.05,gain||.9)),t0);
+    g.gain.setTargetAtTime(.0001,t0+dur*.8,dur*.08);
+    src.connect(f1);f1.connect(g);g.connect(output);
+    src.start(t0);src.stop(t0+dur+.05);
+    src.onended=()=>{src.disconnect();f1.disconnect();g.disconnect();};
   }
   window.CENTURION_SONIC=Object.freeze({make,boom});
 })();
