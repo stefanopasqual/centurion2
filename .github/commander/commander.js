@@ -51,9 +51,15 @@
    '<label>Zona<select data-red-cap="'+i+':box">'+choice(s.cap_box.filter(c=>c.lato==="RED"),p.box)+'</select></label>'+
    '<label>Da<input type="time" data-red-cap="'+i+':da" value="'+esc(p.da)+'"></label><label>A<input type="time" data-red-cap="'+i+':a" value="'+esc(p.a)+'"></label>'+
    '<button data-remove-cap="'+i+'">Rimuovi CAP</button></div>').join("");
-  const saved=C().listSaved();
-  root.innerHTML='<header class="cmd-header"><div><b>✪ MODALITÀ COMANDANTE</b><small>Crea e salva le tue missioni</small></div><button data-action="close">✕</button></header>'+
-   '<div class="cmd-layout"><aside class="cmd-controls">'+
+  const saved=C().listSaved(), shared=C().shared, draft=C().readDraft();
+  const library='<div class="cmd-card cmd-library"><h3>Missioni salvate</h3>'+
+   (draft&&(!state.savedId||draft.origine===state.savedId)&&draft.nome?'<div class="cmd-saved cmd-draft"><span>Bozza automatica: '+esc(draft.nome)+'<small>'+esc(new Date(draft.savedAt).toLocaleString("it-IT"))+'</small></span><button data-action="draft">Recupera</button></div>':"")+
+   '<h4>Su questo dispositivo</h4>'+saved.map(x=>'<div class="cmd-saved'+(x.id===state.savedId?' on':'')+'"><span>'+esc(x.nome)+'<small>'+esc(new Date(x.savedAt).toLocaleString("it-IT"))+'</small></span><button data-load="'+esc(x.id)+'">Apri</button><button data-erase="'+esc(x.id)+'">✕</button></div>').join("")+
+   (saved.length?"":'<p>Nessuna missione salvata su questo dispositivo</p>')+
+   '<h4>Condivise sul sito (tutti i dispositivi)</h4>'+shared.map(x=>'<div class="cmd-saved"><span>'+esc(x.nome)+'<small>'+esc(x.autore||"")+'</small></span><button data-load-shared="'+esc(x.id)+'">Apri</button></div>').join("")+
+   (shared.length?"":'<p>Nessuna missione condivisa: usa 🌐 Condividi</p>')+'</div>';
+  root.innerHTML='<header class="cmd-header"><div><b>✪ MODALITÀ COMANDANTE</b><small>Crea e salva le tue missioni</small></div><button class="cmd-save" data-action="save">💾 Salva</button><button data-action="share" title="Pubblica la missione per tutti i dispositivi">🌐 Condividi</button><button data-action="close">✕</button></header>'+
+   '<div class="cmd-layout"><aside class="cmd-controls">'+library+
    '<div class="cmd-card"><h3>Scenario</h3>'+field("Nome missione","meta.nome",s.meta.nome)+
    field("Centro mappa (lat)","mappa.centro.lat",s.mappa.centro[0],"number","any")+
    field("Centro mappa (lon)","mappa.centro.lon",s.mappa.centro[1],"number","any")+
@@ -69,10 +75,9 @@
    elementFields+
    '<div class="cmd-card"><h3>Aerei e attacchi</h3><button data-action="add-blue">+ Formazione BLUE</button><button data-action="add-red">+ Formazione RED</button>'+forming+'</div>'+
    '<div class="cmd-card"><h3>Difesa aerea RED</h3><button data-action="add-cap">+ Turno CAP</button>'+caps+'</div>'+
-   '<div class="cmd-card"><h3>Missioni salvate</h3>'+saved.map(x=>'<div class="cmd-saved"><span>'+esc(x.nome)+'<small>'+esc(new Date(x.savedAt).toLocaleString("it-IT"))+'</small></span><button data-load="'+esc(x.id)+'">Apri</button><button data-erase="'+esc(x.id)+'">✕</button></div>').join("")+
-   (saved.length?"":'<p>Nessuna missione salvata</p>')+'</div></aside>'+
+   '</aside>'+
    '<section class="cmd-world"><div class="cmd-map" id="cmd-map"></div><div class="cmd-toolbar"><span id="cmd-hint">'+(state.placing?"Tocca la mappa per posizionare: "+titles[state.placing]:"Trascina i simboli per riposizionarli")+'</span>'+
-   '<div class="cmd-buttons"><button data-action="new">Nuova</button><button data-action="duplicate">Copia attuale</button><button data-action="save">💾 Salva</button><button data-action="export">⇩ JSON</button><button data-action="import">⇧ Importa</button><button data-action="play">▶ Avvia missione</button></div></div>'+
+   '<div class="cmd-buttons"><button data-action="new">Nuova</button><button data-action="duplicate">Copia attuale</button><button data-action="save">💾 Salva</button><button data-action="share">🌐 Condividi</button><button data-action="export">⇩ JSON</button><button data-action="import">⇧ Importa</button><button data-action="play">▶ Avvia missione</button></div></div>'+
    '<input type="file" id="cmd-import" accept=".json,application/json" hidden></section></div>';
   state.selection=selected?state.selection:null;
   attach(); drawMap();
@@ -95,6 +100,7 @@
   dom.querySelectorAll("[data-remove-formation]").forEach(el=>el.addEventListener("click",()=>{state.sc.formazioni=state.sc.formazioni.filter(x=>x.id!==el.dataset.removeFormation);C().reconcile(state.sc);redrawDetails();}));
   dom.querySelectorAll("[data-remove-cap]").forEach(el=>el.addEventListener("click",()=>{state.sc.piani.RED.cap.splice(+el.dataset.removeCap,1);redrawDetails();}));
   dom.querySelectorAll("[data-load]").forEach(el=>el.addEventListener("click",()=>{const v=C().readSaved(el.dataset.load);if(v){state.savedId=v.id;state.sc=C().importMission(v);state.selection=null;state.placing=null;redrawDetails(false);}}));
+  dom.querySelectorAll("[data-load-shared]").forEach(el=>el.addEventListener("click",()=>{C().readShared(el.dataset.loadShared).then(sc=>{state.sc=sc;state.savedId=null;state.selection=null;state.placing=null;redrawDetails(false);toast("Missione condivisa aperta: salvala per modificarla su questo dispositivo");}).catch(e=>alert("Comandante: "+e.message));}));
   dom.querySelectorAll("[data-erase]").forEach(el=>el.addEventListener("click",()=>{if(confirm("Eliminare definitivamente la missione salvata?")){C().remove(el.dataset.erase);if(state.savedId===el.dataset.erase)state.savedId=null;redrawDetails();}}));
   $("#cmd-import").addEventListener("change",async ev=>{const f=ev.target.files[0];if(!f)return;try{const o=JSON.parse(await f.text());state.sc=C().importMission(o);state.savedId=null;state.selection=null;redrawDetails(false);toast("Missione importata");}catch(e){alert("Importazione non riuscita: "+e.message);}});
  }
@@ -145,28 +151,36 @@
   map.on("moveend",()=>{if(state.layer!==map)return;const p=map.getCenter();s.mappa.centro=[+p.lat.toFixed(5),+p.lng.toFixed(5)];s.mappa.zoom=map.getZoom();});
   setTimeout(()=>map.invalidateSize(),60);
  }
+ // GitHub folder where shared missions are uploaded (published by patch_commander.py for every device)
+ const SHARE_URL="https://github.com/stefanopasqual/centurion2/upload/main/.github/commander/missioni";
+ function gioca(s){
+  C().reconcile(s);
+  const hasBlue=s.formazioni.some(f=>f.lato==="BLUE"&&s.piani.BLUE.formazioni[f.id]&&s.piani.BLUE.formazioni[f.id].target);
+  if(!hasBlue)throw Error("Assegna almeno un bersaglio a una formazione BLUE prima di avviare");
+  APP.play(false);
+  APP.sc=C().clone(s); APP.salva(); APP.ricostruisci();
+  close();$("#splash").classList.add("hidden");$("#app").classList.remove("hidden");
+  APP.setRuolo("TRAINER");APP.vaiFase("briefing");
+  MAPPA.map.invalidateSize();MAPPA.map.setView(s.mappa.centro,s.mappa.zoom||10);
+  try{MAPPA.setBase(s.mappa.tile_default||"osm");}catch(e){}
+  toast("Missione ad hoc pronta: scegli Piano o Esecuzione");
+ }
  function action(name) {
   try{
    const s=state.sc;
    if(name==="close"){close();return;}
    if(name==="new"){if(!confirm("Creare una nuova missione? Le modifiche non salvate andranno perse."))return;const p=state.layer.getCenter();state.sc=C().fresh(p.lat,p.lng);state.savedId=null;state.selection=null;redrawDetails(false);return;}
    if(name==="duplicate"){state.sc=C().copyCurrent(APP.sc);state.savedId=null;state.selection=null;redrawDetails(false);return;}
-   if(name==="save"){C().reconcile(s);const e=C().save(s,state.savedId);state.savedId=e.id;toast("Missione salvata sul dispositivo: "+e.nome);redrawDetails();return;}
+   if(name==="save"){C().reconcile(s);const e=C().save(s,state.savedId);state.savedId=e.id;state.ultimaBozza=JSON.stringify(s);redrawDetails();
+    (C().save.ultimo||Promise.resolve()).then(()=>toast("Missione salvata sul dispositivo: "+e.nome),err=>alert("Comandante: "+err.message));return;}
+   if(name==="draft"){const d=C().readDraft();if(d){state.sc=C().importMission(d);state.savedId=d.origine||null;state.selection=null;redrawDetails(false);toast("Bozza recuperata: premi Salva per tenerla");}return;}
+   if(name==="share"){C().reconcile(s);const nome=(s.meta.nome||"missione").replace(/[^a-z0-9_-]/gi,"_");const payload={schema:"centurion-commander-1",exportedAt:new Date().toISOString(),scenario:s};
+    DATAIO.downloadJSON(payload,nome+".json");
+    alert("Condividi con tutti i dispositivi:\n1. Il file "+nome+".json è stato scaricato.\n2. Si apre su GitHub la cartella delle missioni condivise: trascina lì il file e premi Commit changes.\n3. Dopo la pubblicazione (2-3 minuti) la missione compare in «Condivise sul sito» e nel Catalogo missioni su ogni dispositivo.");
+    window.open(SHARE_URL,"_blank","noopener");return;}
    if(name==="import"){$("#cmd-import").click();return;}
    if(name==="export"){C().reconcile(s);const payload={schema:"centurion-commander-1",exportedAt:new Date().toISOString(),scenario:s};DATAIO.downloadJSON(payload,(s.meta.nome||"missione").replace(/[^a-z0-9_-]/gi,"_")+".json");return;}
-   if(name==="play"){
-    C().reconcile(s);
-    const hasBlue=s.formazioni.some(f=>f.lato==="BLUE"&&s.piani.BLUE.formazioni[f.id]&&s.piani.BLUE.formazioni[f.id].target);
-    if(!hasBlue)throw Error("Assegna almeno un bersaglio a una formazione BLUE prima di avviare");
-    APP.play(false);
-    APP.sc=C().clone(s); APP.salva(); APP.ricostruisci();
-    close();$("#splash").classList.add("hidden");$("#app").classList.remove("hidden");
-    APP.setRuolo("TRAINER");APP.vaiFase("briefing");
-    MAPPA.map.invalidateSize();MAPPA.map.setView(s.mappa.centro,s.mappa.zoom||10);
-    try{MAPPA.setBase(s.mappa.tile_default||"osm");}catch(e){}
-    toast("Missione ad hoc pronta: scegli Piano o Esecuzione");
-    return;
-   }
+   if(name==="play"){gioca(s);return;}
    if(name==="delete-point"){
     if(!state.selection||!confirm("Eliminare il punto selezionato?"))return;
     const {kind,id}=state.selection;
@@ -186,8 +200,11 @@
   state.sc=C().copyCurrent(APP.sc);state.savedId=null;state.selection=null;state.placing=null;state.open=true;
   const e=document.createElement("section");e.id="commander-overlay";e.setAttribute("role","dialog");e.setAttribute("aria-label","Modalita Comandante");
   document.body.appendChild(e);render();
+  state.ultimaBozza=JSON.stringify(state.sc);clearInterval(state.timer);state.timer=setInterval(bozza,15000);
+  C().loadShared().then(l=>{if(state.open&&l.length)redrawDetails();});
  }
- function close(){if(state.layer){state.layer.remove();state.layer=null;}top()?.remove();state.open=false;state.placing=null;}
+ function bozza(){if(!state.open||!state.sc)return;try{const j=JSON.stringify(state.sc);if(j!==state.ultimaBozza){state.ultimaBozza=j;C().saveDraft(state.sc,state.savedId);}}catch(e){}}
+ function close(){bozza();clearInterval(state.timer);if(state.layer){state.layer.remove();state.layer=null;}top()?.remove();state.open=false;state.placing=null;}
  function init(){
   if($("#cmd-open"))return;
   const topbar=$("#topbar .top-right");if(!topbar)return;
@@ -196,6 +213,24 @@
   const home=document.querySelector("#splash .splash-roles.unica");
   if(home){const entry=document.createElement("button");entry.id="cmd-home";entry.className="role-btn home-card commander";entry.innerHTML='<span class="big">✪</span><b>COMANDANTE</b><small>Crea mappe, difese e missioni su misura</small>';entry.addEventListener("click",open);home.appendChild(entry);}
  }
- document.addEventListener("DOMContentLoaded",init);
+ function decoraCatalogo(){
+  const modal=document.getElementById("missioni");if(!modal||modal.querySelector(".cmd-cat"))return;
+  const saved=C().listSaved(),shared=C().shared;
+  const card=(x,kind)=>'<div class="cmd-cat-item"><b>'+esc(x.nome)+'</b><small>'+(kind==="shared"?"Condivisa sul sito":"Su questo dispositivo · "+esc(new Date(x.savedAt).toLocaleDateString("it-IT")))+'</small>'+
+   '<button data-cat-play="'+kind+':'+esc(x.id)+'">▶ Avvia</button><button data-cat-edit="'+kind+':'+esc(x.id)+'">✪ Modifica</button></div>';
+  const box=document.createElement("section");box.className="cmd-cat";
+  box.innerHTML='<h3>✪ Le mie missioni (Comandante)</h3>'+(saved.length||shared.length?saved.map(x=>card(x,"local")).join("")+shared.map(x=>card(x,"shared")).join(""):'<p>Nessuna missione creata. Apri ✪ Comandante, crea una missione e premi 💾 Salva.</p>');
+  (modal.querySelector(".modal-body,.mis-body,.modal-box")||modal).prepend(box);
+  const carica=(v)=>{const [kind,id]=v.split(":");return kind==="shared"?C().readShared(id):Promise.resolve(C().importMission(C().readSaved(id)));};
+  box.querySelectorAll("[data-cat-play]").forEach(b=>b.addEventListener("click",ev=>{ev.stopPropagation();carica(b.dataset.catPlay).then(sc=>{gioca(sc);try{MISSIONI.chiudiCatalogo();}catch(e){}}).catch(e=>alert("Comandante: "+e.message));}));
+  box.querySelectorAll("[data-cat-edit]").forEach(b=>b.addEventListener("click",ev=>{ev.stopPropagation();const [kind,id]=b.dataset.catEdit.split(":");carica(b.dataset.catEdit).then(sc=>{try{MISSIONI.chiudiCatalogo();}catch(e){}open();state.sc=sc;state.savedId=kind==="local"?id:null;redrawDetails(false);}).catch(e=>alert("Comandante: "+e.message));}));
+ }
+ function agganciaCatalogo(){
+  if(typeof MISSIONI==="undefined"||!MISSIONI.apriCatalogo||MISSIONI.apriCatalogo._comandante)return;
+  const orig=MISSIONI.apriCatalogo,nuova=function(){const r=orig.apply(this,arguments);try{decoraCatalogo();C().loadShared().then(()=>{const m=document.querySelector("#missioni .cmd-cat");if(m){m.remove();decoraCatalogo();}});}catch(e){console.warn("Comandante catalogo",e);}return r;};
+  nuova._comandante=true;MISSIONI.apriCatalogo=nuova;
+ }
+ C().onChange(()=>{if(state.open)redrawDetails();});
+ document.addEventListener("DOMContentLoaded",()=>{init();agganciaCatalogo();setTimeout(agganciaCatalogo,1500);});
  root.COMANDANTE={open,close,get scenario(){return state.sc;}};
 })(window);

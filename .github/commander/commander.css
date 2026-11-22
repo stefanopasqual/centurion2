@@ -58,3 +58,14 @@
  #commander-overlay .cmd-buttons{gap:4px}
  #commander-overlay .cmd-buttons button{font-size:11px;min-width:65px;padding:7px}
 }
+
+/* archivio missioni sempre in vista, pulsanti Salva/Condividi nella testata, missioni nel catalogo */
+#commander-overlay .cmd-header .cmd-save{background:#2f7d4f;color:#fff;font-weight:700}
+#commander-overlay .cmd-header button{margin-left:6px;white-space:nowrap}
+#commander-overlay .cmd-library h4{margin:10px 0 4px;font-size:12px;opacity:.75;text-transform:uppercase;letter-spacing:.04em}
+#commander-overlay .cmd-saved.on{outline:1px solid #66b5ee}
+#commander-overlay .cmd-draft{background:rgba(250,205,100,.12)}
+.cmd-cat{margin:0 0 14px;padding:12px;border:1px solid #4b6584;border-radius:10px;background:rgba(75,101,132,.15)}
+.cmd-cat h3{margin:0 0 8px}
+.cmd-cat-item{display:flex;flex-wrap:wrap;align-items:center;gap:6px;padding:6px 0;border-top:1px solid rgba(255,255,255,.08)}
+.cmd-cat-item b{flex:1 1 160px}.cmd-cat-item small{flex:1 1 140px;opacity:.7}

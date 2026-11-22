@@ -180,27 +180,69 @@
     updateGoals(sc);
     return sc;
   }
-  function readLibrary() {
-    try { const a = JSON.parse(localStorage.getItem(STORE) || "[]"); return Array.isArray(a) ? a : []; }
-    catch (e) { return []; }
-  }
+  /* Mission library: durable on the device.
+     localStorage alone is wiped by some browsers (Safari after days without visits, private browsing)
+     and has a small quota, so every mission is also kept in IndexedDB, persistent storage is
+     requested, and missions found in only one of the two stores are restored into the other. */
+  const DBN = "centurion2_commander", DBS = "missioni", listeners = [];
+  let MEM = null, SHARED = null;
+  function lsRead() { try { const a = JSON.parse(localStorage.getItem(STORE) || "[]"); return Array.isArray(a) ? a : []; } catch (e) { return []; } }
+  function lsWrite(all) { try { localStorage.setItem(STORE, JSON.stringify(all)); return true; } catch (e) { return false; } }
+  function idb() { return new Promise((ok, ko) => { if (!root.indexedDB) return ko(new Error("IndexedDB non disponibile")); const r = indexedDB.open(DBN, 1);
+    r.onupgradeneeded = () => r.result.createObjectStore(DBS, { keyPath: "id" }); r.onsuccess = () => ok(r.result); r.onerror = () => ko(r.error); }); }
+  function idbTx(mode, fn) { return idb().then(db => new Promise((ok, ko) => { const tx = db.transaction(DBS, mode), st = tx.objectStore(DBS), q = fn(st);
+    tx.oncomplete = () => { db.close(); ok(q && q.result); }; tx.onerror = () => { db.close(); ko(tx.error); }; })); }
+  const idbAll = () => idbTx("readonly", st => st.getAll()).then(r => r || []);
+  const idbPut = e => idbTx("readwrite", st => st.put(e));
+  const idbDel = id => idbTx("readwrite", st => st.delete(id));
+  function changed() { listeners.forEach(f => { try { f(); } catch (e) {} }); }
+  function readLibrary() { if (!MEM) MEM = lsRead(); return MEM; }
+  const ready = (async () => {
+    try { if (navigator.storage && navigator.storage.persist) await navigator.storage.persist(); } catch (e) {}
+    try {
+      const fromDb = await idbAll(), mem = readLibrary(); let restored = false;
+      fromDb.forEach(e => { const i = mem.findIndex(x => x.id === e.id);
+        if (i < 0) { mem.push(e); restored = true; } else if (String(e.savedAt) > String(mem[i].savedAt)) { mem[i] = e; restored = true; } });
+      mem.forEach(e => { if (!fromDb.some(x => x.id === e.id)) idbPut(e).catch(() => {}); });
+      if (restored) { lsWrite(mem); changed(); }
+    } catch (e) {}
+  })();
   function listSaved() {
-    return readLibrary().map(x => ({ id: x.id, nome: x.nome, savedAt: x.savedAt, count: (x.scenario && x.scenario.target || []).length }))
+    return readLibrary().filter(x => !x.bozza).map(x => ({ id: x.id, nome: x.nome, savedAt: x.savedAt, count: (x.scenario && x.scenario.target || []).length }))
       .sort((a, b) => String(b.savedAt).localeCompare(String(a.savedAt)));
   }
   function readSaved(id) { const entry = readLibrary().find(x => x.id === id); return entry ? clone(entry) : null; }
+  function store(entry) {
+    const all = readLibrary(), idx = all.findIndex(x => x.id === entry.id);
+    if (idx >= 0) all[idx] = entry; else all.push(entry);
+    const inLs = lsWrite(all);
+    const inDb = idbPut(entry).then(() => true, () => false);
+    if (!inLs && !root.indexedDB) throw new Error("Spazio di salvataggio esaurito: esporta la missione in JSON");
+    return inDb.then(ok => { if (!inLs && !ok) throw new Error("Salvataggio non riuscito: esporta la missione in JSON"); return entry; });
+  }
   function save(sc, id) {
     reconcile(sc);
-    const all = readLibrary();
     const key = id || "CM-" + Date.now().toString(36) + "-" + Math.floor(Math.random() * 1e7).toString(36);
     const entry = { id: key, nome: String(sc.meta.nome).trim(), savedAt: new Date().toISOString(), scenario: clone(sc), schema: 1 };
-    const idx = all.findIndex(x => x.id === key);
-    if (idx >= 0) all[idx] = entry; else all.push(entry);
-    try { localStorage.setItem(STORE, JSON.stringify(all)); }
-    catch (e) { throw new Error("Spazio di salvataggio esaurito: esporta la missione in JSON"); }
-    return entry;
+    save.ultimo = store(entry); return entry;   // save.ultimo: promise of the durable write (IndexedDB), for the UI
   }
-  function remove(id) { localStorage.setItem(STORE, JSON.stringify(readLibrary().filter(x => x.id !== id))); }
+  // automatic draft of the mission being edited (one per device), recoverable after a crash or a forgotten Save
+  function saveDraft(sc, savedId) {
+    try { const entry = { id: "BOZZA", bozza: true, origine: savedId || null, nome: String(sc.meta.nome || "Missione").trim(), savedAt: new Date().toISOString(), scenario: clone(sc), schema: 1 };
+      store(entry).catch(() => {}); return entry; } catch (e) { return null; }
+  }
+  function readDraft() { const d = readLibrary().find(x => x.id === "BOZZA"); return d ? clone(d) : null; }
+  function remove(id) { MEM = readLibrary().filter(x => x.id !== id); lsWrite(MEM); idbDel(id).catch(() => {}); }
+  // missions shared with everyone: JSON files published by the site in missioni-comandante/ (see patch_commander.py)
+  function loadShared() {
+    return fetch("missioni-comandante/indice.json", { cache: "no-store" }).then(r => r.ok ? r.json() : { missioni: [] })
+      .then(d => { SHARED = Array.isArray(d.missioni) ? d.missioni : []; return SHARED; }).catch(() => { SHARED = SHARED || []; return SHARED; });
+  }
+  function readShared(id) {
+    const m = (SHARED || []).find(x => x.id === id); if (!m) return Promise.reject(new Error("Missione condivisa non trovata"));
+    return fetch("missioni-comandante/" + encodeURIComponent(m.file), { cache: "no-store" }).then(r => { if (!r.ok) throw new Error("File della missione non raggiungibile"); return r.json(); })
+      .then(o => importMission(o));
+  }
   function importMission(data) {
     const body = data && (data.scenario || data.sc);
     if (!body || !body.meta || !body.mappa || !body.piani) throw new Error("Importa un file missione JSON di CENTURION2");
@@ -211,5 +253,7 @@
   root.COMMANDER_CORE = { clone: clone, pos: pos, uid: uid, fmtCoord: fmtCoord, latOK: latOK, lonOK: lonOK,
     fresh: fresh, copyCurrent: copyCurrent, addEntity: addEntity, addFormation: addFormation,
     reconcile: reconcile, updateGoals: updateGoals, listSaved: listSaved, readSaved: readSaved,
-    save: save, remove: remove, importMission: importMission, clockMinutes: clockMinutes, categories: CATEGORIES };
+    save: save, remove: remove, importMission: importMission, clockMinutes: clockMinutes, categories: CATEGORIES,
+    saveDraft: saveDraft, readDraft: readDraft, loadShared: loadShared, readShared: readShared,
+    get shared() { return SHARED || []; }, ready: ready, onChange: fn => { listeners.push(fn); } };
 })(window);
