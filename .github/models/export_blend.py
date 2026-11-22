@@ -52,7 +52,7 @@ def main():
     # One "Airframe" material carries its flag/crosses and camouflage in the
     # basecolor.png texture. Detach only that channel; keep normal, roughness,
     # metallic textures, topology and transparency untouched.
-    if output.name.lower() == 'typhoon.glb':
+    if output.name.lower() == 'typhoon.glb' and __import__('os').environ.get('CENTURION_TYPHOON_GRIGIO') == '1':
         changed = 0
         for material in bpy.data.materials:
             if material.name.lower() != 'airframe':

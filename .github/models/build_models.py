@@ -54,6 +54,13 @@ def main():
             with tempfile.TemporaryDirectory(prefix='centurion_model_') as d:
                 stage = Path(d)
                 unpack_safe(zip_path, stage)
+                if code == 'typhoon':
+                    # texture originale con insegne tedesche, croci e codice 30+47 cancellati: resta la mimetica
+                    clean = Path(__file__).with_name('typhoon_basecolor_senza_insegne.png')
+                    found = list(stage.rglob('basecolor.png'))
+                    if not clean.is_file() or len(found) != 1:
+                        raise RuntimeError('typhoon: texture senza insegne o basecolor.png mancante')
+                    shutil.copyfile(clean, found[0])
                 sources = list(stage.rglob('*.blend'))
                 if len(sources) != 1:
                     raise RuntimeError(f'{archive}: expected one blend file, got {len(sources)}')
