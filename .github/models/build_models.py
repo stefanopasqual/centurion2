@@ -128,6 +128,32 @@ def main():
         'status': su35_state,
         'attribution': 'Model by bohmerang on Sketchfab (CC BY-NC-SA 4.0), landing gear hidden.'
     })
+    # F-14 Tomcat: original CENTURION2 procedural model built from public dimensions by
+    # .github/models/genera_f14.py (nose +Z, up +Y, metres, gear up, wing sweep 25 deg).
+    f14_src = root / 'model-sources' / 'f14.glb'
+    f14_url = ''
+    f14_state = 'source-missing'
+    if f14_src.is_file():
+        f14_state = 'ready-for-conversion' if args.dry_run else 'ready'
+        if not args.dry_run:
+            with f14_src.open('rb') as fh:
+                if fh.read(4) != b'glTF':
+                    raise RuntimeError('F-14 source is not a GLB')
+            target = out / 'f14.glb'
+            shutil.copyfile(f14_src, target)
+            shutil.copyfile(target, mission / target.name)
+            mission_manifest['F14'] = {
+                'file': target.name, 'rot': [0, 0, 0], 'lunghezza_m': 19.1,
+                'autore': 'CENTURION2 procedural', 'licenza': 'original approximation',
+                'url': f14_url, 'tint': False, 'gear': 'up'
+            }
+    report.append({
+        'id': 'f14', 'name': 'Grumman F-14 Tomcat',
+        'glb': 'models/f14.glb' if f14_state == 'ready' else None,
+        'source': f14_url, 'author': 'CENTURION2 procedural', 'license': 'original approximation',
+        'status': f14_state,
+        'attribution': 'Original CENTURION2 model from public F-14 dimensions (genera_f14.py).'
+    })
     # User-provided EA-18G Growler, gear-up variant prepared from CC BY 4.0 GLB.
     growler_src = root / 'model-sources' / 'ea18.glb'
     growler_url = 'https://sketchfab.com/3d-models/mcdonnell-douglas-fa-18eboeing-ea-18g-growler-d69153c8e91744cab2bad239a2cb5d98'
