@@ -209,30 +209,32 @@ def main():
         'status': f22_state,
         'attribution': 'F22 RAPTOR by sxnneh on Sketchfab (Sketchfab Standard license), landing gear hidden.'
     })
-    # Original procedural F-16C, separate from the Sketchfab embed.
-    # Keep it in both the hangar (models/) and the flying simulation (modelli/).
+    # Detailed, gear-up F-16 by bohmerang. The source is calibrated to nose -Z,
+    # up +Y; the existing mission rotation turns the nose to +Z.
+    f16_source = root / 'model-sources' / 'hangar' / 'f16-rebuilt.glb'
+    f16_url = 'https://sketchfab.com/3d-models/f-16-fighting-falcon-fighter-jet-free-f0b00989e5634764848ef2c235c64db5'
     f16_target = out / 'f16.glb'
     if not args.dry_run:
-        subprocess.run(['blender', '-b', '--python-exit-code', '7', '--python',
-                        str(Path(__file__).with_name('generate_f16.py')), '--',
-                        str(f16_target)], check=True)
+        if not f16_source.is_file():
+            raise RuntimeError('Detailed F-16 source missing: ' + str(f16_source))
+        shutil.copyfile(f16_source, f16_target)
         with f16_target.open('rb') as fp:
             if fp.read(4) != b'glTF' or f16_target.stat().st_size < 10000:
-                raise RuntimeError('F-16 generation produced invalid or undersized GLB')
+                raise RuntimeError('Detailed F-16 source is invalid or undersized')
         shutil.copyfile(f16_target, mission / 'f16.glb')
         mission_manifest['F16'] = {
             'file': 'f16.glb', 'rot': [0, 180, 0],
             'lunghezza_m': 15.0, 'tint': False, 'gear': 'up',
-            'autore': 'CENTURION2 procedural', 'licenza': 'original approximation',
-            'url': ''
+            'autore': 'bohmerang', 'licenza': 'CC BY-NC-SA 4.0',
+            'url': f16_url
         }
     report.append({
         'id': 'f16', 'name': 'F-16C Fighting Falcon',
         'glb': 'models/f16.glb' if not args.dry_run else None,
-        'source': 'original CENTURION2 procedural model; not the Sketchfab source',
-        'author': 'CENTURION2 procedural', 'license': 'original approximation',
+        'source': f16_url,
+        'author': 'bohmerang', 'license': 'CC BY-NC-SA 4.0',
         'status': 'ready' if not args.dry_run else 'ready-for-conversion',
-        'attribution': 'Original simplified F-16C reconstruction, not the linked Sketchfab mesh.'
+        'attribution': 'Model by bohmerang; orientation adjusted and landing gear removed.'
     })
     # Geran-2 (famiglia Shahed-136): drone ostile della missione M12 Donbass e dell'hangar.
     # GLB fornito dall'utente, "Geranium-2" di Karosio su Sketchfab (CC BY-NC-SA 4.0).
@@ -271,3 +273,4 @@ def main():
 
 if __name__ == '__main__':
     main()
+
