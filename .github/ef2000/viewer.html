@@ -37,6 +37,15 @@ import {scanAirbus,consolidateAirbus,activateAirbus,archiveImportedAirbus,makeAi
 const MODELS=[
 {id:'f22',name:'Lockheed Martin F-22 Raptor',tag:'F-22',url:'https://sketchfab.com/3d-models/f22-raptor-ec44bd6cffa649b4927799a7b19c703b'},
 {id:'f16',name:'General Dynamics F-16C Fighting Falcon',tag:'F-16C',url:'',info:'F-16C Fighting Falcon · modello originale semplificato CENTURION2, carrello retratto'},
+{id:'f16-rebuilt',name:'F-16 Fighting Falcon · ricostruzione',tag:'F-16 · NUOVO',url:'',info:'Ricostruzione CENTURION2 ispirata al riferimento, con carrello retratto'},
+{id:'mc130j-centurion',name:'MC-130J Commando II',tag:'MC-130J',url:'',animateGLB:true,info:'Modello CENTURION2 con quattro eliche animate'},
+{id:'c130j-detailed',name:'Lockheed Martin C-130J Super Hercules',tag:'C-130J · DETTAGLIATO',url:'https://sketchfab.com/3d-models/lockheed-martin-c130jsuper-hercules-reupload-223b4ff4abb945038fe35726bedd0db1',info:'Modello dettagliato fornito dall’utente'},
+{id:'mh6-centurion',name:'MH-6 Little Bird',tag:'MH-6',url:'',animateGLB:true,info:'Modello CENTURION2 con panche laterali e rotori animati'},
+{id:'ah6-centurion',name:'AH-6 Little Bird',tag:'AH-6',url:'',animateGLB:true,info:'Modello CENTURION2 in configurazione armata, con rotori animati'},
+{id:'a10-centurion',name:'A-10 Thunderbolt II',tag:'A-10',url:'',info:'Modello CENTURION2 con carrello retratto'},
+{id:'hermes900-centurion',name:'Hermes 900',tag:'HERMES 900',url:'',animateGLB:true,info:'Modello CENTURION2 con elica animata'},
+{id:'mq9-centurion',name:'MQ-9 Reaper',tag:'MQ-9',url:'',animateGLB:true,info:'Modello CENTURION2 con elica animata'},
+{id:'uh60-new',name:'UH-60 Black Hawk · nuova versione',tag:'UH-60 · NUOVO',url:'',animateGLB:true,info:'Modello adattato con rotori animati'},
 {id:'f16-studiolab',name:'F-16 Fighting Falcon · Studio Lab (Sketchfab)',tag:'F-16 · STUDIO LAB',url:'https://sketchfab.com/3d-models/f-16-f-16-fighting-falcon-fighter-jet-8be8ab656304467eb6ddcbb244ae8574',info:'Anteprima 3D interattiva di Studio Lab · per usarlo nel Volo libero occorre un GLB autorizzato',embedOnly:true},
 {id:'uh60',name:'Sikorsky UH-60 Black Hawk · Michał Flodrowski',tag:'UH-60 · BLACK HAWK',url:'https://sketchfab.com/3d-models/uh-60-black-hawk-4682e6566cee481cb94d387fb7845243',info:'Anteprima 3D Sketchfab di Michał Flodrowski · volo elicottero non ancora integrato',embedOnly:true},
 {id:'uh60-centurion',name:'CENTURION UH-60 · modello originale',tag:'UH-60 · CENTURION',url:'',info:'Sikorsky UH-60M · modello originale con rotori articolati · CC BY 4.0',ownHelicopter:true},
@@ -52,6 +61,9 @@ const MODELS=[
 {id:'uav-quad',name:'Drone quadricottero ISR',tag:'UAV · QUAD',url:'',drone:'quad',summary:'Multirotore originale non armato con quattro rotori, carrello ed ottica stabilizzata.'},
 {id:'geran2',name:'Geran-2 (Shahed-136) · drone ostile',tag:'GERAN-2',url:'https://sketchfab.com/3d-models/geranium-2-8f12f601efe44a73b47e30a7077cf249',info:'Drone ostile delle missioni M12–M15 (Donbass e Zaporižžja) · apertura alare 2,5 m, lunghezza 3,5 m'}];
 const CREDITI={f14:'Modello originale CENTURION2 · geometria procedurale dalle quote pubbliche del Grumman F-14',pilota:'Modello 3D del pilota generato con Tripo · fornito dal proprietario del progetto','uh60-centurion':'Muhamad Mirza Arrafi / Sketchfab · CC BY 4.0 · geometria originale adattata da CENTURION2',uh60:'Michał Flodrowski (WR5) · Sketchfab · anteprima incorporata','f16-studiolab':'Studio Lab · Sketchfab · anteprima incorporata, nessuna licenza di redistribuzione verificata',f16:'CENTURION2 · modello originale semplificato (procedurale)',f22:'sxnneh / Sketchfab — Sketchfab Standard',ea18:'Rhine_Lab_Muelsyse / Sketchfab — CC BY 4.0',geran2:'Karosio / Sketchfab — CC BY-NC-SA 4.0'};
+for(const id of ['f16-rebuilt','mc130j-centurion','mh6-centurion','ah6-centurion','a10-centurion','hermes900-centurion','mq9-centurion']) CREDITI[id]='CENTURION2 · ricostruzione semplificata';
+CREDITI['uh60-new']='Modello adattato · autore e condizioni di licenza dell’asset originale da verificare';
+CREDITI['c130j-detailed']='KOG_THORNS / Sketchfab · CC BY 4.0';
 const $=s=>document.querySelector(s),view=$('#view'),status=$('#status');
 const scene=new THREE.Scene();scene.background=new THREE.Color(0x07111f);
 const camera=new THREE.PerspectiveCamera(40,1,0.05,2000);camera.position.set(16,10,18);
@@ -90,6 +102,11 @@ function clear(){
 }
 function frame(obj){const box=new THREE.Box3().setFromObject(obj);const dimensions=box.getSize(new THREE.Vector3());const largest=Math.max(dimensions.x,dimensions.y,dimensions.z);if(!largest||!Number.isFinite(largest))throw Error('Geometria non valida');obj.scale.multiplyScalar(16/largest);box.setFromObject(obj);const c=box.getCenter(new THREE.Vector3());obj.position.sub(c);camera.position.set(15,10,19);controls.target.set(0,0,0);controls.update();}
 function place(glb){clear();aircraft=glb.scene;if(selected.info)$('#hint').textContent=selected.info+(selected.id==='pilota'?'':' · mostrato ingrandito alla stessa scala dei jet');const gearDown=[];if(!selected.id.startsWith('a3'))aircraft.traverse(o=>{const n=(o.name||'').toLowerCase().replace(/[\s_.-]/g,'');if(/landingon|gearon|geardown|gearout|refuelon|landinglights|undercarriage(?!off|up)|wheel(?!off|up)|tire(?!off|up)|tyre(?!off|up)/.test(n))gearDown.push(o);});gearDown.forEach(o=>{if(o.parent)o.parent.remove(o);});scene.add(aircraft);frame(aircraft);
+ if(selected.animateGLB&&glb.animations?.length){
+   const mixer=new THREE.AnimationMixer(aircraft);
+   for(const clip of glb.animations)mixer.clipAction(clip).play();
+   animationDriver=dt=>mixer.update(dt);
+ }
  if(selected.ownHelicopter){
    const main=aircraft.getObjectByName('CENTURION_UH60_MAIN_ROTOR');
    const tail=aircraft.getObjectByName('CENTURION_UH60_TAIL_ROTOR');
@@ -115,7 +132,7 @@ function place(glb){clear();aircraft=glb.scene;if(selected.info)$('#hint').textC
    $('#hint').textContent='Eurofighter Typhoon · texture originale senza insegne tedesche · insegne italiane';
    note(livery51.applied ? 'Eurofighter Typhoon · ' + livery51.applied + ' decalcomanie italiane applicate · carrello retratto' : 'Eurofighter originale · decalcomanie non proiettate sul modello');
   }catch(e){console.warn('Eurofighter 51 Stormo:',e);note('Eurofighter originale · decalcomanie non disponibili');}
- }else note(selected.drone?'GLB UAV importato · orbita e zoom attivi':(selected.id==='pilota'?'Pilota 3D · orbita e zoom attivi':'Modello 3D originale · carrello retratto · orbita e zoom attivi'));}
+ }else note(selected.animateGLB&&animationDriver?'Modello 3D · eliche o rotori animati · orbita e zoom attivi':(selected.drone?'GLB UAV importato · orbita e zoom attivi':(selected.id==='pilota'?'Pilota 3D · orbita e zoom attivi':'Modello 3D · orbita e zoom attivi')));}
 function showDrone(m,created){
  if(!created?.g)throw Error('Geometria UAV mancante');
  clear();aircraft=created.g;aircraft.name=m.name;scene.add(aircraft);
