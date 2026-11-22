@@ -55,7 +55,9 @@ assert.ok(Math.abs(s30.time-10)<1e-8,'30 Hz integrates 10 full seconds');
 const flameout=rotor.create(spec,{r:[0,120,0],v:[0,0,0],collective:.64,fuel:0});
 for(let k=0;k<120;k++)rotor.step(flameout,1/60,{collective:.64},{mass:9500,rho:1.225,ground:0});
 assert.ok(flameout.r[1]<115,'engine out must lose altitude');
-assert.equal(rotor.version,'uh60-6dof-3');
+assert.equal(rotor.version,'uh60-6dof-4');
+// Heave damping: a fixed collective must settle on a steady climb rate, not keep accelerating.
+{ const c=test(.72,20); const v1=c.v[1]; const c2=test(.72,30); assert.ok(v1>.5&&v1<8,'UH60 .72 collective steady climb 0.5-8 m/s: '+v1); assert.ok(Math.abs(c2.v[1]-v1)<.3,'UH60 climb rate must settle: '+v1+' vs '+c2.v[1]); }
 const a380={icona:'a380',m:445000,S:845,span:79.8,oswald:.83,
   Tmil:1240000,Tab:1240000,cd0:.0205,cla:5.2,astall:17,amax:14,
   criticalMach:.8,waveRise:.085,gmax:2.5,gneg:1,pmax:22,
