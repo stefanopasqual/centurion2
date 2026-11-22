@@ -14,6 +14,7 @@ def patch(a,b):
 
 extra=r'''
     SU35:{nome:"Sukhoi Su-35S Flanker-E",icona:"su35",m:24000,S:62,Tmil:172000,Tab:284000,cd0:.020,k:.135,cla:3.35,amax:29,astall:34,pmax:210,gmax:9,gneg:3,fuel:9000,colpi:150,cannone:"30 mm",carico:{AIM120:4,AIM9X:2,AGM65:0}},
+    F14:{nome:"Grumman F-14D Tomcat",icona:"f15",m:25000,S:52.5,Tmil:123000,Tab:249000,cd0:.021,k:.13,cla:3.5,amax:26,astall:30,pmax:150,gmax:7.5,gneg:3,fuel:7350,colpi:675,cannone:"M61A1 20 mm",carico:{AIM120:4,AIM9X:2,AGM65:0}},
     SU57:{nome:"Sukhoi Su-57 Felon",icona:"su57",m:27000,S:78,Tmil:186000,Tab:300000,cd0:.018,k:.145,cla:3.55,amax:34,astall:38,pmax:235,gmax:9,gneg:3,fuel:10300,colpi:150,cannone:"30 mm",carico:{AIM120:4,AIM9X:2,AGM65:0}},
     EA18:{nome:"Boeing EA-18G Growler",icona:"ea18",m:23400,S:46.5,Tmil:96000,Tab:156000,cd0:.025,k:.17,cla:3.15,amax:24,astall:28,pmax:160,gmax:7.5,gneg:3,fuel:5800,colpi:0,cannone:"Nessuno",carico:{AIM120:2,AIM9X:2,AGM65:0}},
     KC30:{nome:"Airbus KC-30 / A330 MRTT",icona:"kc30",nonArmato:true,noEject:true,m:160000,S:361,Tmil:480000,Tab:480000,cd0:.025,k:.061,cla:5.1,amax:14,astall:16,pmax:42,gmax:2.5,gneg:1,fuel:72000,colpi:0,cannone:"Nessuno",carico:{}},
