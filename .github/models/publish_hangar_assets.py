@@ -8,7 +8,7 @@ from pathlib import Path
 MODELS = (
     ('f16-rebuilt', 'F-16 Fighting Falcon · dettagliato', False),
     ('a10-centurion', 'A-10 Thunderbolt II', False),
-    ('mc130j-centurion', 'MC-130J Commando II', True),
+    ('mc130j-centurion', 'MC-130J · adattamento da C-130J', True),
     ('c130j-hercules', 'C-130J Super Hercules', False),
     ('mh6-centurion', 'MH-6 Little Bird', True),
     ('ah6-centurion', 'AH-6 Little Bird', True),
@@ -55,6 +55,15 @@ def add_hangar_models(root, out, report, dry_run=False):
                         with part.open('rb') as inp:
                             shutil.copyfileobj(inp, output)
                 inspect_glb(target, expect_animation)
+            elif model_id == 'mc130j-centurion':
+                # The detailed variant is stored in four bounded-size source
+                # parts. Validate the reconstructed GLB including animations.
+                parts = [assets / f'mc130j-centurion.part{i:02}' for i in range(4)]
+                with target.open('wb') as output:
+                    for part in parts:
+                        with part.open('rb') as inp:
+                            shutil.copyfileobj(inp, output)
+                inspect_glb(target, expect_animation)
             else:
                 inspect_glb(source, expect_animation)
                 shutil.copyfile(source, target)
@@ -74,6 +83,17 @@ def add_hangar_models(root, out, report, dry_run=False):
             item.update(author='KOG_THORNS', license='CC BY 4.0',
                         license_url='https://creativecommons.org/licenses/by/4.0/',
                         source='https://sketchfab.com/3d-models/lockheed-martin-c130jsuper-hercules-reupload-223b4ff4abb945038fe35726bedd0db1')
+        if model_id == 'mc130j-centurion':
+            item.update(author='KOG_THORNS', license='CC BY 4.0',
+                        license_url='https://creativecommons.org/licenses/by/4.0/',
+                        source='https://sketchfab.com/3d-models/lockheed-martin-c130jsuper-hercules-reupload-223b4ff4abb945038fe35726bedd0db1',
+                        attribution='C-130J adapted to suggest the MC-130J, with refuelling pods, sensor and animated propellers; approximate variant.')
+        if model_id == 'mq9-centurion':
+            item.update(author='IProZenoN', license='CC BY 4.0',
+                        license_url='https://creativecommons.org/licenses/by/4.0/',
+                        source='https://sketchfab.com/3d-models/mq-9-fabe963feb354c5584b51f9c470c3f7e',
+                        attribution='MQ-9 adapted from an optimized derivative: extended gear removed and propeller animated.')
         report.append(item)
         print(f'PASS hangar {model_id}' + ('' if dry_run else f': {target.stat().st_size} bytes'))
+
 
