@@ -10,6 +10,7 @@ import subprocess
 import tempfile
 import zipfile
 from pathlib import Path
+from publish_hangar_assets import add_hangar_models
 
 MODELS = [
     ('typhoon', 'eurofighter-typhoon-fighter-jet-free.zip', 'Eurofighter Typhoon', 'https://sketchfab.com/3d-models/eurofighter-typhoon-fighter-jet-free-992bcc8987964ca09d55410330aa8579'),
@@ -260,6 +261,7 @@ def main():
         'status': geran_state,
         'attribution': 'Geranium-2 by Karosio on Sketchfab (CC BY-NC-SA 4.0).'
     })
+    add_hangar_models(root, out, report, args.dry_run)
     # Uploaded aircraft have already been copied and mapped above.
     # Do not overwrite calibrated rotations and real author/license metadata.
     (out / 'manifest.json').write_text(json.dumps({'models': report, 'notice': 'Third-party models: bohmerang / Sketchfab (CC BY-NC-SA 4.0), Rhine_Lab_Muelsyse / Sketchfab (CC BY 4.0), sxnneh / Sketchfab (Sketchfab Standard) and Karosio / Sketchfab (CC BY-NC-SA 4.0, Geran-2 drone). Attribution and noncommercial conditions apply.'}, indent=2), encoding='utf-8')
