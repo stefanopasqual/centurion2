@@ -18,9 +18,9 @@ change("volo.js",
 change("volo.js",
 '  function aggiorna(dtR) {',
 '''  function aggiornaSonic(dt){
-    if(!S||!S.pl||!S.pl.vivo)return;
+    if(!S||!S.pl||!S.pl.vivo){if(S&&S.fx)S.fx.buffet=0;return;}
     const P=S.pl;
-    if(P.A.drone||P.A.nonArmato)return;
+    if(P.A.drone||P.A.nonArmato){if(S.fx)S.fx.buffet=0;return;}
     const mach=Math.max(0,P.M||0);
     const humidity=(APP.sc&&APP.sc.meteo&&APP.sc.meteo.umidita!=null)
       ? Math.max(0,Math.min(1,+APP.sc.meteo.umidita/100)):.68;
@@ -46,10 +46,17 @@ change("volo.js",
     if(S.sonicPending&&S.t>=S.sonicPending.t){
       S.sonicPending=null;
       if(S.cam!=="cockpit"&&S.cam!=="helmet"){
-        if(S.fx)S.fx.scossa=Math.max(S.fx.scossa||0,.5);
+        if(S.fx)S.fx.scossa=Math.max(S.fx.scossa||0,.9);
         if(S.cfg.audio&&AU&&window.CENTURION_SONIC)CENTURION_SONIC.boom(AU.ctx,AU.master,.24);
       }
     }
+    // Buffet transonico: oltre Mach 0,86 le onde d'urto sull'ala oscillano e scuotono la cellula, sempre di piu'
+    // avvicinandosi a Mach 1; resta al massimo finche' il bang non arriva, poi in pieno supersonico il flusso si
+    // assesta e il volo torna liscio. Piu' forte a bassa quota (pressione dinamica alta).
+    const liscia=(a,b,x)=>{const k=Math.max(0,Math.min(1,(x-a)/(b-a)));return k*k*(3-2*k);};
+    let buffet=Math.pow(liscia(.86,.995,mach),1.6)*(1-liscia(1.01,1.08,mach));
+    if(S.sonicPending)buffet=1;
+    if(S.fx)S.fx.buffet=buffet*Math.max(.45,Math.min(1.25,(P.qbar||0)/25000));
   }
   function aggiorna(dtR) {''')
 
@@ -57,6 +64,15 @@ change("volo.js",
 'if(S&&S.thermalFx){S.thermalFx.dispose();S.thermalFx=null;}',
 '''if(S&&S.sonicVisual){S.sonicVisual.dispose();S.sonicVisual=null;}
     if(S&&S.thermalFx){S.thermalFx.dispose();S.thermalFx=null;}''')
+
+# Camera: oltre agli scossoni (esplosioni, bang) un canale continuo per il buffet transonico, fitto e piccolo;
+# in cabina quasi solo angolare (spostare l'occhio di decimetri dentro l'abitacolo sembrerebbe un terremoto).
+change("volo.js",
+'const fx = S.fx; if (!fx || fx.scossa < 0.01) return; const a = fx.scossa;',
+'''const fx = S.fx; if (!fx) return;
+    const bf = S.pausa ? 0 : fx.buffet || 0; if (bf > 0.01) { const den = S.cam === "cockpit" || S.cam === "helmet", kp = den ? 0.035 : 0.55, kr = den ? 0.0075 : 0.005;
+      camera.position.add(V3((Math.random() - 0.5) * bf * kp, (Math.random() - 0.5) * bf * kp, (Math.random() - 0.5) * bf * kp)); camera.rotateZ((Math.random() - 0.5) * bf * kr); camera.rotateX((Math.random() - 0.5) * bf * kr * 1.3); }
+    if (fx.scossa < 0.01) return; const a = fx.scossa;''')
 
 # Add a subtle visual wave during mission flights when supersonic.
 # The tactical engine holds estimated speed in knots, altitude in feet.
@@ -78,4 +94,4 @@ change("mondo3d.js",
 'if(st&&st.thermalFx){st.thermalFx.dispose();st.thermalFx=null;}',
 '''if(st&&st.ent)Object.values(st.ent).forEach(e=>{if(e.sonic){e.sonic.dispose();e.sonic=null;}});
     if(st&&st.thermalFx){st.thermalFx.dispose();st.thermalFx=null;}''')
-print("Sonic shock propagation, conditional vapor effect and mission animation integrated.")
+print("Sonic shock propagation, transonic buffet, conditional vapor effect and mission animation integrated.")
