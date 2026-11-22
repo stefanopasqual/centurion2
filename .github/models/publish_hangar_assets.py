@@ -6,7 +6,7 @@ import struct
 from pathlib import Path
 
 MODELS = (
-    ('f16-rebuilt', 'F-16 Fighting Falcon · ricostruito', False),
+    ('f16-rebuilt', 'F-16 Fighting Falcon · dettagliato', False),
     ('a10-centurion', 'A-10 Thunderbolt II', False),
     ('mc130j-centurion', 'MC-130J Commando II', True),
     ('c130j-hercules', 'C-130J Super Hercules', False),
@@ -62,9 +62,18 @@ def add_hangar_models(root, out, report, dry_run=False):
                 'glb': None if dry_run else f'models/{model_id}.glb',
                 'status': 'ready-for-conversion' if dry_run else 'ready',
                 'source': 'CENTURION2 hangar collection'}
+        if model_id in ('f16-rebuilt', 'a10-centurion'):
+            source = {
+                'f16-rebuilt': 'https://sketchfab.com/3d-models/f-16-fighting-falcon-fighter-jet-free-f0b00989e5634764848ef2c235c64db5',
+                'a10-centurion': 'https://sketchfab.com/3d-models/a-10-thunderbolt-ii-free-f297968397534b59bd41fe989497ffcb',
+            }[model_id]
+            item.update(author='bohmerang', license='CC BY-NC-SA 4.0',
+                        license_url='https://creativecommons.org/licenses/by-nc-sa/4.0/',
+                        source=source, attribution='Orientamento adattato per CENTURION2; carrello F-16 rimosso.')
         if model_id == 'c130j-hercules':
             item.update(author='KOG_THORNS', license='CC BY 4.0',
                         license_url='https://creativecommons.org/licenses/by/4.0/',
                         source='https://sketchfab.com/3d-models/lockheed-martin-c130jsuper-hercules-reupload-223b4ff4abb945038fe35726bedd0db1')
         report.append(item)
         print(f'PASS hangar {model_id}' + ('' if dry_run else f': {target.stat().st_size} bytes'))
+
