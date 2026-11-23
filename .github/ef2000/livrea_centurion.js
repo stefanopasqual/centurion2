@@ -139,67 +139,95 @@ export function analizzaAirframe(THREE, aircraft, ov){
   return { ok, box, size, min, meshes, samp, foreAft, lat, latCtr, L, Wl, H, tailEnd, noseEnd, span, baseY, finMask };
 }
 
-// Livrea: il modello mantiene ESATTAMENTE le sue texture/materiali originali.
-// Solo i vertici della deriva verticale vengono oscurati in nero; nessuna
-// desaturazione della fusoliera, delle ali o dei colori originali.
-// Clone locale della geometria: tutte le modifiche sono reversibili.
+// Vernice originale INTATTA: nessuna modifica a material, map, vertexColors
+// o geometry dei modelli sorgenti. Solo un rivestimento nero separato sulle
+// facce verticali delle derive, rimosso quando la livrea e' disattivata.
 export function verniceCenturion(THREE, aircraft, A){
   A=A||analizzaAirframe(THREE,aircraft);
-  const restored=[],colorBlack=0.018;
-  const exclude=/glass|canop|vetro|cockpit|windscreen|window|interior|seat|pilot|engine|exhaust|nozzle|burner|turbine|wheel|tire|tyre|gear|rubber|brake|light|screen/i;
-  const wv=new THREE.Vector3();
   aircraft.updateMatrixWorld(true);
-  aircraft.traverse(object=>{
-    if(!object.isMesh||!object.geometry||!object.material)return;
-    const mats=Array.isArray(object.material)?object.material:[object.material];
-    const name=(object.name||'')+' '+mats.map(m=>m?.name||'').join(' ');
-    if(exclude.test(name))return;
-    const oldGeometry=object.geometry,pa=oldGeometry.getAttribute('position');
-    if(!pa)return;
-    const finIndices=[];
-    for(let i=0;i<pa.count;i++){
-      wv.fromBufferAttribute(pa,i).applyMatrix4(object.matrixWorld);
-      if(A.finMask(wv))finIndices.push(i);
-    }
-    if(!finIndices.length)return; // no modifications to other aircraft parts
-    const oldColor=oldGeometry.getAttribute('color');
-    const oldUsesColors=mats.some(m=>!!m?.vertexColors);
-    const colors=new Float32Array(pa.count*3);
-    // White multiplier leaves original paint/texture unchanged.
-    // Existing authored vertex colours are preserved when in use.
-    for(let i=0;i<pa.count;i++){
-      const k=i*3;
-      if(oldColor&&oldUsesColors){
-        colors[k]=oldColor.getX(i);
-        colors[k+1]=oldColor.getY(i);
-        colors[k+2]=oldColor.getZ(i);
-      }else colors[k]=colors[k+1]=colors[k+2]=1;
-    }
-    for(const i of finIndices){
-      const k=i*3;
-      colors[k]*=colorBlack;
-      colors[k+1]*=colorBlack;
-      colors[k+2]*=colorBlack;
-    }
-    const clonedGeometry=oldGeometry.clone();
-    clonedGeometry.setAttribute('color',new THREE.BufferAttribute(colors,3));
-    const clonedMaterial=Array.isArray(object.material)?
-      object.material.map(m=>{const c=m.clone();c.vertexColors=true;c.needsUpdate=true;return c;}):
-      object.material.clone();
-    if(!Array.isArray(clonedMaterial)){clonedMaterial.vertexColors=true;clonedMaterial.needsUpdate=true;}
-    object.geometry=clonedGeometry;
-    object.material=clonedMaterial;
-    restored.push({object,oldGeometry,materials:mats,
-      originalIsArray:Array.isArray(object.material),clonedGeometry,clonedMaterial});
+  const rootInverse=new THREE.Matrix4().copy(aircraft.matrixWorld).invert();
+  const overlays=[];
+  const dark=new THREE.MeshStandardMaterial({
+    color:0x101218,roughness:0.72,metalness:0.12,
+    side:THREE.DoubleSide,depthTest:true,depthWrite:false,
+    polygonOffset:true,polygonOffsetFactor:-3,polygonOffsetUnits:-3
   });
-  return {changed:restored.length,dispose(){
-    restored.forEach(r=>{
-      r.object.geometry=r.oldGeometry;
-      r.object.material=r.originalIsArray?r.materials:r.materials[0];
-      (Array.isArray(r.clonedMaterial)?r.clonedMaterial:[r.clonedMaterial]).forEach(m=>m.dispose());
-      r.clonedGeometry.dispose();
-    });
-  }};
+  const omit=/glass|canop|vetro|cockpit|windscreen|window|interior|seat|pilot|engine|exhaust|nozzle|burner|turbine|wheel|tire|tyre|gear|rubber|brake|light|screen/i;
+  const axis=A.foreAft;
+  const rearDirection=A.tailEnd===A.box.min[axis] ? 1 : -1;
+  const limit=A.tailEnd+rearDirection*A.L*A.span;
+  const lateralLimit=A.Wl*.27;
+  const p0=new THREE.Vector3(),p1=new THREE.Vector3(),p2=new THREE.Vector3();
+  const ab=new THREE.Vector3(),ac=new THREE.Vector3(),normal=new THREE.Vector3();
+  const byAxis=(p,k)=>p[k];
+  // Clipping su base della deriva, parte posteriore e ingombro laterale.
+  // Evita di annerire ali, superfici orizzontali e resto della fusoliera.
+  function clip(poly,dist){
+    if(!poly.length)return poly;
+    const out=[];
+    for(let i=0;i<poly.length;i++){
+      const a=poly[i],b=poly[(i+1)%poly.length];
+      const da=dist(a),db=dist(b);
+      if(da>=0)out.push(a);
+      if((da<0&&db>0)||(da>0&&db<0))
+        out.push(a.clone().lerp(b,da/(da-db)));
+    }
+    return out;
+  }
+  for(const object of A.meshes){
+    const g=object.geometry,attr=g?.getAttribute('position');
+    if(!attr||!object.material)continue;
+    const mats=Array.isArray(object.material)?object.material:[object.material];
+    if(omit.test(object.name||''))continue;
+    const idx=g.index,groups=g.groups||[];
+    const triCount=Math.floor((idx?idx.count:attr.count)/3);
+    const vertices=[];
+    for(let tri=0;tri<triCount;tri++){
+      const i=tri*3;
+      if(groups.length){
+        const group=groups.find(h=>i>=h.start&&i<h.start+h.count);
+        if(group&&omit.test(mats[group.materialIndex||0]?.name||''))continue;
+      }else if(mats.length===1&&omit.test(mats[0]?.name||''))continue;
+      p0.fromBufferAttribute(attr,idx?idx.getX(i):i).applyMatrix4(object.matrixWorld);
+      p1.fromBufferAttribute(attr,idx?idx.getX(i+1):i+1).applyMatrix4(object.matrixWorld);
+      p2.fromBufferAttribute(attr,idx?idx.getX(i+2):i+2).applyMatrix4(object.matrixWorld);
+      ab.subVectors(p1,p0);ac.subVectors(p2,p0);
+      normal.crossVectors(ab,ac);
+      if(normal.lengthSq()<1e-12)continue;
+      normal.normalize();
+      // La deriva e' verticale: normale prevalentemente laterale.
+      if(Math.abs(normal[A.lat])<.38||Math.abs(normal.y)>.78)continue;
+      let poly=[p0.clone(),p1.clone(),p2.clone()];
+      poly=clip(poly,v=>v.y-A.baseY);
+      poly=clip(poly,v=>(limit-byAxis(v,axis))*rearDirection);
+      poly=clip(poly,v=>lateralLimit-Math.abs(v[A.lat]-A.latCtr));
+      if(poly.length<3)continue;
+      for(let n=1;n<poly.length-1;n++){
+        for(const p of [poly[0],poly[n],poly[n+1]]){
+          const local=p.clone().applyMatrix4(rootInverse);
+          vertices.push(local.x,local.y,local.z);
+        }
+      }
+    }
+    if(!vertices.length)continue;
+    const geo=new THREE.BufferGeometry();
+    geo.setAttribute('position',new THREE.Float32BufferAttribute(vertices,3));
+    geo.computeVertexNormals();
+    const overlay=new THREE.Mesh(geo,dark);
+    overlay.name='CENTURION2_black_vertical_tail';
+    overlay.frustumCulled=false;
+    overlay.renderOrder=5;
+    aircraft.add(overlay);
+    overlays.push(overlay);
+  }
+  if(!overlays.length)dark.dispose();
+  return {
+    changed:overlays.length,
+    dispose(){
+      overlays.forEach(o=>{o.parent?.remove(o);o.geometry.dispose();});
+      if(overlays.length)dark.dispose();
+    }
+  };
 }
 
 // Cimieri proiettati sulla superficie 3D delle derive realmente annerite.
