@@ -6,6 +6,7 @@
 *{box-sizing:border-box}body{margin:0;overflow:hidden}header{height:58px;display:flex;gap:12px;align-items:center;padding:10px 14px;background:#0b1b2c;border-bottom:1px solid #234761}header b{letter-spacing:.09em;font-size:14px}header small{color:#9eb8cb;font-size:11px}
 button{background:#193b57;color:#edf9ff;border:1px solid #4782a5;padding:9px 12px;border-radius:9px;cursor:pointer;min-height:39px;font:600 12px system-ui}
 button:hover,button:focus-visible{background:#235579}button:disabled{opacity:.6;cursor:wait}
+button.on{background:#b7c4d2;color:#0d1a26;border-color:#e6eef6}button.on:hover{background:#cdd8e4}
 main{height:calc(100dvh - 58px);display:grid;grid-template-columns:210px minmax(0,1fr)}nav{padding:12px;background:#081a2a;overflow:auto;border-right:1px solid #234761}nav button{width:100%;text-align:left;margin-bottom:7px;border-color:#2b526e}nav button.active{background:#19719a;border-color:#7dd9ff}nav button small{display:block;color:#a9c2d5;margin-top:4px}
 #stage{min-width:0;min-height:0;display:grid;grid-template-rows:minmax(0,1fr) auto}#view{position:relative;overflow:hidden;background:radial-gradient(ellipse at 50% 35%,#1d3e57,#07111f 75%)}#view canvas{display:block;width:100%;height:100%;touch-action:none}
 #airbus-panel{display:none;position:absolute;inset:12px;background:#081522f2;border:1px solid #447497;border-radius:12px;z-index:22;overflow:auto;padding:14px;box-shadow:0 12px 40px #000b}
@@ -26,14 +27,15 @@ footer{padding:11px 14px;background:#0b1b2c;border-top:1px solid #28455f;display
 </style>
 <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.160.1/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.160.1/examples/jsm/"}}</script>
 </head><body>
-<header><button id="back">← Indietro</button><div><b>CENTURION2 · HANGAR 3D</b><br><small>MODELLI REALISTICI · ASSET ORIGINALI</small></div></header>
-<main><nav id="aircraft"></nav><div id="stage"><div id="view"><div id="status">Caricamento…</div><div id="floor">Ruota trascinando · Zoom con due dita o rotellina</div><section id="airbus-panel" aria-label="Airbus locali"><div style="display:flex;align-items:center;justify-content:space-between;gap:10px"><h2>Consolida Airbus</h2><button id="airbus-close">Chiudi</button></div><p>I GLB caricati con «Importa GLB» sono salvati soltanto in questo browser. Attiva un Airbus per famiglia, conserva le altre varianti ed esporta un ZIP con gli originali per integrarli stabilmente nel progetto.</p><div class="airbus-actions"><button id="airbus-scan">Analizza import</button><button id="airbus-consolidate">Consolida locali</button><button id="airbus-export">Esporta ZIP</button></div><div id="airbus-message" role="status"></div><div id="airbus-items"></div></section></div><footer><div><h1 id="title">Eurofighter Typhoon</h1><p id="credit">Modelli di bohmerang, Sketchfab — CC BY-NC-SA 4.0</p><p id="hint">Importa un file GLB convertito dal sorgente Blender originale.</p></div><div class="actions"><button id="import">Importa GLB</button><button id="airbus-open">Consolida Airbus</button><button id="reset">Centra</button><button id="source">Modello originale</button><input type="file" id="upload" accept=".glb,model/gltf-binary"></div></footer></div></main>
+<header><button id="back">← Indietro</button><div><b>CENTURION2 · HANGAR 3D</b><br><small>MODELLI REALISTICI · ASSET ORIGINALI</small></div><button id="livery" aria-pressed="false" title="Applica la livrea CENTURION a tutta la flotta ad ala fissa" style="margin-left:auto">◇ Livrea CENTURION</button></header>
+<main><nav id="aircraft"></nav><div id="stage"><div id="view"><div id="status">Caricamento…</div><div id="floor">Ruota trascinando · Zoom con due dita o rotellina</div><section id="airbus-panel" aria-label="Airbus locali"><div style="display:flex;align-items:center;justify-content:space-between;gap:10px"><h2>Consolida Airbus</h2><button id="airbus-close">Chiudi</button></div><p>I GLB caricati con «Importa GLB» sono salvati soltanto in questo browser. Attiva un Airbus per famiglia, conserva le altre varianti ed esporta un ZIP con gli originali per integrarli stabilmente nel progetto.</p><div class="airbus-actions"><button id="airbus-scan">Analizza import</button><button id="airbus-consolidate">Consolida locali</button><button id="airbus-export">Esporta ZIP</button></div><div id="airbus-message" role="status"></div><div id="airbus-items"></div></section></div><footer><div><h1 id="title">Eurofighter Typhoon</h1><p id="credit">Modelli di bohmerang, Sketchfab — CC BY-NC-SA 4.0</p><p id="hint">Importa un file GLB convertito dal sorgente Blender originale.</p></div><div class="actions"><button id="livery-one" hidden title="Attiva o disattiva la livrea solo per questo velivolo">Livrea: questo velivolo</button><button id="import">Importa GLB</button><button id="airbus-open">Consolida Airbus</button><button id="reset">Centra</button><button id="source">Modello originale</button><input type="file" id="upload" accept=".glb,model/gltf-binary"></div></footer></div></main>
 <script type="module">
 import * as THREE from 'three';
 import {OrbitControls} from 'three/addons/controls/OrbitControls.js';
 import {GLTFLoader} from 'three/addons/loaders/GLTFLoader.js';
 import {RoomEnvironment} from 'three/addons/environments/RoomEnvironment.js';
 import {verniceTyphoon} from './livrea51.js';
+import {applyLivreaCompleta,haLivrea,LIVREA_CENTURION} from './livrea_centurion.js';
 import {scanAirbus,consolidateAirbus,activateAirbus,archiveImportedAirbus,makeAirbusArchive,downloadArchive,canonicalAirbusId} from './airbus_local.js';
 const MODELS=[
 {id:'f22',name:'Lockheed Martin F-22 Raptor',tag:'F-22',url:'https://sketchfab.com/3d-models/f22-raptor-ec44bd6cffa649b4927799a7b19c703b'},
@@ -74,7 +76,14 @@ const rim=new THREE.DirectionalLight(0x80c6ff,0.9);rim.position.set(10,5,-12);sc
 const grid=new THREE.GridHelper(60,30,0x2f526b,0x17334a);grid.position.y=-5.5;scene.add(grid);
 const floor=new THREE.Mesh(new THREE.PlaneGeometry(90,90),new THREE.ShadowMaterial({opacity:.38}));floor.rotation.x=-Math.PI/2;floor.position.y=-5.49;floor.receiveShadow=true;scene.add(floor);
 const controls=new OrbitControls(camera,renderer.domElement);controls.enableDamping=true;controls.minDistance=2;controls.maxDistance=180;
-const loader=new GLTFLoader();let selected=MODELS[0],aircraft=null,token=0,animationDriver=null,procedural=false,droneLoad=null,livery51=null;
+const loader=new GLTFLoader();let selected=MODELS[0],aircraft=null,token=0,animationDriver=null,procedural=false,droneLoad=null,livery51=null,liveryHandle=null;
+// Livrea CENTURION: stato globale (tutta la flotta) + eccezioni per singolo velivolo, salvati nel browser.
+const LIVERY={
+ global:(()=>{try{return localStorage.getItem('centurion2-livrea-global')==='1';}catch(e){return false;}})(),
+ exc:(()=>{try{return new Set(JSON.parse(localStorage.getItem('centurion2-livrea-exc')||'[]'));}catch(e){return new Set();}})(),
+ save(){try{localStorage.setItem('centurion2-livrea-global',this.global?'1':'0');localStorage.setItem('centurion2-livrea-exc',JSON.stringify([...this.exc]));}catch(e){}},
+ attiva(id){return haLivrea(id)&&(this.global!==this.exc.has(id));}
+};
 async function ensureDroneFactory(){
  if(window.CENTURION_REALISM?.drone)return window.CENTURION_REALISM;
  if(!droneLoad){
@@ -92,6 +101,7 @@ async function ensureDroneFactory(){
 }
 function note(t){status.textContent=t;}
 function clear(){
+ if(liveryHandle){try{liveryHandle.dispose();}catch(e){}liveryHandle=null;}
  if(livery51){livery51.dispose();livery51=null;}
  document.getElementById('sketchfab-fallback')?.remove();
  $('#floor').style.display='';
@@ -151,13 +161,29 @@ function place(glb){clear();aircraft=glb.scene;if(selected.info)$('#hint').textC
    note('UH-60 CENTURION · GLB originale · '+(main&&tail?'rotori animati':'parti rotoriche statiche'));
    return;
  }
- if(selected.id==='typhoon'){
+ if(selected.id==='typhoon' && !LIVERY.attiva('typhoon')){
   try{
    const n=verniceTyphoon(THREE,aircraft);
    $('#hint').textContent='Eurofighter Typhoon · vernice grigia senza insegne · texture originale con pannelli e scritte tecniche';
    note(n ? 'Eurofighter Typhoon · vernice grigia · carrello retratto' : 'Eurofighter originale · vernice non applicata');
   }catch(e){console.warn('Eurofighter vernice:',e);note('Eurofighter originale · vernice non applicata');}
- }else note(selected.drone?'GLB UAV importato · orbita e zoom attivi':(selected.id==='pilota'||selected.persona?'Personale 3D · orbita e zoom attivi':'Modello 3D originale · carrello retratto · orbita e zoom attivi'));}
+ }else note(selected.drone?'GLB UAV importato · orbita e zoom attivi':(selected.id==='pilota'||selected.persona?'Personale 3D · orbita e zoom attivi':'Modello 3D originale · carrello retratto · orbita e zoom attivi'));
+ applyLivery();syncLiveryUI();}
+// Livrea CENTURION applicata al velivolo caricato (solo ala fissa, se attiva globalmente o per questo velivolo).
+function applyLivery(){
+ if(liveryHandle){try{liveryHandle.dispose();}catch(e){}liveryHandle=null;}
+ if(!aircraft||procedural||!selected||!LIVERY.attiva(selected.id))return;
+ try{
+  liveryHandle=applyLivreaCompleta(THREE,scene,aircraft,selected.id);
+  const info=LIVREA_CENTURION[selected.id];
+  $('#hint').textContent='Livrea CENTURION'+(info?' · '+info.codice+' · '+info.tipo:'')+' · cimiero sulla deriva, modex sul muso · disattivabile';
+  note('Livrea CENTURION attiva'+(info?' · '+info.codice:'')+' · '+liveryHandle.applied+' insegne');
+ }catch(e){console.warn('Livrea CENTURION:',e);}
+}
+function syncLiveryUI(){
+ const g=$('#livery');if(g){g.classList.toggle('on',LIVERY.global);g.setAttribute('aria-pressed',LIVERY.global?'true':'false');g.textContent=(LIVERY.global?'◆':'◇')+' Livrea CENTURION';}
+ const one=$('#livery-one');if(one){const ok=!!selected&&haLivrea(selected.id)&&!selected.embedOnly&&!selected.drone;one.hidden=!ok;if(ok){const on=LIVERY.attiva(selected.id);one.classList.toggle('on',on);one.textContent=on?'◆ Livrea: questo ON':'◇ Livrea: questo OFF';}}
+}
 function showDrone(m,created){
  if(!created?.g)throw Error('Geometria UAV mancante');
  clear();aircraft=created.g;aircraft.name=m.name;scene.add(aircraft);
@@ -298,6 +324,9 @@ $('#import').onclick=()=>$('#upload').click();$('#upload').onchange=async()=>{co
  note(f.name+' · salvato localmente su questo dispositivo'+(archived?' · Airbus archiviato: '+archived.family:''));
 }catch(e){note('Errore GLB: '+String(e.message||e));}$('#upload').value='';};
 $('#reset').onclick=()=>{if(aircraft)frame(aircraft);};
+$('#livery').onclick=()=>{LIVERY.global=!LIVERY.global;LIVERY.exc.clear();LIVERY.save();applyLivery();syncLiveryUI();};
+$('#livery-one').onclick=()=>{if(!selected||!haLivrea(selected.id))return;if(LIVERY.exc.has(selected.id))LIVERY.exc.delete(selected.id);else LIVERY.exc.add(selected.id);LIVERY.save();applyLivery();syncLiveryUI();};
+syncLiveryUI();
 $('#back').onclick=()=>{if(window.parent!==window)window.parent.postMessage({type:'centurion2-ef2000-close'},location.origin);else location.href='../';};
 function resize(){let w=view.clientWidth,h=view.clientHeight;if(!w||!h)return;renderer.setSize(w,h,false);camera.aspect=w/h;camera.updateProjectionMatrix();}new ResizeObserver(resize).observe(view);resize();const clock=new THREE.Clock();
 renderer.setAnimationLoop(()=>{
