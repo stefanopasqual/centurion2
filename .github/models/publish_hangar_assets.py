@@ -16,6 +16,8 @@ MODELS = (
     ('mq9-centurion', 'MQ-9 Reaper', True),
     ('hermes900-centurion', 'Hermes 900', True),
     ('pj-operator', 'Pararescue Jumper (PJ) · operatore CSAR', False),
+    ('uh60m-wtiger', 'Sikorsky UH-60M Black Hawk', False),
+    ('orion-e', 'Kronstadt Orion-E', False),
     ('pj-mk18', 'Mk18 Mod0 · carabina del PJ', False),
     ('pj-m18', 'SIG M18 · pistola del PJ', False),
     ('pj-nvg', 'Visore notturno quadritubo del PJ', False),
@@ -109,6 +111,16 @@ def add_hangar_models(root, out, report, dry_run=False):
                         license_url='https://creativecommons.org/licenses/by/4.0/',
                         source='https://sketchfab.com/3d-models/sig-p320-m18-643cf5792c8e4ce5954d7929543857d3',
                         attribution='SIG P320 M18 by k4rmax, packed as GLB and holstered on the PJ in the hangar.')
+        if model_id == 'uh60m-wtiger':
+            item.update(author='Yi Tsung Lee (WTigerTw)', license='CC BY 4.0',
+                        license_url='https://creativecommons.org/licenses/by/4.0/',
+                        source='https://sketchfab.com/3d-models/us-army-uh-60m-black-hawk-low-poly-model-854bf0feee5b42dc92ac5329976f7942',
+                        attribution='US Army UH-60M Black Hawk low poly model by Yi Tsung Lee: specular-glossiness material converted to metallic-roughness.')
+        if model_id == 'orion-e':
+            item.update(author='flightclubua', license='CC BY 4.0',
+                        license_url='https://creativecommons.org/licenses/by/4.0/',
+                        source='https://sketchfab.com/3d-models/orion-e-fixed-wing-male-uav-by-kronstadt-8fe0b8ca71e8404d8ba3a0c65c64315b',
+                        attribution='Orion E Fixed-wing MALE UAV by flightclubua: textures reduced for the web.')
         if model_id in ('pj-nvg', 'pj-radio', 'pj-ifak'):
             author, url, note = {
                 'pj-nvg': ('karmy2k', 'https://sketchfab.com/3d-models/night-vision-goggles-navy-seals-6cf9c96971fb4dc19a225d68a14d1458',

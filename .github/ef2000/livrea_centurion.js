@@ -35,13 +35,14 @@ export const LIVREA_CENTURION = {
   'a10-centurion':     { codice: 'CENT-11', modex: '11', tipo: 'SUPP. RAVVICINATO',  place:{ fin:{fa:0.86,y:0.62,h:0.22}, nose:{fa:0.24,y:0.52} } },
   f14:                 { codice: 'CENT-12', modex: '12', tipo: 'INTERCETTORE',       place:{ fin:{fa:0.74,y:0.70,h:0.26}, nose:{fa:0.24,y:0.52} } },
   'hermes900-centurion': { codice: 'CENT-13', modex: '13', tipo: 'APR ISR',          place:{ fin:{fa:0.86,y:0.56,h:0.18}, nose:{fa:0.26,y:0.56} } },
+  'orion-e':             { codice: 'CENT-13', modex: '13', tipo: 'APR ISR MALE' },
   typhoon:             { codice: 'CENT-14', modex: '14', tipo: 'MULTIRUOLO',         place:{ fin:{fa:0.82,y:0.74,h:0.28}, nose:{fa:0.26,y:0.52} } },
 };
 
 // Airframes that must NOT receive the livery (rotary-wing, people,
 // ordnance, hostile drones, generic UAV placeholders).
 export const SENZA_LIVREA = new Set([
-  'mh6-centurion','ah6-centurion','uh60-pack','uh60','uh60-centurion',
+  'mh6-centurion','ah6-centurion','uh60-pack','uh60','uh60-centurion','uh60m-wtiger',
   'pilota','pj-operator','weapons','uav-fixed','uav-quad','geran2',
 ]);
 

@@ -64,3 +64,19 @@ Equipaggiamento del PJ nell'hangar (tutti [CC BY 4.0](https://creativecommons.or
   convertito in GLB, texture ridotte a 512 px.
 - «Medical Kit Bag» di yronthal, https://sketchfab.com/3d-models/medical-kit-bag-abc2f95bce4c4e69bfc0d8742d37e78b:
   convertito in GLB, texture ridotte a 512 px.
+
+## UH-60M Black Hawk e Orion-E
+
+- «US Army UH-60M Black Hawk low poly model» di Yi Tsung Lee (WTigerTw),
+  https://sketchfab.com/3d-models/us-army-uh-60m-black-hawk-low-poly-model-854bf0feee5b42dc92ac5329976f7942,
+  [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/): materiale convertito in metallic-roughness; nell'hangar
+  sostituisce «UH-60 · NUOVO».
+- «Orion E Fixed-wing Male UAV by Kronstadt» di flightclubua,
+  https://sketchfab.com/3d-models/orion-e-fixed-wing-male-uav-by-kronstadt-8fe0b8ca71e8404d8ba3a0c65c64315b,
+  [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/): texture ridotte; nell'hangar sostituisce l'Hermes 900.
+
+## F-14 Tomcat
+
+«F-14 Tomcat - Fighter Jet - Free» di bohmerang,
+https://sketchfab.com/3d-models/f-14-tomcat-fighter-jet-free-497f77c311b5411d9b567d8707a81c33,
+[CC BY-NC-SA 4.0](https://creativecommons.org/licenses/by-nc-sa/4.0/): carrello esteso rimosso, texture ridotte.
