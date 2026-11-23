@@ -1,3 +1,4 @@
+import {DecalGeometry} from 'three/addons/geometries/DecalGeometry.js';
 /*
  * CENTURION2 - Livrea CENTURION (reparto)
  * Low-visibility tactical-grey livery with the Spartan-helmet emblem,
@@ -208,79 +209,127 @@ export function verniceCenturion(THREE, aircraft, A){
   };
 }
 
-// Place the grey Spartan emblem (helmet + tail code) centred on the black
-// tail fin, on both faces. No nose markings: the whole fin is black, so the
-// emblem always sits on a black field and placement cannot miss.
+// Cimieri proiettati sulla superficie 3D delle derive realmente annerite.
+// Non usare il piano fisso al centro dell'ala: collocava le insegne fuori asse.
 export function applyCenturion(THREE, scene, aircraft, opts = {}){
-  const codice = opts.codice || 'CENT';
-  const A = opts.A || analizzaAirframe(THREE, aircraft, opts.place || null);
-  const nodes = [], resources = [];
-  if(!A.ok) return { applied:0, dispose(){} };
+  const codice=opts.codice||'CENT';
+  const A=opts.A||analizzaAirframe(THREE,aircraft,opts.place||null);
+  const nodes=[],resources=[];
+  if(!A.ok)return {applied:0,dispose(){}};
   scene.updateMatrixWorld(true);
-  const { lat, Wl, foreAft } = A;
-  const mkMat = mirror => {
-    const t = elmoTex(THREE, codice, mirror); resources.push(t);
-    const m = new THREE.MeshBasicMaterial({ map:t, transparent:true, opacity:0.98,
-      side:THREE.FrontSide, depthTest:true, depthWrite:false, polygonOffset:true,
-      polygonOffsetFactor:-6, polygonOffsetUnits:-6, toneMapped:false });
-    resources.push(m); return m;
-  };
-  const matNormal = mkMat(false), matMirror = mkMat(true);
-  // world direction toward the aircraft nose
-  const noseVec = new THREE.Vector3(); noseVec[foreAft] = Math.sign(A.noseEnd - A.tailEnd) || 1;
+  const {lat,foreAft,Wl}=A;
+  const finVerts=A.samp.filter(A.finMask);
+  if(finVerts.length<6)return {applied:0,dispose(){}};
 
-  function orient(normal){
-    const q = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0,0,1), normal);
-    if(Math.abs(normal.y) < 0.7){
-      const right = new THREE.Vector3().crossVectors(new THREE.Vector3(0,1,0), normal).normalize();
-      const up = new THREE.Vector3().crossVectors(normal, right).normalize();
-      q.setFromRotationMatrix(new THREE.Matrix4().makeBasis(right, up, normal));
-    }
-    return q;
-  }
-  // Emblem placed on the centroid of the black fin region for this side,
-  // sized to the fin so it stays within it.
-  const latCtr = A.latCtr;
-  const finVerts = A.samp.filter(A.finMask);
-  if(finVerts.length >= 3){
-    // Tallest fin point: central -> one fin (emblem on both faces);
-    // off-centre -> twin tails (one emblem per fin, on its outer face).
-    let top = finVerts[0]; for(const v of finVerts) if(v.y>top.y) top=v;
-    const d = Math.abs(top[lat]-latCtr);
-    const twin = d > Wl*0.12;
-    const placements = twin
-      ? [{ lat: latCtr+d, side: 1 }, { lat: latCtr-d, side: -1 }]
-      : [{ lat: latCtr, side: 1 }, { lat: latCtr, side: -1 }];
-    for(const pl of placements){
-      let col = finVerts.filter(v=> Math.abs(v[lat]-pl.lat) < Wl*0.16);
-      if(col.length < 3) col = finVerts;
-      const bb = new THREE.Box3(); col.forEach(v=>bb.expandByPoint(v));
-      const ctr = bb.getCenter(new THREE.Vector3()), sz = bb.getSize(new THREE.Vector3());
-      const finH = Math.max(sz.y, 1e-3);
-      const eh = Math.min(finH*0.82, A.H*0.42), ew = eh*0.75;
-      const c = new THREE.Vector3();
-      c[foreAft] = ctr[foreAft];
-      c.y = ctr.y + finH*0.04;
-      c[lat] = pl.lat;
-      const normal = new THREE.Vector3(); normal[lat] = pl.side;
-      // Pick normal/mirrored helmet so its face points toward the nose.
-      const right = new THREE.Vector3().crossVectors(new THREE.Vector3(0,1,0), normal).normalize();
-      const facingNormal = right.clone().multiplyScalar(-1);   // helmet faces local -X
-      const chosen = facingNormal.dot(noseVec) >= 0 ? matNormal : matMirror;
-      const mesh = new THREE.Mesh(new THREE.PlaneGeometry(ew, eh), chosen);
-      mesh.position.copy(c).addScaledVector(normal, Math.max(0.03, Wl*0.02));
-      mesh.quaternion.copy(orient(normal));
-      mesh.renderOrder = 20; mesh.name = 'CENTURION2_livrea';
-      scene.add(mesh); nodes.push(mesh);
-    }
-  }
-  return {
-    applied: nodes.length, codice,
-    dispose(){
-      nodes.forEach(o=>{ scene.remove(o); o.geometry.dispose(); });
-      resources.forEach(r=>r.dispose && r.dispose());
-    }
+  const mkMat=mirror=>{
+    const tex=elmoTex(THREE,codice,mirror);resources.push(tex);
+    const mat=new THREE.MeshBasicMaterial({map:tex,transparent:true,opacity:0.98,
+      side:THREE.DoubleSide,depthTest:true,depthWrite:false,polygonOffset:true,
+      polygonOffsetFactor:-4,polygonOffsetUnits:-4,toneMapped:false});
+    resources.push(mat);return mat;
   };
+  const normalMat=mkMat(false),mirrorMat=mkMat(true);
+  const median=a=>{const b=a.slice().sort((x,y)=>x-y);return b[Math.floor(b.length/2)];};
+  const ys=finVerts.map(v=>v.y).sort((a,b)=>a-b);
+  const crown=finVerts.filter(v=>v.y>=ys[Math.floor(ys.length*.82)]);
+  const separation=Math.max(Wl*.033,A.H*.025);
+  const left=crown.filter(v=>v[lat]<A.latCtr-separation).map(v=>v[lat]);
+  const right=crown.filter(v=>v[lat]>A.latCtr+separation).map(v=>v[lat]);
+  const enough=Math.max(5,Math.floor(crown.length*.06));
+  const twin=left.length>=enough&&right.length>=enough&&
+    median(right)-median(left)>Math.max(Wl*.075,A.H*.12);
+  const fins=twin?[{lat:median(left),side:-1},{lat:median(right),side:1}]
+    :[{lat:A.latCtr,side:-1},{lat:A.latCtr,side:1}];
+  const radius=twin?Math.min(Wl*.19,(median(right)-median(left))*.46):Wl*.19;
+
+  // Raycast a doppia faccia anche sui GLB con normali invertite.
+  const probeMaterial=new THREE.MeshBasicMaterial({side:THREE.DoubleSide});
+  const proxies=A.meshes.map(real=>{
+    const p=new THREE.Mesh(real.geometry,probeMaterial);
+    p.matrixAutoUpdate=false;p.matrixWorld.copy(real.matrixWorld);p.userData.real=real;
+    return p;
+  });
+  const ray=new THREE.Raycaster(),margin=Math.max(.4,Wl*.08);
+  ray.far=Wl+2*margin+.1;
+  const noseVec=new THREE.Vector3();
+  noseVec[foreAft]=Math.sign(A.noseEnd-A.tailEnd)||1;
+  const setting=opts.place&&opts.place.fin;
+  const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+
+  function surface(fa,y,fin){
+    const origin=new THREE.Vector3();origin[foreAft]=fa;origin.y=y;
+    origin[lat]=fin.side>0?A.box.max[lat]+margin:A.box.min[lat]-margin;
+    const toward=new THREE.Vector3();toward[lat]=-fin.side;ray.set(origin,toward);
+    for(const hit of ray.intersectObjects(proxies,false)){
+      const p=hit.point;
+      if(!A.finMask(p)||Math.abs(p[lat]-fin.lat)>radius*1.05)continue;
+      if(twin&&(p[lat]-A.latCtr)*fin.side<Wl*.018)continue;
+      if(!hit.face)continue;
+      const n=hit.face.normal.clone()
+        .applyMatrix3(new THREE.Matrix3().getNormalMatrix(hit.object.matrixWorld)).normalize();
+      if(Math.abs(n.y)>.7||Math.abs(n[lat])<.25)continue;
+      if(n[lat]*fin.side<0)n.negate();
+      return {hit,normal:n};
+    }
+    return null;
+  }
+  for(const fin of fins){
+    const col=finVerts.filter(v=>Math.abs(v[lat]-fin.lat)<radius&&
+      (!twin||(v[lat]-A.latCtr)*fin.side>0));
+    if(col.length<6)continue;
+    const box=new THREE.Box3();col.forEach(v=>box.expandByPoint(v));
+    const chord=box.max[foreAft]-box.min[foreAft],height=box.max.y-box.min.y;
+    if(chord<=1e-3||height<=1e-3)continue;
+    // Le preferenze per modello suggeriscono il centro; la superficie reale lo decide.
+    const preferFa=setting&&Number.isFinite(setting.fa)
+      ?A.noseEnd+(A.tailEnd-A.noseEnd)*setting.fa:(box.min[foreAft]+box.max[foreAft])/2;
+    const preferY=setting&&Number.isFinite(setting.y)
+      ?A.min.y+A.H*setting.y:(box.min.y+box.max.y)/2;
+    const fa0=clamp(preferFa,box.min[foreAft]+chord*.19,box.max[foreAft]-chord*.19);
+    const y0=clamp(preferY,box.min.y+height*.19,box.max.y-height*.19);
+    let best=null;
+    const search=offsets=>{
+      for(const dy of offsets)for(const dx of offsets){
+        const s=surface(fa0+dx*chord,y0+dy*height,fin);
+        if(!s)continue;
+        const p=s.hit.point;
+        const mx=Math.min(p[foreAft]-box.min[foreAft],box.max[foreAft]-p[foreAft]);
+        const my=Math.min(p.y-box.min.y,box.max.y-p.y);
+        if(mx<=0||my<=0)continue;
+        const score=Math.min(mx/chord,my/height)*5+Math.abs(s.normal[lat])*.25-
+          (Math.abs(p[foreAft]-fa0)/chord+Math.abs(p.y-y0)/height)*.35;
+        if(!best||score>best.score)best={...s,score,mx,my};
+      }
+    };
+    search([0,-.16,.16]);
+    if(!best)search([-.32,.32,-.48,.48]);
+    if(!best){console.warn('CENTURION: superficie deriva non trovata',codice,fin.side);continue;}
+    const hPref=setting&&Number.isFinite(setting.h)?A.H*setting.h:A.H*.24;
+    const h=Math.min(hPref,height*.62,chord*.70/.75,best.my*1.58,best.mx*1.58/.75);
+    if(!Number.isFinite(h)||h<Math.max(.05,A.H*.015))continue;
+    const normal=best.normal,up=new THREE.Vector3(0,1,0);
+    const right=new THREE.Vector3().crossVectors(up,normal).normalize();
+    if(right.lengthSq()<1e-8)right.set(1,0,0);
+    const localUp=new THREE.Vector3().crossVectors(normal,right).normalize();
+    const quat=new THREE.Quaternion().setFromRotationMatrix(
+      new THREE.Matrix4().makeBasis(right,localUp,normal));
+    const mat=right.clone().negate().dot(noseVec)>=0?normalMat:mirrorMat;
+    const center=best.hit.point.clone().addScaledVector(normal,Math.max(.008,A.H*.002));
+    const geometry=new DecalGeometry(best.hit.object.userData.real,center,
+      new THREE.Euler().setFromQuaternion(quat),
+      new THREE.Vector3(h*.75,h,Math.max(.15,h*.46)));
+    if(!geometry.getAttribute('position')||geometry.getAttribute('position').count<3){
+      geometry.dispose();continue;
+    }
+    const decal=new THREE.Mesh(geometry,mat);
+    decal.name='CENTURION2_livrea';decal.renderOrder=20;
+    scene.add(decal);nodes.push(decal);
+  }
+  probeMaterial.dispose();
+  return {applied:nodes.length,codice,dispose(){
+    nodes.forEach(o=>{scene.remove(o);o.geometry.dispose();});
+    resources.forEach(r=>r.dispose&&r.dispose());
+  }};
 }
 
 // Convenience: full livery (grey paint + black fin + emblem) for one airframe.
