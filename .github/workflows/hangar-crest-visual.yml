@@ -24,7 +24,7 @@ jobs:
           const sharp=require('sharp');
           const fs=require('fs');
           const URL='https://stefanopasqual.github.io/centurion2/ef2000/viewer.html';
-          const IDS=['f22','f16','a10-centurion','mc130j-centurion','c130j-hercules','mq9-centurion','orion-e','typhoon','f15e','su57','f14','su35','ea18'];
+          const IDS=['a10-centurion'];
           function chunks(label,b){
             const base64=b.toString('base64');
             console.log('CONTACT_BEGIN_'+label+' '+base64.length);
@@ -51,7 +51,8 @@ jobs:
             const page=await browser.newPage({viewport:{width:1310,height:820},deviceScaleFactor:1});
             const errors=[];page.on('pageerror',e=>errors.push('PAGE '+String(e).slice(0,240)));
             page.on('console',msg=>{if(msg.type()==='error')errors.push('CONSOLE '+msg.text().slice(0,180));});
-            await page.goto(URL,{waitUntil:'domcontentloaded',timeout:75000});
+            await page.waitForTimeout(120000);
+          await page.goto(URL,{waitUntil:'domcontentloaded',timeout:75000});
             await page.locator('nav button[data-id="f22"]').waitFor({timeout:60000});
             const photos={front:[],side:[]},reports=[];
             for(const id of IDS){
