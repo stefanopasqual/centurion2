@@ -40,3 +40,8 @@ CENTURION2 ha animato i rotori e modificato la tonalità dei vetri; sulla varian
 trasporto ha rimosso i pod esterni e aggiunto panche e supporti. Si tratta di
 adattamenti di un modello low-poly, non di riproduzioni perfette delle varianti.
 
+## Operatore Pararescue (PJ)
+
+«PJ Model» di Dante Cristofano, https://sketchfab.com/3d-models/pj-model-5e899aa0b4b44d1daf02c5c79163aca8,
+[CC BY 4.0](https://creativecommons.org/licenses/by/4.0/). CENTURION2 ha rimosso il cubo di
+riferimento della scala e aggiunto una tinta coyote. È il corpo base del modello originale, senza equipaggiamento.

@@ -15,6 +15,7 @@ MODELS = (
     ('uh60-pack', 'UH-60 Black Hawk · versione aggiuntiva', True),
     ('mq9-centurion', 'MQ-9 Reaper', True),
     ('hermes900-centurion', 'Hermes 900', True),
+    ('pj-operator', 'Pararescue Jumper (PJ) · operatore CSAR', False),
 )
 
 def inspect_glb(path, expect_animation):
@@ -88,6 +89,11 @@ def add_hangar_models(root, out, report, dry_run=False):
                         license_url='https://creativecommons.org/licenses/by/4.0/',
                         source='https://sketchfab.com/3d-models/lockheed-martin-c130jsuper-hercules-reupload-223b4ff4abb945038fe35726bedd0db1',
                         attribution='C-130J adapted to suggest the MC-130J, with refuelling pods, sensor and animated propellers; approximate variant.')
+        if model_id == 'pj-operator':
+            item.update(author='Dante Cristofano', license='CC BY 4.0',
+                        license_url='https://creativecommons.org/licenses/by/4.0/',
+                        source='https://sketchfab.com/3d-models/pj-model-5e899aa0b4b44d1daf02c5c79163aca8',
+                        attribution='PJ Model by Dante Cristofano: scale reference cube removed, coyote tint added.')
         if model_id == 'mq9-centurion':
             item.update(author='IProZenoN', license='CC BY 4.0',
                         license_url='https://creativecommons.org/licenses/by/4.0/',
