@@ -90,10 +90,10 @@ def add_hangar_models(root, out, report, dry_run=False):
                         source='https://sketchfab.com/3d-models/lockheed-martin-c130jsuper-hercules-reupload-223b4ff4abb945038fe35726bedd0db1',
                         attribution='C-130J adapted to suggest the MC-130J, with refuelling pods, sensor and animated propellers; approximate variant.')
         if model_id == 'pj-operator':
-            item.update(author='Dante Cristofano', license='CC BY 4.0',
+            item.update(author='DanlyVostok', license='CC BY 4.0',
                         license_url='https://creativecommons.org/licenses/by/4.0/',
-                        source='https://sketchfab.com/3d-models/pj-model-5e899aa0b4b44d1daf02c5c79163aca8',
-                        attribution='PJ Model by Dante Cristofano: scale reference cube removed, coyote tint added.')
+                        source='https://sketchfab.com/3d-models/soldier-full-tactical-gear-lowpolygameready-850593a8c7114c188395ba1849a66eb9',
+                        attribution='Soldier Full Tactical Gear by DanlyVostok, adapted as a Pararescue Jumper: helmet, plate carrier and pouches tinted coyote, textures reduced to 1024 px.')
         if model_id == 'mq9-centurion':
             item.update(author='IProZenoN', license='CC BY 4.0',
                         license_url='https://creativecommons.org/licenses/by/4.0/',

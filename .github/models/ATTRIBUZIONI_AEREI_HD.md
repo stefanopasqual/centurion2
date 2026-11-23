@@ -42,6 +42,7 @@ adattamenti di un modello low-poly, non di riproduzioni perfette delle varianti.
 
 ## Operatore Pararescue (PJ)
 
-«PJ Model» di Dante Cristofano, https://sketchfab.com/3d-models/pj-model-5e899aa0b4b44d1daf02c5c79163aca8,
-[CC BY 4.0](https://creativecommons.org/licenses/by/4.0/). CENTURION2 ha rimosso il cubo di
-riferimento della scala e aggiunto una tinta coyote. È il corpo base del modello originale, senza equipaggiamento.
+«Soldier Full Tactical Gear (LowPolyGameReady)» di DanlyVostok,
+https://sketchfab.com/3d-models/soldier-full-tactical-gear-lowpolygameready-850593a8c7114c188395ba1849a66eb9,
+[CC BY 4.0](https://creativecommons.org/licenses/by/4.0/). CENTURION2 lo ha adattato come operatore
+Pararescue (PJ): elmetto, giubbotto e tasche in tinta coyote, texture ridotte a 1024 px per i telefoni.
