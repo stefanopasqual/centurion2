@@ -17,21 +17,25 @@ const ELMO_PATH = 'M1520 4864 c-385 -47 -663 -131 -995 -302 -218 -113 -487 -293 
 
 // Per-airframe identification: tail code, 2-digit nose modex, role.
 // Fixed-wing only; anything not listed gets a code derived from the id.
+// place.fin / place.nose: fractions along the fuselage (fa: 0 nose -> 1
+// tail) and height (y: 0 belly -> 1 top); fin.h is the emblem height as a
+// fraction of airframe height. Tuned per airframe so the emblem sits
+// centred on the stabiliser and the modex on the nose.
 export const LIVREA_CENTURION = {
-  f22:                 { codice: 'CENT-01', modex: '01', tipo: 'SUPERIORITA ARIA' },
-  f16:                 { codice: 'CENT-02', modex: '02', tipo: 'MULTIRUOLO' },
-  'f16-rebuilt':       { codice: 'CENT-02', modex: '02', tipo: 'MULTIRUOLO' },
-  su57:                { codice: 'CENT-04', modex: '04', tipo: 'STEALTH' },
-  su35:                { codice: 'CENT-05', modex: '05', tipo: 'SUPERIORITA ARIA' },
-  ea18:                { codice: 'CENT-06', modex: '06', tipo: 'GUERRA ELETTRONICA' },
-  f15e:                { codice: 'CENT-07', modex: '07', tipo: 'ATTACCO' },
-  'c130j-hercules':    { codice: 'CENT-08', modex: '08', tipo: 'TRASPORTO TATTICO' },
-  'mc130j-centurion':  { codice: 'CENT-09', modex: '09', tipo: 'OP. SPECIALI' },
-  'mq9-centurion':     { codice: 'CENT-10', modex: '10', tipo: 'APR ISR-STRIKE' },
-  'a10-centurion':     { codice: 'CENT-11', modex: '11', tipo: 'SUPPORTO RAVVICINATO' },
-  f14:                 { codice: 'CENT-12', modex: '12', tipo: 'INTERCETTORE' },
-  'hermes900-centurion': { codice: 'CENT-13', modex: '13', tipo: 'APR ISR' },
-  typhoon:             { codice: 'CENT-14', modex: '14', tipo: 'MULTIRUOLO' },
+  f22:                 { codice: 'CENT-01', modex: '01', tipo: 'SUPERIORITA ARIA',   place:{ fin:{fa:0.72,y:0.72,h:0.24}, nose:{fa:0.24,y:0.50} } },
+  f16:                 { codice: 'CENT-02', modex: '02', tipo: 'MULTIRUOLO',         place:{ fin:{fa:0.80,y:0.74,h:0.28}, nose:{fa:0.26,y:0.52} } },
+  'f16-rebuilt':       { codice: 'CENT-02', modex: '02', tipo: 'MULTIRUOLO',         place:{ fin:{fa:0.80,y:0.74,h:0.28}, nose:{fa:0.26,y:0.52} } },
+  su57:                { codice: 'CENT-04', modex: '04', tipo: 'STEALTH',            place:{ fin:{fa:0.70,y:0.64,h:0.20}, nose:{fa:0.26,y:0.50} } },
+  su35:                { codice: 'CENT-05', modex: '05', tipo: 'SUPERIORITA ARIA',   place:{ fin:{fa:0.76,y:0.68,h:0.24}, nose:{fa:0.26,y:0.52} } },
+  ea18:                { codice: 'CENT-06', modex: '06', tipo: 'GUERRA ELETTRONICA', place:{ fin:{fa:0.74,y:0.70,h:0.22}, nose:{fa:0.24,y:0.54} } },
+  f15e:                { codice: 'CENT-07', modex: '07', tipo: 'ATTACCO',            place:{ fin:{fa:0.78,y:0.70,h:0.26}, nose:{fa:0.24,y:0.54} } },
+  'c130j-hercules':    { codice: 'CENT-08', modex: '08', tipo: 'TRASPORTO TATTICO',  place:{ fin:{fa:0.90,y:0.76,h:0.30}, nose:{fa:0.14,y:0.54} } },
+  'mc130j-centurion':  { codice: 'CENT-09', modex: '09', tipo: 'OP. SPECIALI',       place:{ fin:{fa:0.90,y:0.76,h:0.30}, nose:{fa:0.14,y:0.54} } },
+  'mq9-centurion':     { codice: 'CENT-10', modex: '10', tipo: 'APR ISR-STRIKE',     place:{ fin:{fa:0.86,y:0.54,h:0.18}, nose:{fa:0.26,y:0.56} } },
+  'a10-centurion':     { codice: 'CENT-11', modex: '11', tipo: 'SUPP. RAVVICINATO',  place:{ fin:{fa:0.86,y:0.62,h:0.22}, nose:{fa:0.24,y:0.52} } },
+  f14:                 { codice: 'CENT-12', modex: '12', tipo: 'INTERCETTORE',       place:{ fin:{fa:0.74,y:0.70,h:0.26}, nose:{fa:0.24,y:0.52} } },
+  'hermes900-centurion': { codice: 'CENT-13', modex: '13', tipo: 'APR ISR',          place:{ fin:{fa:0.86,y:0.56,h:0.18}, nose:{fa:0.26,y:0.56} } },
+  typhoon:             { codice: 'CENT-14', modex: '14', tipo: 'MULTIRUOLO',         place:{ fin:{fa:0.82,y:0.74,h:0.28}, nose:{fa:0.26,y:0.52} } },
 };
 
 // Airframes that must NOT receive the livery (rotary-wing, people,
@@ -53,69 +57,120 @@ function canvasTex(THREE, w, h, painter){
   return t;
 }
 
-// Dark tail field (rounded panel) so the light emblem reads on any paint.
-function campoTex(THREE){
-  return canvasTex(THREE, 256, 320, (c,w,h)=>{
-    const r = 26;
-    c.fillStyle = 'rgba(22,26,31,0.92)';
-    c.beginPath();
-    c.moveTo(r,2); c.arcTo(w-2,2,w-2,h-2,r); c.arcTo(w-2,h-2,2,h-2,r);
-    c.arcTo(2,h-2,2,2,r); c.arcTo(2,2,w-2,2,r); c.closePath(); c.fill();
-    c.strokeStyle = 'rgba(150,164,180,0.35)'; c.lineWidth = 3; c.stroke();
-  });
-}
-
-// Spartan helmet + tail code, light, drawn from the traced outline.
+// Spartan helmet + tail code in tactical grey, drawn from the traced
+// outline. Sits on the black fin, so a mid grey reads cleanly.
 function elmoTex(THREE, codice){
   return canvasTex(THREE, 420, 560, (c,w,h)=>{
-    // helmet occupies the top ~72%
     c.save();
     const s = (w*0.80)/399;                 // fit width
-    c.translate(w*0.10, h*0.015);
+    c.translate(w*0.10, h*0.02);
     c.scale(s, s);
     c.translate(0, 487); c.scale(0.1, -0.1); // source transform
-    c.fillStyle = '#e9eef3';
+    c.fillStyle = '#9aa6b4';                 // tactical grey helmet
     c.fill(new Path2D(ELMO_PATH));
     c.restore();
-    // tail code under the helmet
-    c.fillStyle = '#eef3f7';
+    // tail code under the helmet, same grey family
+    c.fillStyle = '#aeb9c6';
     c.textAlign = 'center'; c.textBaseline = 'middle';
-    c.font = '700 62px Arial, Helvetica, sans-serif';
-    c.fillText(codice || 'CENT', w/2, h*0.90);
-  });
-}
-
-// Nose modex: large 2-digit number + small code, dark on light skin.
-function modexTex(THREE, modex, codice){
-  return canvasTex(THREE, 512, 320, (c,w,h)=>{
-    c.textAlign = 'center'; c.textBaseline = 'middle';
-    c.fillStyle = 'rgba(26,30,36,0.92)';
-    c.font = '800 190px Arial, Helvetica, sans-serif';
-    c.fillText(String(modex||'').slice(0,2), w/2, h*0.42);
     c.font = '700 60px Arial, Helvetica, sans-serif';
-    c.fillText(codice || '', w/2, h*0.82);
+    c.fillText(codice || 'CENT', w/2, h*0.905);
   });
 }
 
-// Tactical-grey tint. Two-tone by mesh height (darker spine, lighter
-// belly), glass/metal/tyres preserved. Clones materials; reversible via
-// the returned restore list.
-export function verniceCenturion(THREE, aircraft){
+// Shared airframe analysis: axes, tail/nose ends and a mask that marks the
+// vertical tail fin (near the tail, above the local fuselage top). Used by
+// both the paint (black fin) and the emblem (centred on the black region).
+export function analizzaAirframe(THREE, aircraft, ov){
+  aircraft.updateMatrixWorld(true);
+  const box = new THREE.Box3().setFromObject(aircraft);
+  const size = box.getSize(new THREE.Vector3());
+  const min = box.min.clone();
+  const meshes = [];
+  aircraft.traverse(o=>{ if(o.isMesh && o.geometry && o.visible) meshes.push(o); });
+  const samp = [];
+  { const v = new THREE.Vector3();
+    for(const o of meshes){
+      const pa = o.geometry.attributes.position; if(!pa) continue;
+      const step = Math.max(1, Math.floor(pa.count/2500));
+      for(let i=0;i<pa.count;i+=step){ v.fromBufferAttribute(pa,i).applyMatrix4(o.matrixWorld); samp.push(v.clone()); }
+    }
+  }
+  const ok = samp.length>0 && size.x>0 && size.y>0 && size.z>0;
+  // fuselage axis by distribution (robust for wide-span transports)
+  const spreadRatio = axis => {
+    const ctr=(box.min[axis]+box.max[axis])/2, half=Math.max(1e-6,size[axis]/2);
+    const d=samp.map(v=>Math.abs(v[axis]-ctr)).sort((a,b)=>a-b);
+    return d.length? d[Math.floor(d.length/2)]/half : 0;
+  };
+  const foreAft = spreadRatio('x') >= spreadRatio('z') ? 'x' : 'z';
+  const lat = foreAft==='x' ? 'z' : 'x';
+  const L=size[foreAft], Wl=size[lat], H=size.y;
+  const endA=min[foreAft], endB=min[foreAft]+L;
+  const endBulk = end => {
+    const near=samp.filter(v=>Math.abs(v[foreAft]-end)<L*0.09);
+    if(near.length<3) return 0;
+    const bb=new THREE.Box3(); near.forEach(v=>bb.expandByPoint(v));
+    const s=bb.getSize(new THREE.Vector3()); return s[lat]*0.6 + s.y;
+  };
+  const tailEnd = endBulk(endA) >= endBulk(endB) ? endA : endB;
+  const noseEnd = tailEnd===endA ? endB : endA;
+  // Fin region = the vertical tail(s): the rear portion of the airframe,
+  // above the rear fuselage spine. Works wherever the fins sit in the rear
+  // (fighter tails are well forward of the nozzles) and on twin/canted/T
+  // tails. baseY is the spine top near the centreline, so only the fins
+  // (which rise above it) are caught, not wings or horizontal stabs below.
+  const span = (ov && ov.tail && ov.tail.span) || 0.52;  // fraction of L from the tail end
+  const latCtr = (box.min[lat]+box.max[lat])/2;
+  const inRear = v => Math.abs(v[foreAft]-tailEnd) < L*span;
+  const spine = samp.filter(v=> inRear(v) && Math.abs(v[lat]-latCtr) < Wl*0.14);
+  const sy = spine.map(v=>v.y).sort((a,b)=>a-b);
+  const spineTop = sy.length ? sy[Math.floor(0.72*(sy.length-1))] : min.y+H*0.5;
+  const baseY = (ov && ov.tail && ov.tail.baseY!=null)
+    ? (min.y + H*ov.tail.baseY)
+    : Math.max(min.y + H*0.42, spineTop + H*0.02);
+  const finMask = v => inRear(v) && v.y >= baseY;
+  return { ok, box, size, min, meshes, samp, foreAft, lat, latCtr, L, Wl, H, tailEnd, noseEnd, span, baseY, finMask };
+}
+
+// Tactical-grey tint with the tail fin painted BLACK, via per-vertex
+// colours (works even when the fin shares a mesh with the fuselage).
+// Glass/metal/tyres preserved. Clones materials; reversible.
+export function verniceCenturion(THREE, aircraft, A){
+  A = A || analizzaAirframe(THREE, aircraft);
   const memo = new Map();
   const restore = [];
   const preserve = /glass|canop|vetro|cockpit|windscreen|window|interior|seat|pilot|engine|exhaust|nozzle|burner|turbine|wheel|tire|tyre|gear|rubber|brake|light|screen/i;
-  const box = new THREE.Box3().setFromObject(aircraft);
-  const minY = box.min.y, spanY = Math.max(1e-6, box.max.y - box.min.y);
+  const minY = A.min.y, spanY = Math.max(1e-6, A.H);
   const TOP = new THREE.Color().setRGB(0.25,0.28,0.33);
   const BOT = new THREE.Color().setRGB(0.38,0.41,0.46);
+  const BLACK = new THREE.Color().setRGB(0.045,0.055,0.065);   // fin
+  const geomTouched = [];
+  const wv = new THREE.Vector3();
   aircraft.traverse(object=>{
     if(!object.isMesh || !object.material) return;
     const original = object.material;
     restore.push([object, original]);
+    const name = (object.name||'') + ' ' + ((original&&original.name)||'');
+    const isPreserve = preserve.test(name);
+    // Per-vertex colours: grey body (two-tone by height) + black tail fin.
+    if(!isPreserve && object.geometry && object.geometry.attributes.position){
+      const g = object.geometry, pa = g.attributes.position, n = pa.count;
+      if(!g.getAttribute('__centBaseColor')){
+        const col = new Float32Array(n*3);
+        for(let i=0;i<n;i++){
+          wv.fromBufferAttribute(pa,i).applyMatrix4(object.matrixWorld);
+          const c = A.finMask(wv) ? BLACK
+            : BOT.clone().lerp(TOP, Math.pow(THREE.MathUtils.clamp((wv.y-minY)/spanY,0,1),0.8));
+          col[i*3]=c.r; col[i*3+1]=c.g; col[i*3+2]=c.b;
+        }
+        g.setAttribute('color', new THREE.BufferAttribute(col,3));
+        g.setAttribute('__centBaseColor', new THREE.BufferAttribute(new Float32Array(1),1)); // marker
+        geomTouched.push(g);
+      } else if(g.getAttribute('color')===undefined){ /* already */ }
+    }
     const transform = m=>{
       if(!m || !('color' in m)) return m;
-      const name = (object.name||'') + ' ' + (m.name||'');
-      if(preserve.test(name)){
+      if(isPreserve){
         if(/glass|canop|vetro|windscreen/i.test(name) && !m.map){
           if(memo.has(m)) return memo.get(m);
           const g = m.clone(); g.color = new THREE.Color('#0e141b');
@@ -126,14 +181,9 @@ export function verniceCenturion(THREE, aircraft){
       }
       if(memo.has(m)) return memo.get(m);
       const clone = m.clone();
-      let f = 0.5;
-      try{
-        object.geometry.computeBoundingBox();
-        const wc = object.geometry.boundingBox.getCenter(new THREE.Vector3()).applyMatrix4(object.matrixWorld);
-        f = THREE.MathUtils.clamp((wc.y-minY)/spanY, 0, 1);
-      }catch(e){}
-      clone.map = null;                       // drop baked national colours
-      clone.color = BOT.clone().lerp(TOP, Math.pow(f,0.8));
+      clone.map = null;                 // drop baked national colours
+      clone.vertexColors = true;        // grey body + black fin from attribute
+      clone.color = new THREE.Color(0xffffff);
       clone.metalness = Math.min(Number(clone.metalness)||0, 0.25);
       clone.roughness = Math.max(Number(clone.roughness)||0.6, 0.6);
       clone.needsUpdate = true;
@@ -147,126 +197,70 @@ export function verniceCenturion(THREE, aircraft){
     dispose(){
       restore.forEach(([o,m])=>{ o.material = m; });
       memo.forEach(c=>c.dispose && c.dispose());
+      geomTouched.forEach(g=>{ g.deleteAttribute('color'); g.deleteAttribute('__centBaseColor'); });
     }
   };
 }
 
-// Place the emblem on both fin faces, the modex on both nose sides, over
-// the current airframe. Uses raycasting against the skin with fractional
-// fallbacks, like the 51° Stormo overlay. Returns a disposable handle.
+// Place the grey Spartan emblem (helmet + tail code) centred on the black
+// tail fin, on both faces. No nose markings: the whole fin is black, so the
+// emblem always sits on a black field and placement cannot miss.
 export function applyCenturion(THREE, scene, aircraft, opts = {}){
   const codice = opts.codice || 'CENT';
-  const modex  = opts.modex  || '00';
+  const A = opts.A || analizzaAirframe(THREE, aircraft, opts.place || null);
   const nodes = [], resources = [];
+  if(!A.ok) return { applied:0, dispose(){} };
   scene.updateMatrixWorld(true);
-  aircraft.updateMatrixWorld(true);
-  const box = new THREE.Box3().setFromObject(aircraft);
-  const size = box.getSize(new THREE.Vector3());
-  const min = box.min.clone();
-  if(!size.x || !size.y || !size.z) return { applied:0, dispose(){} };
-  const meshes = [];
-  aircraft.traverse(o=>{ if(o.isMesh && o.geometry && o.visible) meshes.push(o); });
-  if(!meshes.length) return { applied:0, dispose(){} };
+  const { lat, Wl, foreAft } = A;
+  const tex = elmoTex(THREE, codice); resources.push(tex);
+  const mat = new THREE.MeshBasicMaterial({ map:tex, transparent:true, opacity:0.98,
+    side:THREE.DoubleSide, depthTest:true, depthWrite:false, polygonOffset:true,
+    polygonOffsetFactor:-6, polygonOffsetUnits:-6, toneMapped:false });
+  resources.push(mat);
 
-  const tex = { campo:campoTex(THREE), elmo:elmoTex(THREE,codice), modex:modexTex(THREE,modex,codice) };
-  Object.values(tex).forEach(t=>resources.push(t));
-  const mkMat = (t, order)=>{
-    const m = new THREE.MeshBasicMaterial({ map:t, transparent:true, opacity:0.97,
-      side:THREE.DoubleSide, depthTest:true, depthWrite:false, polygonOffset:true,
-      polygonOffsetFactor:-4-order, polygonOffsetUnits:-4-order, toneMapped:false });
-    resources.push(m); return m;
-  };
-  const matCampo = mkMat(tex.campo,0), matElmo = mkMat(tex.elmo,1), matModex = mkMat(tex.modex,0);
-
-  // Sample the skin in world space to anchor markings on real geometry
-  // (raycasting a thin fin from the side misses too often on low-poly
-  // imports and parks the decal out at the wingtip).
-  const samp = [];
-  { const v = new THREE.Vector3();
-    for(const o of meshes){
-      const pa = o.geometry.attributes.position; if(!pa) continue;
-      const step = Math.max(1, Math.floor(pa.count/2500));
-      for(let i=0;i<pa.count;i+=step){ v.fromBufferAttribute(pa,i).applyMatrix4(o.matrixWorld); samp.push(v.clone()); }
-    }
-  }
-  if(!samp.length) return { applied:0, dispose(){} };
-
-  // Fore-aft axis = the fuselage axis. The longest horizontal axis is NOT
-  // reliable (transports/drones span wider than they are long), so pick by
-  // distribution: along the wingspan most of the skin hugs the centreline
-  // with a few points out at the tips (low median/extent ratio), while
-  // along the fuselage the skin is spread end to end (high ratio).
-  function spreadRatio(axis){
-    const ctr = (box.min[axis]+box.max[axis])/2, half = Math.max(1e-6, size[axis]/2);
-    const d = samp.map(v=>Math.abs(v[axis]-ctr)).sort((a,b)=>a-b);
-    return (d[Math.floor(d.length/2)]/half);
-  }
-  const foreAft = spreadRatio('x') >= spreadRatio('z') ? 'x' : 'z';
-  const lat = foreAft === 'x' ? 'z' : 'x';
-  const L = size[foreAft], Wl = size[lat], H = size.y;
-  // Identify the tail end: of the two fore-aft extremes, the one with the
-  // taller geometry nearby carries the vertical stabiliser (the nose is
-  // low and pointed). This avoids mistaking the canopy for the fin.
-  const endA = min[foreAft], endB = min[foreAft] + L;
-  const maxYNear = end => samp.reduce((m,v)=> (Math.abs(v[foreAft]-end) < L*0.22 && v.y>m) ? v.y : m, -Infinity);
-  const tailEnd = maxYNear(endA) >= maxYNear(endB) ? endA : endB;
-  const noseEnd = tailEnd === endA ? endB : endA;
-
-  // Centroid of a region of the skin on one side; the marking sits on the
-  // middle of that region's face, not on an edge vertex. Height band is
-  // chosen RELATIVE to the near-tail geometry, so a low V-tail or a tall
-  // single fin are both found.
-  function anchor(targetEnd, faSpan, mode, side){
-    let near = samp.filter(v=> Math.abs(v[foreAft]-targetEnd) < L*faSpan);
-    if(near.length < 6) near = samp.filter(v=> Math.abs(v[foreAft]-targetEnd) < L*(faSpan+0.12));
-    if(!near.length) return null;
-    const ys = near.map(v=>v.y).sort((a,b)=>a-b);
-    const q = f => ys[Math.min(ys.length-1, Math.max(0, Math.floor(f*(ys.length-1))))];
-    const yLo = mode==='fin' ? q(0.62) : q(0.28);   // fin = upper geometry only
-    const yHi = mode==='fin' ? q(1.00) : q(0.68);    // nose = mid fuselage
-    const band = v => v.y >= yLo && v.y <= yHi;
-    let pool = near.filter(v=> band(v) && (side>0 ? v[lat] >= -Wl*0.03 : v[lat] <= Wl*0.03));
-    if(pool.length < 4) pool = near.filter(band);
-    if(pool.length < 2) pool = near;
-    // centroid of the region (the fin's mid-face / the fuselage side);
-    // do NOT drag the anchor out to the horizontal-tail tip.
-    const c = new THREE.Vector3();
-    pool.forEach(v=>c.add(v)); c.multiplyScalar(1/pool.length);
-    const n = new THREE.Vector3(); n[lat] = side>0 ? 1 : -1;
-    return { point:c, normal:n };
-  }
-  function decal(spot, mat, w, h){
-    if(!spot) return false;
-    const point = spot.point.clone(), normal = spot.normal.clone().normalize();
-    if(normal.lengthSq() < 0.5) return false;
-    // upright in world space on near-vertical faces
-    const quat = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0,0,1), normal);
+  function orient(normal){
+    const q = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0,0,1), normal);
     if(Math.abs(normal.y) < 0.7){
       const right = new THREE.Vector3().crossVectors(new THREE.Vector3(0,1,0), normal).normalize();
       const up = new THREE.Vector3().crossVectors(normal, right).normalize();
-      quat.setFromRotationMatrix(new THREE.Matrix4().makeBasis(right, up, normal));
+      q.setFromRotationMatrix(new THREE.Matrix4().makeBasis(right, up, normal));
     }
-    const d = new THREE.Mesh(new THREE.PlaneGeometry(w,h), mat);
-    d.position.copy(point).addScaledVector(normal, Math.max(0.02, Wl*0.01));
-    d.quaternion.copy(quat);
-    d.renderOrder = 20;
-    d.name = 'CENTURION2_livrea';
-    scene.add(d); nodes.push(d);
-    return true;
+    return q;
   }
-
-  for(const side of [-1,1]){
-    // Fin: dark field + helmet + code, on the mid of the stabiliser face.
-    const fin = anchor(tailEnd, 0.22, 'fin', side);
-    decal(fin, matCampo, L*0.11, H*0.30);
-    decal(fin, matElmo,  L*0.10, H*0.28);
-    // Nose modex, forward on the fuselage side.
-    const nose = anchor(noseEnd, 0.24, 'nose', side);
-    decal(nose, matModex, L*0.075, H*0.11);
+  // Emblem placed on the centroid of the black fin region for this side,
+  // sized to the fin so it stays within it.
+  const latCtr = A.latCtr;
+  const finVerts = A.samp.filter(A.finMask);
+  if(finVerts.length >= 3){
+    // Tallest fin point: central -> one fin (emblem on both faces);
+    // off-centre -> twin tails (one emblem per fin, on its outer face).
+    let top = finVerts[0]; for(const v of finVerts) if(v.y>top.y) top=v;
+    const d = Math.abs(top[lat]-latCtr);
+    const twin = d > Wl*0.12;
+    const placements = twin
+      ? [{ lat: latCtr+d, side: 1 }, { lat: latCtr-d, side: -1 }]
+      : [{ lat: latCtr, side: 1 }, { lat: latCtr, side: -1 }];
+    for(const pl of placements){
+      let col = finVerts.filter(v=> Math.abs(v[lat]-pl.lat) < Wl*0.16);
+      if(col.length < 3) col = finVerts;
+      const bb = new THREE.Box3(); col.forEach(v=>bb.expandByPoint(v));
+      const ctr = bb.getCenter(new THREE.Vector3()), sz = bb.getSize(new THREE.Vector3());
+      const finH = Math.max(sz.y, 1e-3);
+      const eh = Math.min(finH*0.82, A.H*0.42), ew = eh*0.75;
+      const c = new THREE.Vector3();
+      c[foreAft] = ctr[foreAft];
+      c.y = ctr.y + finH*0.04;
+      c[lat] = pl.lat;
+      const normal = new THREE.Vector3(); normal[lat] = pl.side;
+      const mesh = new THREE.Mesh(new THREE.PlaneGeometry(ew, eh), mat);
+      mesh.position.copy(c).addScaledVector(normal, Math.max(0.03, Wl*0.02));
+      mesh.quaternion.copy(orient(normal));
+      mesh.renderOrder = 20; mesh.name = 'CENTURION2_livrea';
+      scene.add(mesh); nodes.push(mesh);
+    }
   }
-
   return {
-    applied: nodes.length, codice, modex,
+    applied: nodes.length, codice,
     dispose(){
       nodes.forEach(o=>{ scene.remove(o); o.geometry.dispose(); });
       resources.forEach(r=>r.dispose && r.dispose());
@@ -274,11 +268,12 @@ export function applyCenturion(THREE, scene, aircraft, opts = {}){
   };
 }
 
-// Convenience: full livery (paint + markings) for one airframe.
+// Convenience: full livery (grey paint + black fin + emblem) for one airframe.
 export function applyLivreaCompleta(THREE, scene, aircraft, id){
   const info = LIVREA_CENTURION[id] || { codice: 'CENT', modex: '00' };
-  const paint = verniceCenturion(THREE, aircraft);
-  const marks = applyCenturion(THREE, scene, aircraft, info);
+  const A = analizzaAirframe(THREE, aircraft, info.place || null);
+  const paint = verniceCenturion(THREE, aircraft, A);
+  const marks = applyCenturion(THREE, scene, aircraft, Object.assign({ A }, info));
   return {
     info, applied: marks.applied,
     dispose(){ marks.dispose(); paint.dispose(); }
