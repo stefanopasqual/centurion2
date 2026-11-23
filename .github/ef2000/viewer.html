@@ -32,6 +32,7 @@ footer{padding:11px 14px;background:#0b1b2c;border-top:1px solid #28455f;display
 import * as THREE from 'three';
 import {OrbitControls} from 'three/addons/controls/OrbitControls.js';
 import {GLTFLoader} from 'three/addons/loaders/GLTFLoader.js';
+import {RoomEnvironment} from 'three/addons/environments/RoomEnvironment.js';
 import {verniceTyphoon} from './livrea51.js';
 import {scanAirbus,consolidateAirbus,activateAirbus,archiveImportedAirbus,makeAirbusArchive,downloadArchive,canonicalAirbusId} from './airbus_local.js';
 const MODELS=[
@@ -41,13 +42,13 @@ const MODELS=[
 {id:'mc130j-centurion',name:'MC-130J Commando II · base C-130J adattata',tag:'MC-130J',url:'https://sketchfab.com/3d-models/lockheed-martin-c130jsuper-hercules-reupload-223b4ff4abb945038fe35726bedd0db1',animateGLB:true,info:'C-130J adattato allo stile MC-130J · quattro eliche animate · ricostruzione approssimativa'},
 {id:'c130j-hercules',name:'Lockheed Martin C-130J Super Hercules',tag:'C-130J',url:'https://sketchfab.com/3d-models/lockheed-martin-c130jsuper-hercules-reupload-223b4ff4abb945038fe35726bedd0db1',info:'C-130J Super Hercules · modello di KOG_THORNS, CC BY 4.0'},
 {id:'mh6-centurion',name:'MH-6 Little Bird · trasporto',tag:'MH-6',url:'https://sketchfab.com/3d-models/mh-6-little-bird-low-poly-d7068144bfeb4d91bde5d30755657d97',animateGLB:true,info:'Little Bird adattato per trasporto · panche esterne e rotori animati'},
-{id:'ah6-centurion',name:'AH-6 Little Bird · armato',tag:'AH-6',url:'https://sketchfab.com/3d-models/mh-6-little-bird-low-poly-d7068144bfeb4d91bde5d30755657d97',animateGLB:true,info:'Little Bird adattato in configurazione armata · rotori animati'},
+{id:'ah6-centurion',hidden:true,name:'AH-6 Little Bird · armato',tag:'AH-6',url:'https://sketchfab.com/3d-models/mh-6-little-bird-low-poly-d7068144bfeb4d91bde5d30755657d97',animateGLB:true,info:'Little Bird adattato in configurazione armata · rotori animati'},
 {id:'uh60-pack',name:'UH-60 Black Hawk · versione aggiuntiva',tag:'UH-60 · NUOVO',url:'',animateGLB:true,info:'UH-60 Black Hawk · versione aggiuntiva con rotori animati'},
 {id:'mq9-centurion',name:'General Atomics MQ-9 Reaper',tag:'MQ-9',url:'https://sketchfab.com/3d-models/mq-9-fabe963feb354c5584b51f9c470c3f7e',animateGLB:true,info:'MQ-9 Reaper · carrello retratto · elica animata'},
 {id:'hermes900-centurion',name:'Elbit Hermes 900',tag:'HERMES 900',url:'',animateGLB:true,info:'Hermes 900 · elica animata'},
-{id:'f16-studiolab',name:'F-16 Fighting Falcon · Studio Lab (Sketchfab)',tag:'F-16 · STUDIO LAB',url:'https://sketchfab.com/3d-models/f-16-f-16-fighting-falcon-fighter-jet-8be8ab656304467eb6ddcbb244ae8574',info:'Anteprima 3D interattiva di Studio Lab · per usarlo nel Volo libero occorre un GLB autorizzato',embedOnly:true},
-{id:'uh60',name:'Sikorsky UH-60 Black Hawk · Michał Flodrowski',tag:'UH-60 · BLACK HAWK',url:'https://sketchfab.com/3d-models/uh-60-black-hawk-4682e6566cee481cb94d387fb7845243',info:'Anteprima 3D Sketchfab di Michał Flodrowski · volo elicottero non ancora integrato',embedOnly:true},
-{id:'uh60-centurion',name:'CENTURION UH-60 · modello originale',tag:'UH-60 · CENTURION',url:'',info:'Sikorsky UH-60M · modello originale con rotori articolati · CC BY 4.0',ownHelicopter:true},
+{id:'f16-studiolab',hidden:true,name:'F-16 Fighting Falcon · Studio Lab (Sketchfab)',tag:'F-16 · STUDIO LAB',url:'https://sketchfab.com/3d-models/f-16-f-16-fighting-falcon-fighter-jet-8be8ab656304467eb6ddcbb244ae8574',info:'Anteprima 3D interattiva di Studio Lab · per usarlo nel Volo libero occorre un GLB autorizzato',embedOnly:true},
+{id:'uh60',hidden:true,name:'Sikorsky UH-60 Black Hawk · Michał Flodrowski',tag:'UH-60 · BLACK HAWK',url:'https://sketchfab.com/3d-models/uh-60-black-hawk-4682e6566cee481cb94d387fb7845243',info:'Anteprima 3D Sketchfab di Michał Flodrowski · volo elicottero non ancora integrato',embedOnly:true},
+{id:'uh60-centurion',hidden:true,name:'CENTURION UH-60 · modello originale',tag:'UH-60 · CENTURION',url:'',info:'Sikorsky UH-60M · modello originale con rotori articolati · CC BY 4.0',ownHelicopter:true},
 {id:'typhoon',name:'Eurofighter Typhoon',tag:'EF-2000',url:'https://sketchfab.com/3d-models/eurofighter-typhoon-fighter-jet-free-992bcc8987964ca09d55410330aa8579'},
 {id:'f15e',name:'F-15E Strike Eagle',tag:'F-15E',url:'https://sketchfab.com/3d-models/f-15e-strike-eagle-fighter-jet-free-fff7d75490474e9b964d90cc031c8d01'},
 {id:'su57',name:'Sukhoi Su-57',tag:'Su-57',url:'https://sketchfab.com/3d-models/sukhoi-su-57-felon-p-fighter-jet-free-31127bc63bc048debb694aa88bbaafae'},
@@ -55,19 +56,23 @@ const MODELS=[
 {id:'su35',name:'Sukhoi Su-35S',tag:'Su-35',url:'https://sketchfab.com/3d-models/sukhoi-su-35-fighter-jet-free-3213a404e5cb4fb68f778b9acae5109c'},
 {id:'ea18',name:'Boeing EA-18G Growler',tag:'EA-18G',url:'https://sketchfab.com/3d-models/mcdonnell-douglas-fa-18eboeing-ea-18g-growler-d69153c8e91744cab2bad239a2cb5d98'},
 {id:'weapons',name:'Missili e bombe',tag:'ARMAMENTI',url:'https://sketchfab.com/3d-models/missile-bomb-collection-fighter-jets-free-d203b678424a43568703bf85ba680f47'},
-{id:'pilota',name:'Pilota da caccia',tag:'PILOTA',url:'',glb:'../assets/pilota.glb',info:'Pilota da caccia con tuta di volo, casco e imbracatura · modello 3D fornito per CENTURION2, statura reale 1,78 m'},
-{id:'pj-operator',name:'Pararescue Jumper (PJ) · operatore CSAR',tag:'OPERATORE PJ',url:'https://sketchfab.com/3d-models/soldier-full-tactical-gear-lowpolygameready-850593a8c7114c188395ba1849a66eb9',persona:true,animateGLB:true,info:'Operatore pararescue (PJ) dell’aeronautica USA in equipaggiamento completo · la squadra che recupera il pilota abbattuto nelle missioni CSAR'},
+{id:'pilota',name:'Pilota da caccia',tag:'PILOTA',url:'',glb:'../assets/pilota-hangar-v2.glb',info:'Pilota da caccia fornito per CENTURION2 · casco, tuta e imbracatura · statura 1,78 m'},
+{id:'pj-operator',name:'Pararescue Jumper (PJ) · operatore CSAR',tag:'OPERATORE PJ',url:'https://sketchfab.com/3d-models/soldier-full-tactical-gear-lowpolygameready-850593a8c7114c188395ba1849a66eb9',persona:true,animateGLB:true,attach:[{id:'mk18',glb:'../models/pj-mk18.glb',bone:'CC_Base_Spine02_035',fwd:[0,0,-1],top:[0,1,0],len:0.76,pos:[0.02,1.08,0.25],dir:[0.55,-0.83,0.05],up:[0.83,0.55,0]},{id:'m18',glb:'../models/pj-m18.glb',bone:'CC_Base_R_Thigh_018',fwd:[0,0,1],top:[0,1,0],len:0.19,pos:[-0.282,0.7,-0.02],dir:[0,-1,0.12],up:[0,0,-1]},{id:'nvg',glb:'../models/pj-nvg.glb',bone:'CC_Base_Head_038',fwd:[0,0,1],top:[0,1,0],len:0.16,pos:[-0.02,1.8,0.16],dir:[0,0.75,0.66],up:[0,0.66,-0.75]},{id:'radio',glb:'../models/pj-radio.glb',bone:'CC_Base_Spine02_035',fwd:[0,0,1],top:[0,1,0],len:0.45,pos:[0.1,1.3,-0.3],dir:[0.15,0,-1],up:[0,1,0]},{id:'ifak',glb:'../models/pj-ifak.glb',bone:'CC_Base_Pelvis_02',fwd:[0,0,1],top:[0,1,0],len:0.17,pos:[0.265,0.97,-0.13],dir:[1,0,-0.35],up:[0,1,0]}],extra:[{id:'fondina',kind:'box',bone:'CC_Base_R_Thigh_018',size:[0.038,0.13,0.058],pos:[-0.281,0.68,-0.1015],color:0x7d6a48},{id:'fondina-piastra',kind:'box',bone:'CC_Base_R_Thigh_018',size:[0.012,0.16,0.075],pos:[-0.258,0.69,-0.095],color:0x5f5139},{id:'cosciale',kind:'ring',bone:'CC_Base_R_Thigh_018',c:[-0.147,0.705,0.012],rx:0.118,rz:0.124,r:0.008,color:0x5f5139},{id:'cosciale2',kind:'ring',bone:'CC_Base_R_Thigh_018',c:[-0.145,0.635,0.015],rx:0.112,rz:0.12,r:0.008,color:0x5f5139},{id:'tirante',kind:'box',bone:'CC_Base_R_Thigh_018',size:[0.03,0.21,0.008],pos:[-0.262,0.855,-0.1],color:0x5f5139},{id:'cinghia',kind:'strap',bone:'CC_Base_Spine02_035',r:0.011,color:0x6f5f42,pts:[[-0.2,1.33,0.24],[-0.2,1.42,0.2],[-0.16,1.5,0.08],[-0.12,1.52,-0.06],[-0.06,1.4,-0.2],[0.1,1.15,-0.22],[0.2,0.98,-0.05],[0.24,0.86,0.15]]}],info:'Operatore pararescue (PJ) dell’aeronautica USA · carabina Mk18 a tracolla, pistola M18 in fondina cosciale, visore notturno quadritubo sull’elmetto, radio PRC-152 e kit medico IFAK · la squadra che recupera il pilota abbattuto nelle missioni CSAR'},
 {id:'uav-fixed',name:'UAV da ricognizione ad ala fissa',tag:'UAV · FIXED',url:'',drone:'fixed',summary:'Ricognitore originale non armato, ali rastremate, ottica orientabile ed elica animata.'},
 {id:'uav-quad',name:'Drone quadricottero ISR',tag:'UAV · QUAD',url:'',drone:'quad',summary:'Multirotore originale non armato con quattro rotori, carrello ed ottica stabilizzata.'},
 {id:'geran2',name:'Geran-2 (Shahed-136) · drone ostile',tag:'GERAN-2',url:'https://sketchfab.com/3d-models/geranium-2-8f12f601efe44a73b47e30a7077cf249',info:'Drone ostile delle missioni M12–M15 (Donbass e Zaporižžja) · apertura alare 2,5 m, lunghezza 3,5 m'}];
-const CREDITI={'pj-operator':'DanlyVostok / Sketchfab · CC BY 4.0 · adattato come PJ: elmetto, giubbotto e tasche in tinta coyote, texture ridotte','f16-rebuilt':'bohmerang / Sketchfab · CC BY-NC-SA 4.0 · adattato per CENTURION2','a10-centurion':'bohmerang / Sketchfab · CC BY-NC-SA 4.0 · adattato per CENTURION2','mc130j-centurion':'KOG_THORNS / Sketchfab · CC BY 4.0 · C-130J adattato, variante approssimativa','c130j-hercules':'KOG_THORNS / Sketchfab · CC BY 4.0','mh6-centurion':'Muhamad Mirza Arrafi / Sketchfab · CC BY 4.0 · adattamento da modello low-poly','ah6-centurion':'Muhamad Mirza Arrafi / Sketchfab · CC BY 4.0 · adattamento da modello low-poly','uh60-pack':'Modello adattato per CENTURION2','mq9-centurion':'IProZenoN / Sketchfab · CC BY 4.0 · versione ottimizzata adattata','hermes900-centurion':'Modello realizzato per CENTURION2',f14:'Modello originale CENTURION2 · geometria procedurale dalle quote pubbliche del Grumman F-14',pilota:'Modello 3D del pilota generato con Tripo · fornito dal proprietario del progetto','uh60-centurion':'Muhamad Mirza Arrafi / Sketchfab · CC BY 4.0 · geometria originale adattata da CENTURION2',uh60:'Michał Flodrowski (WR5) · Sketchfab · anteprima incorporata','f16-studiolab':'Studio Lab · Sketchfab · anteprima incorporata, nessuna licenza di redistribuzione verificata',f16:'bohmerang / Sketchfab · CC BY-NC-SA 4.0 · adattato per CENTURION2',f22:'sxnneh / Sketchfab — Sketchfab Standard',ea18:'Rhine_Lab_Muelsyse / Sketchfab — CC BY 4.0',geran2:'Karosio / Sketchfab — CC BY-NC-SA 4.0'};
+const CREDITI={'pj-operator':'Operatore: DanlyVostok · Mk18: notcplkerry · M18: k4rmax · visore: karmy2k · PRC-152: r4m · IFAK: yronthal · Sketchfab, CC BY 4.0 · adattati per CENTURION2','f16-rebuilt':'bohmerang / Sketchfab · CC BY-NC-SA 4.0 · adattato per CENTURION2','a10-centurion':'bohmerang / Sketchfab · CC BY-NC-SA 4.0 · adattato per CENTURION2','mc130j-centurion':'KOG_THORNS / Sketchfab · CC BY 4.0 · C-130J adattato, variante approssimativa','c130j-hercules':'KOG_THORNS / Sketchfab · CC BY 4.0','mh6-centurion':'Muhamad Mirza Arrafi / Sketchfab · CC BY 4.0 · adattamento da modello low-poly','ah6-centurion':'Muhamad Mirza Arrafi / Sketchfab · CC BY 4.0 · adattamento da modello low-poly','uh60-pack':'Modello adattato per CENTURION2','mq9-centurion':'IProZenoN / Sketchfab · CC BY 4.0 · versione ottimizzata adattata','hermes900-centurion':'Modello realizzato per CENTURION2',f14:'Modello originale CENTURION2 · geometria procedurale dalle quote pubbliche del Grumman F-14',pilota:'Modello fornito per CENTURION2 · materiali ricostruiti e geometria adattata','uh60-centurion':'Muhamad Mirza Arrafi / Sketchfab · CC BY 4.0 · geometria originale adattata da CENTURION2',uh60:'Michał Flodrowski (WR5) · Sketchfab · anteprima incorporata','f16-studiolab':'Studio Lab · Sketchfab · anteprima incorporata, nessuna licenza di redistribuzione verificata',f16:'bohmerang / Sketchfab · CC BY-NC-SA 4.0 · adattato per CENTURION2',f22:'sxnneh / Sketchfab — Sketchfab Standard',ea18:'Rhine_Lab_Muelsyse / Sketchfab — CC BY 4.0',geran2:'Karosio / Sketchfab — CC BY-NC-SA 4.0'};
 const $=s=>document.querySelector(s),view=$('#view'),status=$('#status');
-const scene=new THREE.Scene();scene.background=new THREE.Color(0x07111f);
+const scene=new THREE.Scene();scene.background=new THREE.Color(0x0c1828);
 const camera=new THREE.PerspectiveCamera(40,1,0.05,2000);camera.position.set(16,10,18);
 const renderer=new THREE.WebGLRenderer({antialias:true,powerPreference:'high-performance'});renderer.setPixelRatio(Math.min(devicePixelRatio,1.75));renderer.outputColorSpace=THREE.SRGBColorSpace;view.prepend(renderer.domElement);
-scene.add(new THREE.HemisphereLight(0xd9ebff,0x243344,2));const key=new THREE.DirectionalLight(0xfff4dc,3);key.position.set(-10,20,10);scene.add(key);
-const rim=new THREE.DirectionalLight(0x80c6ff,1.3);rim.position.set(10,5,-12);scene.add(rim);
+// luce da studio: riflessi da una stanza neutra (PMREM), tone mapping filmico, ombre morbide
+renderer.toneMapping=THREE.ACESFilmicToneMapping;renderer.toneMappingExposure=0.82;renderer.shadowMap.enabled=true;renderer.shadowMap.type=THREE.PCFSoftShadowMap;
+{const pmrem=new THREE.PMREMGenerator(renderer);scene.environment=pmrem.fromScene(new RoomEnvironment(),0.04).texture;pmrem.dispose();}
+scene.add(new THREE.HemisphereLight(0xd9ebff,0x243344,0.45));const key=new THREE.DirectionalLight(0xfff4dc,2.4);key.position.set(-12,22,14);key.castShadow=true;key.shadow.mapSize.set(2048,2048);Object.assign(key.shadow.camera,{left:-16,right:16,top:16,bottom:-16,near:1,far:90});key.shadow.bias=-0.0004;key.shadow.radius=4;scene.add(key);
+const rim=new THREE.DirectionalLight(0x80c6ff,0.9);rim.position.set(10,5,-12);scene.add(rim);
 const grid=new THREE.GridHelper(60,30,0x2f526b,0x17334a);grid.position.y=-5.5;scene.add(grid);
+const floor=new THREE.Mesh(new THREE.PlaneGeometry(90,90),new THREE.ShadowMaterial({opacity:.38}));floor.rotation.x=-Math.PI/2;floor.position.y=-5.49;floor.receiveShadow=true;scene.add(floor);
 const controls=new OrbitControls(camera,renderer.domElement);controls.enableDamping=true;controls.minDistance=2;controls.maxDistance=180;
 const loader=new GLTFLoader();let selected=MODELS[0],aircraft=null,token=0,animationDriver=null,procedural=false,droneLoad=null,livery51=null;
 async function ensureDroneFactory(){
@@ -97,8 +102,31 @@ function clear(){
  }
  animationDriver=null;procedural=false;
 }
-function frame(obj){obj.updateMatrixWorld(true);const box=new THREE.Box3().setFromObject(obj);const dimensions=box.getSize(new THREE.Vector3());const largest=Math.max(dimensions.x,dimensions.y,dimensions.z);if(!largest||!Number.isFinite(largest))throw Error('Geometria non valida');obj.scale.multiplyScalar(16/largest);obj.updateMatrixWorld(true);box.setFromObject(obj);const c=box.getCenter(new THREE.Vector3());obj.position.sub(c);camera.position.set(15,10,19);controls.target.set(0,0,0);controls.update();}
-function place(glb){clear();aircraft=glb.scene;if(selected.info)$('#hint').textContent=selected.info+(selected.id==='pilota'||selected.persona?'':' · mostrato ingrandito alla stessa scala dei jet');const gearDown=[];if(!selected.id.startsWith('a3'))aircraft.traverse(o=>{const n=(o.name||'').toLowerCase().replace(/[\s_.-]/g,'');if(/landingon|gearon|geardown|gearout|refuelon|landinglights|undercarriage(?!off|up)|wheel(?!off|up)|tire(?!off|up)|tyre(?!off|up)/.test(n))gearDown.push(o);});gearDown.forEach(o=>{if(o.parent)o.parent.remove(o);});aircraft.traverse(o=>{if(o.isSkinnedMesh)o.frustumCulled=false;});scene.add(aircraft);frame(aircraft);
+// Equipaggiamento agganciato alle ossa di un personaggio: posizione e direzioni in metri nello spazio del modello in posa.
+function agganciaEquip(root,lista){root.updateMatrixWorld(true);const V=a=>new THREE.Vector3(...a).normalize();
+ for(const a of lista){const osso=root.getObjectByName(a.bone)||root,w=a.scene;w.updateMatrixWorld(true);w.traverse(o=>{if(o.isSkinnedMesh)o.frustumCulled=false;});
+  const b=new THREE.Box3().setFromObject(w),d=b.getSize(new THREE.Vector3()),c=b.getCenter(new THREE.Vector3());
+  const inner=new THREE.Group();inner.add(w);w.position.sub(c);inner.scale.setScalar(a.len/Math.max(d.x,d.y,d.z));
+  const f=V(a.fwd),t=V(a.top),Mm=new THREE.Matrix4().makeBasis(f,t,f.clone().cross(t));
+  const df=V(a.dir),u=V(a.up),dt=u.sub(df.clone().multiplyScalar(u.dot(df))).normalize(),Md=new THREE.Matrix4().makeBasis(df,dt,df.clone().cross(dt));
+  const holder=new THREE.Group();holder.name='equip:'+a.id;holder.add(inner);
+  const want=new THREE.Matrix4().compose(new THREE.Vector3(...a.pos),new THREE.Quaternion().setFromRotationMatrix(Md.multiply(Mm.transpose())),new THREE.Vector3(1,1,1));
+  new THREE.Matrix4().copy(osso.matrixWorld).invert().multiply(root.matrixWorld).multiply(want).decompose(holder.position,holder.quaternion,holder.scale);osso.add(holder);}}
+// Pezzi semplici (fondina, cinghie) costruiti qui: scatole, cinghie lungo una curva, anelli attorno a un arto.
+function equipExtra(root,lista){root.updateMatrixWorld(true);
+ for(const a of lista){const osso=root.getObjectByName(a.bone)||root,mat=new THREE.MeshStandardMaterial({color:a.color,roughness:.85,metalness:0});let mesh;
+  if(a.kind==='box'){mesh=new THREE.Mesh(new THREE.BoxGeometry(...a.size),mat);mesh.position.set(...a.pos);if(a.rot)mesh.rotation.set(...a.rot.map(x=>x*Math.PI/180));}
+  else{let pts=a.pts;if(a.kind==='ring'){pts=[];for(let i=0;i<16;i++){const t=i/16*Math.PI*2;pts.push([a.c[0]+Math.cos(t)*a.rx,a.c[1],a.c[2]+Math.sin(t)*a.rz]);}}
+   const curve=new THREE.CatmullRomCurve3(pts.map(p=>new THREE.Vector3(...p)),a.kind==='ring');
+   mesh=new THREE.Mesh(new THREE.TubeGeometry(curve,a.kind==='ring'?32:40,a.r||0.012,5,a.kind==='ring'),mat);if(a.kind==='ring')mesh.scale.set(1,1.6,1);}
+  mesh.name='equip:'+a.id;mesh.updateMatrix();
+  new THREE.Matrix4().copy(osso.matrixWorld).invert().multiply(root.matrixWorld).multiply(mesh.matrix).decompose(mesh.position,mesh.quaternion,mesh.scale);osso.add(mesh);}}
+function frame(obj){obj.updateMatrixWorld(true);const box=new THREE.Box3().setFromObject(obj);const dimensions=box.getSize(new THREE.Vector3());const largest=Math.max(dimensions.x,dimensions.y,dimensions.z);if(!largest||!Number.isFinite(largest))throw Error('Geometria non valida');obj.scale.multiplyScalar(16/largest);obj.updateMatrixWorld(true);box.setFromObject(obj);const c=box.getCenter(new THREE.Vector3());obj.position.sub(c);
+ // pavimento e ombra sotto il modello (i velivoli «sospesi» poco sopra, le persone appoggiate), camera più vicina
+ obj.updateMatrixWorld(true);const giu=new THREE.Box3().setFromObject(obj).min.y-(selected&&selected.persona?0.02:1.3);grid.position.y=giu;floor.position.y=giu+0.01;
+ obj.traverse(o=>{if(o.isMesh){o.castShadow=true;o.receiveShadow=false;}});
+ camera.position.set(11.5,6.2,14);controls.target.set(0,0,0);controls.update();}
+function place(glb){clear();aircraft=glb.scene;if(selected.info)$('#hint').textContent=selected.info+(selected.id==='pilota'||selected.persona?'':' · mostrato ingrandito alla stessa scala dei jet');const gearDown=[];if(!selected.id.startsWith('a3'))aircraft.traverse(o=>{const n=(o.name||'').toLowerCase().replace(/[\s_.-]/g,'');if(/landingon|gearon|geardown|gearout|refuelon|landinglights|undercarriage(?!off|up)|wheel(?!off|up)|tire(?!off|up)|tyre(?!off|up)/.test(n))gearDown.push(o);});gearDown.forEach(o=>{if(o.parent)o.parent.remove(o);});aircraft.traverse(o=>{if(o.isSkinnedMesh)o.frustumCulled=false;});if(glb.equip)agganciaEquip(aircraft,glb.equip.filter(Boolean));if(selected.extra)equipExtra(aircraft,selected.extra);scene.add(aircraft);frame(aircraft);
  if(selected.animateGLB && glb.animations?.length){
    const mixer=new THREE.AnimationMixer(aircraft);
    glb.animations.forEach(clip=>mixer.clipAction(clip).play());
@@ -141,7 +169,7 @@ function showDrone(m,created){
 }
 async function openModel(m){const id=++token;selected=m;$('#hint').textContent='Caricamento 3D: GLB locale, file importato oppure anteprima Sketchfab.';$('#title').textContent=m.name;$('#credit').textContent=m.id?.startsWith('a3')&&m.id!=='a380'?'GLB importato localmente · diritti e licenza originali da verificare':(m.drone?'CENTURION2 · modello procedurale originale, non armato':(CREDITI[m.id]||'bohmerang / Sketchfab — CC BY-NC-SA 4.0'));
  $('#source').onclick=m.url?()=>window.open(m.url,'_blank','noopener,noreferrer'):null;document.querySelectorAll('nav button').forEach(b=>b.classList.toggle('active',b.dataset.id===m.id));note('Caricamento '+m.name+'…');try{let stored=null;
- try{stored=await readStored(m.id);}catch(err){console.warn('Archivio locale non accessibile',err);}
+ try{stored=await readStored(m.id==='pilota'?'pilota-v2':m.id);}catch(err){console.warn('Archivio locale non accessibile',err);}
  if(id!==token)return;
  if(m.embedOnly){
    clear();
@@ -159,11 +187,16 @@ async function openModel(m){const id=++token;selected=m;$('#hint').textContent='
    note('Anteprima Sketchfab · '+m.name+' · per il volo serve un modello GLB locale');
    return;
  }
- if(stored && m.id!=='typhoon'){const g=await loader.parseAsync(await stored.arrayBuffer(),'');if(id===token){place(g);return;}}if(m.drone){
+ if(stored && m.id!=='typhoon'){
+  try{const g=await loader.parseAsync(await stored.arrayBuffer(),'');if(id===token){place(g);return;}}
+  catch(err){if(m.id!=='pilota')throw err;console.warn('Pilota salvato non valido, carico il modello incluso',err);}
+ }if(m.drone){
   const factory=await ensureDroneFactory();
   if(id===token){showDrone(m,factory.drone(m.drone==='quad'));return;}
  }
- const glb=await loader.loadAsync(m.glb||('../models/'+m.id+'.glb'));if(id===token){place(glb);return;}}catch(e){if(id!==token)return;clear();const match=m.url.match(/([0-9a-f]{32})$/i);
+ const glb=await loader.loadAsync(m.glb||('../models/'+m.id+'.glb'));
+ if(m.attach){glb.equip=await Promise.all(m.attach.map(a=>loader.loadAsync(a.glb).then(g=>Object.assign({},a,{scene:g.scene})).catch(e=>{console.warn('Equipaggiamento non caricato',a.glb,e);return null;})));}
+ if(id===token){place(glb);return;}}catch(e){if(id!==token)return;clear();const match=m.url.match(/([0-9a-f]{32})$/i);
  if(match){
    const f=document.createElement('iframe');
    f.id='sketchfab-fallback';
@@ -181,7 +214,8 @@ async function openModel(m){const id=++token;selected=m;$('#hint').textContent='
    note(m.drone?'Errore caricamento drone: '+String(e.message||e):
     'GLB non ancora disponibile sul sito. Tocca «Importa GLB» dopo aver convertito il sorgente Blender.');
  }}}
-for(const m of MODELS){const b=document.createElement('button');b.dataset.id=m.id;b.innerHTML='<strong>'+m.tag+'</strong><small>'+m.name+'</small>';b.onclick=()=>openModel(m);$('#aircraft').append(b);}
+// voci con hidden:true restano definite ma non compaiono nel menu (scelta del proprietario, 23 nov 2026)
+for(const m of MODELS){if(m.hidden)continue;const b=document.createElement('button');b.dataset.id=m.id;b.innerHTML='<strong>'+m.tag+'</strong><small>'+m.name+'</small>';b.onclick=()=>openModel(m);$('#aircraft').append(b);}
 function db(){return new Promise((ok,bad)=>{let r=indexedDB.open('centurion2-glb-v1',1);r.onupgradeneeded=()=>r.result.createObjectStore('files');r.onsuccess=()=>ok(r.result);r.onerror=()=>bad(r.error);});}
 async function readStored(id){const database=await db();try{return await new Promise((resolve,reject)=>{const r=database.transaction('files').objectStore('files').get(id);r.onsuccess=()=>resolve(r.result);r.onerror=()=>reject(r.error);});}finally{database.close();}}
 async function saveStored(id,file){const database=await db();try{await new Promise((resolve,reject)=>{const t=database.transaction('files','readwrite');t.objectStore('files').put(file,id);t.oncomplete=resolve;t.onerror=()=>reject(t.error);});}finally{database.close();}}
@@ -259,7 +293,7 @@ $('#airbus-export').onclick=async()=>{
 };
 $('#import').onclick=()=>$('#upload').click();$('#upload').onchange=async()=>{const f=$('#upload').files[0];if(!f)return;try{note('Importazione '+f.name+'…');const g=await loader.parseAsync(await f.arrayBuffer(),'');place(g);
  const archived=await archiveImportedAirbus(f,selected.id);
- await saveStored(selected.id,f);
+ await saveStored(selected.id==='pilota'?'pilota-v2':selected.id,f);
  await refreshLocalAirbusMenu();
  note(f.name+' · salvato localmente su questo dispositivo'+(archived?' · Airbus archiviato: '+archived.family:''));
 }catch(e){note('Errore GLB: '+String(e.message||e));}$('#upload').value='';};
@@ -274,5 +308,7 @@ renderer.setAnimationLoop(()=>{
 openModel(MODELS.find(m=>m.id===new URLSearchParams(location.search).get('aircraft'))||MODELS[0]);
 refreshLocalAirbusMenu().catch(e=>console.warn('Airbus locali:',e));
 </script></body></html>
+
+
 
 

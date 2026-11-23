@@ -16,6 +16,11 @@ MODELS = (
     ('mq9-centurion', 'MQ-9 Reaper', True),
     ('hermes900-centurion', 'Hermes 900', True),
     ('pj-operator', 'Pararescue Jumper (PJ) · operatore CSAR', False),
+    ('pj-mk18', 'Mk18 Mod0 · carabina del PJ', False),
+    ('pj-m18', 'SIG M18 · pistola del PJ', False),
+    ('pj-nvg', 'Visore notturno quadritubo del PJ', False),
+    ('pj-radio', 'Radio PRC-152 del PJ', False),
+    ('pj-ifak', 'Kit medico IFAK del PJ', False),
 )
 
 def inspect_glb(path, expect_animation):
@@ -94,6 +99,27 @@ def add_hangar_models(root, out, report, dry_run=False):
                         license_url='https://creativecommons.org/licenses/by/4.0/',
                         source='https://sketchfab.com/3d-models/soldier-full-tactical-gear-lowpolygameready-850593a8c7114c188395ba1849a66eb9',
                         attribution='Soldier Full Tactical Gear by DanlyVostok, adapted as a Pararescue Jumper: helmet, plate carrier and pouches tinted coyote, textures reduced to 1024 px.')
+        if model_id == 'pj-mk18':
+            item.update(author='notcplkerry', license='CC BY 4.0',
+                        license_url='https://creativecommons.org/licenses/by/4.0/',
+                        source='https://sketchfab.com/3d-models/low-poly-mk18-mod0-full-loadout-9d913f52f59049219185cbccf688d5f1',
+                        attribution='Low-Poly Mk18 Mod0 full loadout by notcplkerry, carried slung by the PJ in the hangar.')
+        if model_id == 'pj-m18':
+            item.update(author='k4rmax', license='CC BY 4.0',
+                        license_url='https://creativecommons.org/licenses/by/4.0/',
+                        source='https://sketchfab.com/3d-models/sig-p320-m18-643cf5792c8e4ce5954d7929543857d3',
+                        attribution='SIG P320 M18 by k4rmax, packed as GLB and holstered on the PJ in the hangar.')
+        if model_id in ('pj-nvg', 'pj-radio', 'pj-ifak'):
+            author, url, note = {
+                'pj-nvg': ('karmy2k', 'https://sketchfab.com/3d-models/night-vision-goggles-navy-seals-6cf9c96971fb4dc19a225d68a14d1458',
+                           'Night Vision Goggles Navy Seals by karmy2k: original helmet removed, material converted to metallic-roughness.'),
+                'pj-radio': ('r4m', 'https://sketchfab.com/3d-models/prc-152-00e19a0326c84dabb2a995d92985470b',
+                             'PRC 152 by r4m: packed as GLB, textures reduced to 512 px.'),
+                'pj-ifak': ('yronthal', 'https://sketchfab.com/3d-models/medical-kit-bag-abc2f95bce4c4e69bfc0d8742d37e78b',
+                            'Medical Kit Bag by yronthal: packed as GLB, textures reduced to 512 px.'),
+            }[model_id]
+            item.update(author=author, license='CC BY 4.0',
+                        license_url='https://creativecommons.org/licenses/by/4.0/', source=url, attribution=note)
         if model_id == 'mq9-centurion':
             item.update(author='IProZenoN', license='CC BY 4.0',
                         license_url='https://creativecommons.org/licenses/by/4.0/',

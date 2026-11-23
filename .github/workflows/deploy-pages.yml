@@ -27,6 +27,7 @@ on:
       - '.github/pod/**'
       - '.github/postbruciatore/**'
       - '.github/sar/**'
+      - '.github/pilot/**'
       - 'model-sources/**'
   workflow_dispatch:
 
@@ -385,6 +386,15 @@ jobs:
           node --check extracted/site/js/volo.js
           node --check extracted/site/js/accademia.js
           grep -q 'src="js/soccorso.js"' extracted/site/index.html
+      - name: Install the owner-supplied animated pilot
+        run: |
+          python3 .github/pilot/publish_pilot.py extracted/site
+          python3 -m py_compile .github/pilot/publish_pilot.py .github/pilot/static_pilot.py
+          node --check extracted/site/js/pilota3d.js
+          node --check extracted/site/js/csar_zagros.js
+          node --check extracted/site/js/soccorso.js
+          node .github/pilot/test_pilot.cjs extracted/site
+          node .github/pilot/test_hangar.cjs extracted/site
       - name: Refresh offline cache for 3D hangar
         run: |
           # Force a fresh offline cache for the cinematic model and scene assets.
@@ -414,6 +424,10 @@ jobs:
           if [ -n "$big" ]; then
             npm install --no-save --no-audit --no-fund @gltf-transform/cli@4
             for f in $big; do
+              if [ "$f" = "extracted/site/assets/pilota.glb" ]; then
+                echo "Skipping texture conversion for the pilot (no embedded textures)"
+                continue
+              fi
               case "$f" in
                 *.glb)
                   echo "Compressing textures (WebP, max 2048 px): $f ($(du -h "$f" | cut -f1))"
@@ -497,3 +511,5 @@ jobs:
       - name: Deploy website
         id: deployment
         uses: actions/deploy-pages@v4
+
+

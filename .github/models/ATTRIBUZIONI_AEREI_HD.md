@@ -46,3 +46,21 @@ adattamenti di un modello low-poly, non di riproduzioni perfette delle varianti.
 https://sketchfab.com/3d-models/soldier-full-tactical-gear-lowpolygameready-850593a8c7114c188395ba1849a66eb9,
 [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/). CENTURION2 lo ha adattato come operatore
 Pararescue (PJ): elmetto, giubbotto e tasche in tinta coyote, texture ridotte a 1024 px per i telefoni.
+
+Armi del PJ nell'hangar (agganciate allo scheletro; fondina e cinghie sono semplici forme CENTURION2):
+
+- «Low-Poly Mk18 Mod0 full loadout» di notcplkerry,
+  https://sketchfab.com/3d-models/low-poly-mk18-mod0-full-loadout-9d913f52f59049219185cbccf688d5f1,
+  [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/).
+- «SIG P320 M18» di k4rmax, https://sketchfab.com/3d-models/sig-p320-m18-643cf5792c8e4ce5954d7929543857d3,
+  [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/); convertito da glTF a GLB senza altre modifiche.
+
+Equipaggiamento del PJ nell'hangar (tutti [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/)):
+
+- «Night Vision Goggles Navy Seals» di karmy2k,
+  https://sketchfab.com/3d-models/night-vision-goggles-navy-seals-6cf9c96971fb4dc19a225d68a14d1458:
+  tolto l'elmetto originale, materiale convertito in metallic-roughness.
+- «PRC 152» di r4m, https://sketchfab.com/3d-models/prc-152-00e19a0326c84dabb2a995d92985470b:
+  convertito in GLB, texture ridotte a 512 px.
+- «Medical Kit Bag» di yronthal, https://sketchfab.com/3d-models/medical-kit-bag-abc2f95bce4c4e69bfc0d8742d37e78b:
+  convertito in GLB, texture ridotte a 512 px.
