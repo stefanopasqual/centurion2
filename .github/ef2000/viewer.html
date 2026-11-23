@@ -41,13 +41,13 @@ const MODELS=[
 {id:'mc130j-centurion',name:'MC-130J Commando II · base C-130J adattata',tag:'MC-130J',url:'https://sketchfab.com/3d-models/lockheed-martin-c130jsuper-hercules-reupload-223b4ff4abb945038fe35726bedd0db1',animateGLB:true,info:'C-130J adattato allo stile MC-130J · quattro eliche animate · ricostruzione approssimativa'},
 {id:'c130j-hercules',name:'Lockheed Martin C-130J Super Hercules',tag:'C-130J',url:'https://sketchfab.com/3d-models/lockheed-martin-c130jsuper-hercules-reupload-223b4ff4abb945038fe35726bedd0db1',info:'C-130J Super Hercules · modello di KOG_THORNS, CC BY 4.0'},
 {id:'mh6-centurion',name:'MH-6 Little Bird · trasporto',tag:'MH-6',url:'https://sketchfab.com/3d-models/mh-6-little-bird-low-poly-d7068144bfeb4d91bde5d30755657d97',animateGLB:true,info:'Little Bird adattato per trasporto · panche esterne e rotori animati'},
-{id:'ah6-centurion',name:'AH-6 Little Bird · armato',tag:'AH-6',url:'https://sketchfab.com/3d-models/mh-6-little-bird-low-poly-d7068144bfeb4d91bde5d30755657d97',animateGLB:true,info:'Little Bird adattato in configurazione armata · rotori animati'},
+{id:'ah6-centurion',hidden:true,name:'AH-6 Little Bird · armato',tag:'AH-6',url:'https://sketchfab.com/3d-models/mh-6-little-bird-low-poly-d7068144bfeb4d91bde5d30755657d97',animateGLB:true,info:'Little Bird adattato in configurazione armata · rotori animati'},
 {id:'uh60-pack',name:'UH-60 Black Hawk · versione aggiuntiva',tag:'UH-60 · NUOVO',url:'',animateGLB:true,info:'UH-60 Black Hawk · versione aggiuntiva con rotori animati'},
 {id:'mq9-centurion',name:'General Atomics MQ-9 Reaper',tag:'MQ-9',url:'https://sketchfab.com/3d-models/mq-9-fabe963feb354c5584b51f9c470c3f7e',animateGLB:true,info:'MQ-9 Reaper · carrello retratto · elica animata'},
 {id:'hermes900-centurion',name:'Elbit Hermes 900',tag:'HERMES 900',url:'',animateGLB:true,info:'Hermes 900 · elica animata'},
-{id:'f16-studiolab',name:'F-16 Fighting Falcon · Studio Lab (Sketchfab)',tag:'F-16 · STUDIO LAB',url:'https://sketchfab.com/3d-models/f-16-f-16-fighting-falcon-fighter-jet-8be8ab656304467eb6ddcbb244ae8574',info:'Anteprima 3D interattiva di Studio Lab · per usarlo nel Volo libero occorre un GLB autorizzato',embedOnly:true},
-{id:'uh60',name:'Sikorsky UH-60 Black Hawk · Michał Flodrowski',tag:'UH-60 · BLACK HAWK',url:'https://sketchfab.com/3d-models/uh-60-black-hawk-4682e6566cee481cb94d387fb7845243',info:'Anteprima 3D Sketchfab di Michał Flodrowski · volo elicottero non ancora integrato',embedOnly:true},
-{id:'uh60-centurion',name:'CENTURION UH-60 · modello originale',tag:'UH-60 · CENTURION',url:'',info:'Sikorsky UH-60M · modello originale con rotori articolati · CC BY 4.0',ownHelicopter:true},
+{id:'f16-studiolab',hidden:true,name:'F-16 Fighting Falcon · Studio Lab (Sketchfab)',tag:'F-16 · STUDIO LAB',url:'https://sketchfab.com/3d-models/f-16-f-16-fighting-falcon-fighter-jet-8be8ab656304467eb6ddcbb244ae8574',info:'Anteprima 3D interattiva di Studio Lab · per usarlo nel Volo libero occorre un GLB autorizzato',embedOnly:true},
+{id:'uh60',hidden:true,name:'Sikorsky UH-60 Black Hawk · Michał Flodrowski',tag:'UH-60 · BLACK HAWK',url:'https://sketchfab.com/3d-models/uh-60-black-hawk-4682e6566cee481cb94d387fb7845243',info:'Anteprima 3D Sketchfab di Michał Flodrowski · volo elicottero non ancora integrato',embedOnly:true},
+{id:'uh60-centurion',hidden:true,name:'CENTURION UH-60 · modello originale',tag:'UH-60 · CENTURION',url:'',info:'Sikorsky UH-60M · modello originale con rotori articolati · CC BY 4.0',ownHelicopter:true},
 {id:'typhoon',name:'Eurofighter Typhoon',tag:'EF-2000',url:'https://sketchfab.com/3d-models/eurofighter-typhoon-fighter-jet-free-992bcc8987964ca09d55410330aa8579'},
 {id:'f15e',name:'F-15E Strike Eagle',tag:'F-15E',url:'https://sketchfab.com/3d-models/f-15e-strike-eagle-fighter-jet-free-fff7d75490474e9b964d90cc031c8d01'},
 {id:'su57',name:'Sukhoi Su-57',tag:'Su-57',url:'https://sketchfab.com/3d-models/sukhoi-su-57-felon-p-fighter-jet-free-31127bc63bc048debb694aa88bbaafae'},
@@ -205,7 +205,8 @@ async function openModel(m){const id=++token;selected=m;$('#hint').textContent='
    note(m.drone?'Errore caricamento drone: '+String(e.message||e):
     'GLB non ancora disponibile sul sito. Tocca «Importa GLB» dopo aver convertito il sorgente Blender.');
  }}}
-for(const m of MODELS){const b=document.createElement('button');b.dataset.id=m.id;b.innerHTML='<strong>'+m.tag+'</strong><small>'+m.name+'</small>';b.onclick=()=>openModel(m);$('#aircraft').append(b);}
+// voci con hidden:true restano definite ma non compaiono nel menu (scelta del proprietario, 23 nov 2026)
+for(const m of MODELS){if(m.hidden)continue;const b=document.createElement('button');b.dataset.id=m.id;b.innerHTML='<strong>'+m.tag+'</strong><small>'+m.name+'</small>';b.onclick=()=>openModel(m);$('#aircraft').append(b);}
 function db(){return new Promise((ok,bad)=>{let r=indexedDB.open('centurion2-glb-v1',1);r.onupgradeneeded=()=>r.result.createObjectStore('files');r.onsuccess=()=>ok(r.result);r.onerror=()=>bad(r.error);});}
 async function readStored(id){const database=await db();try{return await new Promise((resolve,reject)=>{const r=database.transaction('files').objectStore('files').get(id);r.onsuccess=()=>resolve(r.result);r.onerror=()=>reject(r.error);});}finally{database.close();}}
 async function saveStored(id,file){const database=await db();try{await new Promise((resolve,reject)=>{const t=database.transaction('files','readwrite');t.objectStore('files').put(file,id);t.oncomplete=resolve;t.onerror=()=>reject(t.error);});}finally{database.close();}}
