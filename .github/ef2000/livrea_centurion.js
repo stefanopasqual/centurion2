@@ -223,6 +223,7 @@ export function verniceCenturion(THREE, aircraft, A){
   if(!overlays.length)dark.dispose();
   return {
     changed:overlays.length,
+    overlays,
     dispose(){
       overlays.forEach(o=>{o.parent?.remove(o);o.geometry.dispose();});
       if(overlays.length)dark.dispose();
@@ -230,124 +231,209 @@ export function verniceCenturion(THREE, aircraft, A){
   };
 }
 
-// Cimieri proiettati sulla superficie 3D delle derive realmente annerite.
-// Non usare il piano fisso al centro dell'ala: collocava le insegne fuori asse.
+// Cimiero centrato sull'effettiva superficie nera di ogni deriva.
+// La maschera e' realizzata esclusivamente dai triangoli di verniciatura,
+// quindi nessun punto dell'emblema puo' uscire dalla superficie della pinna.
+// Le texture e i materiali dei GLB originali rimangono invariati.
 export function applyCenturion(THREE, scene, aircraft, opts = {}){
-  const codice=opts.codice||'CENT';
   const A=opts.A||analizzaAirframe(THREE,aircraft,opts.place||null);
-  const nodes=[],resources=[];
-  if(!A.ok)return {applied:0,dispose(){}};
-  scene.updateMatrixWorld(true);
-  const {lat,foreAft,Wl}=A;
-  const finVerts=A.samp.filter(A.finMask);
-  if(finVerts.length<6)return {applied:0,dispose(){}};
+  const black=opts.blackSurfaces||[];
+  const resources=[],nodes=[];
+  const empty=()=>({applied:0,dispose(){}});
+  if(!A.ok||!black.length)return empty();
+  aircraft.updateMatrixWorld(true);
 
-  const mkMat=mirror=>{
-    const tex=elmoTex(THREE,codice,mirror);resources.push(tex);
-    const mat=new THREE.MeshBasicMaterial({map:tex,transparent:true,opacity:0.98,
-      side:THREE.DoubleSide,depthTest:true,depthWrite:false,polygonOffset:true,
-      polygonOffsetFactor:-4,polygonOffsetUnits:-4,toneMapped:false});
-    resources.push(mat);return mat;
-  };
-  const normalMat=mkMat(false),mirrorMat=mkMat(true);
-  const median=a=>{const b=a.slice().sort((x,y)=>x-y);return b[Math.floor(b.length/2)];};
-  const ys=finVerts.map(v=>v.y).sort((a,b)=>a-b);
-  const crown=finVerts.filter(v=>v.y>=ys[Math.floor(ys.length*.82)]);
-  const separation=Math.max(Wl*.033,A.H*.025);
-  const left=crown.filter(v=>v[lat]<A.latCtr-separation).map(v=>v[lat]);
-  const right=crown.filter(v=>v[lat]>A.latCtr+separation).map(v=>v[lat]);
-  const enough=Math.max(5,Math.floor(crown.length*.06));
-  const twin=left.length>=enough&&right.length>=enough&&
-    median(right)-median(left)>Math.max(Wl*.075,A.H*.12);
-  const fins=twin?[{lat:median(left),side:-1},{lat:median(right),side:1}]
-    :[{lat:A.latCtr,side:-1},{lat:A.latCtr,side:1}];
-  const radius=twin?Math.min(Wl*.19,(median(right)-median(left))*.46):Wl*.19;
-
-  // Raycast a doppia faccia anche sui GLB con normali invertite.
-  const probeMaterial=new THREE.MeshBasicMaterial({side:THREE.DoubleSide});
-  const proxies=A.meshes.map(real=>{
-    const p=new THREE.Mesh(real.geometry,probeMaterial);
-    p.matrixAutoUpdate=false;p.matrixWorld.copy(real.matrixWorld);p.userData.real=real;
-    return p;
-  });
-  const ray=new THREE.Raycaster(),margin=Math.max(.4,Wl*.08);
-  ray.far=Wl+2*margin+.1;
-  const noseVec=new THREE.Vector3();
-  noseVec[foreAft]=Math.sign(A.noseEnd-A.tailEnd)||1;
-  const setting=opts.place&&opts.place.fin;
-  const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
-
-  function surface(fa,y,fin){
-    const origin=new THREE.Vector3();origin[foreAft]=fa;origin.y=y;
-    origin[lat]=fin.side>0?A.box.max[lat]+margin:A.box.min[lat]-margin;
-    const toward=new THREE.Vector3();toward[lat]=-fin.side;ray.set(origin,toward);
-    for(const hit of ray.intersectObjects(proxies,false)){
-      const p=hit.point;
-      if(!A.finMask(p)||Math.abs(p[lat]-fin.lat)>radius*1.05)continue;
-      if(twin&&(p[lat]-A.latCtr)*fin.side<Wl*.018)continue;
-      if(!hit.face)continue;
-      const n=hit.face.normal.clone()
-        .applyMatrix3(new THREE.Matrix3().getNormalMatrix(hit.object.matrixWorld)).normalize();
-      if(Math.abs(n.y)>.7||Math.abs(n[lat])<.25)continue;
-      if(n[lat]*fin.side<0)n.negate();
-      return {hit,normal:n};
+  // Ogni triangolo qui proviene da CENTURION2_black_vertical_tail:
+  // e' davvero nero e appartiene a una superficie verticale.
+  const faces=[];
+  const va=new THREE.Vector3(),vb=new THREE.Vector3(),vc=new THREE.Vector3();
+  const ab=new THREE.Vector3(),ac=new THREE.Vector3(),n=new THREE.Vector3();
+  for(const mesh of black){
+    const positions=mesh.geometry.getAttribute('position');
+    if(!positions)continue;
+    for(let i=0;i+2<positions.count;i+=3){
+      va.fromBufferAttribute(positions,i).applyMatrix4(mesh.matrixWorld);
+      vb.fromBufferAttribute(positions,i+1).applyMatrix4(mesh.matrixWorld);
+      vc.fromBufferAttribute(positions,i+2).applyMatrix4(mesh.matrixWorld);
+      ab.subVectors(vb,va);ac.subVectors(vc,va);
+      n.crossVectors(ab,ac);
+      const area=n.length()*0.5;
+      if(area<1e-10)continue;
+      const normal=n.clone().normalize();
+      if(Math.abs(normal[A.lat])<.35||Math.abs(normal.y)>.78)continue;
+      faces.push({
+        vertices:[va.clone(),vb.clone(),vc.clone()],
+        center:va.clone().add(vb).add(vc).multiplyScalar(1/3),
+        normal,area
+      });
     }
-    return null;
   }
-  for(const fin of fins){
-    const col=finVerts.filter(v=>Math.abs(v[lat]-fin.lat)<radius&&
-      (!twin||(v[lat]-A.latCtr)*fin.side>0));
-    if(col.length<6)continue;
-    const box=new THREE.Box3();col.forEach(v=>box.expandByPoint(v));
-    const chord=box.max[foreAft]-box.min[foreAft],height=box.max.y-box.min.y;
-    if(chord<=1e-3||height<=1e-3)continue;
-    // Le preferenze per modello suggeriscono il centro; la superficie reale lo decide.
-    const preferFa=setting&&Number.isFinite(setting.fa)
-      ?A.noseEnd+(A.tailEnd-A.noseEnd)*setting.fa:(box.min[foreAft]+box.max[foreAft])/2;
-    const preferY=setting&&Number.isFinite(setting.y)
-      ?A.min.y+A.H*setting.y:(box.min.y+box.max.y)/2;
-    const fa0=clamp(preferFa,box.min[foreAft]+chord*.19,box.max[foreAft]-chord*.19);
-    const y0=clamp(preferY,box.min.y+height*.19,box.max.y-height*.19);
-    let best=null;
-    const search=offsets=>{
-      for(const dy of offsets)for(const dx of offsets){
-        const s=surface(fa0+dx*chord,y0+dy*height,fin);
-        if(!s)continue;
-        const p=s.hit.point;
-        const mx=Math.min(p[foreAft]-box.min[foreAft],box.max[foreAft]-p[foreAft]);
-        const my=Math.min(p.y-box.min.y,box.max.y-p.y);
-        if(mx<=0||my<=0)continue;
-        const score=Math.min(mx/chord,my/height)*5+Math.abs(s.normal[lat])*.25-
-          (Math.abs(p[foreAft]-fa0)/chord+Math.abs(p.y-y0)/height)*.35;
-        if(!best||score>best.score)best={...s,score,mx,my};
+  if(!faces.length)return empty();
+
+  const minY=Math.min(...faces.map(f=>f.center.y));
+  const maxY=Math.max(...faces.map(f=>f.center.y));
+  const upper=faces.filter(f=>f.center.y>minY+(maxY-minY)*.45);
+  const main=upper.length?upper:faces;
+  const separation=Math.max(A.Wl*.048,A.H*.03);
+  const left=main.filter(f=>f.center[A.lat]<A.latCtr-separation);
+  const right=main.filter(f=>f.center[A.lat]>A.latCtr+separation);
+  const areaOf=set=>set.reduce((s,f)=>s+f.area,0);
+  const upperArea=areaOf(main);
+  const twin=areaOf(left)>upperArea*.085&&areaOf(right)>upperArea*.085;
+
+  // Due derive: un cimiero sulla faccia esterna di ciascuna.
+  // Deriva singola: un cimiero su ognuno dei suoi due lati.
+  const sides=twin
+    ?[{side:-1,outer:-1},{side:1,outer:1}]
+    :[{side:-1,outer:0},{side:1,outer:0}];
+
+  function clip(poly,dist){
+    if(!poly.length)return poly;
+    const out=[];
+    for(let i=0;i<poly.length;i++){
+      const a=poly[i],b=poly[(i+1)%poly.length];
+      const da=dist(a),db=dist(b);
+      if(da>=-1e-8)out.push(a);
+      if((da<0&&db>0)||(da>0&&db<0))
+        out.push(a.clone().lerp(b,da/(da-db)));
+    }
+    return out;
+  }
+
+  // Sezione orizzontale della pinna: scegli il segmento nero continuo
+  // piu' ampio; il centro non deriva dalla geometria di ali/fusoliera.
+  function section(facesAt,y){
+    const spans=[];
+    for(const face of facesAt){
+      const v=face.vertices,ints=[];
+      for(let i=0;i<3;i++){
+        const a=v[i],b=v[(i+1)%3],dy=b.y-a.y;
+        if(Math.abs(dy)<1e-8){
+          if(Math.abs(a.y-y)<1e-6)ints.push(a[A.foreAft],b[A.foreAft]);
+        }else{
+          const t=(y-a.y)/dy;
+          if(t>=-1e-7&&t<=1+1e-7)
+            ints.push(a[A.foreAft]+(b[A.foreAft]-a[A.foreAft])*t);
+        }
       }
-    };
-    search([0,-.16,.16]);
-    if(!best)search([-.32,.32,-.48,.48]);
-    if(!best){console.warn('CENTURION: superficie deriva non trovata',codice,fin.side);continue;}
-    const hPref=setting&&Number.isFinite(setting.h)?A.H*setting.h:A.H*.24;
-    const h=Math.min(hPref,height*.62,chord*.70/.75,best.my*1.58,best.mx*1.58/.75);
-    if(!Number.isFinite(h)||h<Math.max(.05,A.H*.015))continue;
-    const normal=best.normal,up=new THREE.Vector3(0,1,0);
-    const right=new THREE.Vector3().crossVectors(up,normal).normalize();
-    if(right.lengthSq()<1e-8)right.set(1,0,0);
-    const localUp=new THREE.Vector3().crossVectors(normal,right).normalize();
-    const quat=new THREE.Quaternion().setFromRotationMatrix(
-      new THREE.Matrix4().makeBasis(right,localUp,normal));
-    const mat=right.clone().negate().dot(noseVec)>=0?normalMat:mirrorMat;
-    const center=best.hit.point.clone().addScaledVector(normal,Math.max(.008,A.H*.002));
-    const geometry=new DecalGeometry(best.hit.object.userData.real,center,
-      new THREE.Euler().setFromQuaternion(quat),
-      new THREE.Vector3(h*.75,h,Math.max(.15,h*.46)));
-    if(!geometry.getAttribute('position')||geometry.getAttribute('position').count<3){
-      geometry.dispose();continue;
+      if(ints.length>=2){
+        const lo=Math.min(...ints),hi=Math.max(...ints);
+        if(hi-lo>1e-7)spans.push([lo,hi]);
+      }
     }
-    const decal=new THREE.Mesh(geometry,mat);
-    decal.name='CENTURION2_livrea';decal.renderOrder=20;
-    scene.add(decal);nodes.push(decal);
+    if(!spans.length)return null;
+    spans.sort((a,b)=>a[0]-b[0]);
+    const merged=[spans[0].slice()];
+    const epsilon=Math.max(A.L*1e-5,1e-6);
+    for(const [lo,hi] of spans.slice(1)){
+      const curr=merged[merged.length-1];
+      if(lo<=curr[1]+epsilon)curr[1]=Math.max(curr[1],hi);
+      else merged.push([lo,hi]);
+    }
+    return merged.reduce((best,p)=>!best||p[1]-p[0]>best[1]-best[0]?p:best,null);
   }
-  probeMaterial.dispose();
-  return {applied:nodes.length,codice,dispose(){
+
+  const front=Math.sign(A.noseEnd-A.tailEnd)||1;
+  for(const config of sides){
+    const side=config.side;
+    const relevant=faces.filter(f=>
+      f.normal[A.lat]*side>.35&&
+      (!twin||((f.center[A.lat]-A.latCtr)*config.outer>separation*.5)));
+    if(!relevant.length)continue;
+    let ylo=Infinity,yhi=-Infinity;
+    for(const face of relevant)for(const v of face.vertices){
+      ylo=Math.min(ylo,v.y);yhi=Math.max(yhi,v.y);
+    }
+    const height=yhi-ylo;
+    if(height<1e-4)continue;
+    // Centro geometrico verticale della regione nera.
+    const centerY=(ylo+yhi)*.5;
+    const midSpan=section(relevant,centerY);
+    if(!midSpan)continue;
+    // Centro orizzontale della corda della deriva a mezza altezza.
+    let centerX=(midSpan[0]+midSpan[1])*.5;
+    const midChord=midSpan[1]-midSpan[0];
+    const requested=opts.place?.fin?.h;
+    let h=Math.min(height*.64,midChord*.72/.75,
+      Number.isFinite(requested)?A.H*requested:A.H*.26);
+    if(h<Math.max(.04,A.H*.012))continue;
+
+    // Riduci proporzionalmente se il trapezio si restringe: il disegno
+    // mantiene margini simmetrici e resta entro la pinna nera.
+    for(let attempt=0;attempt<12;attempt++){
+      const yA=centerY-h*.49,yB=centerY+h*.49;
+      const low=section(relevant,yA),high=section(relevant,yB);
+      const width=h*.75;
+      if(low&&high){
+        const xmin=Math.max(low[0],high[0],midSpan[0]);
+        const xmax=Math.min(low[1],high[1],midSpan[1]);
+        if(xmax-xmin>=width*1.14){
+          centerX=Math.max(xmin+width*.5*1.07,
+            Math.min(xmax-width*.5*1.07,centerX));
+          break;
+        }
+      }
+      h*=.83;
+    }
+    if(h<Math.max(.04,A.H*.012))continue;
+
+    // L'asse U segue la direzione letta dall'esterno della deriva.
+    const outward=new THREE.Vector3();outward[A.lat]=side;
+    const viewRight=new THREE.Vector3().crossVectors(
+      new THREE.Vector3(0,1,0),outward).normalize();
+    const rightSign=Math.sign(viewRight[A.foreAft])||1;
+    const mirror=rightSign*front>0;
+    const tex=elmoTex(THREE,opts.codice||'CENT',mirror);
+    resources.push(tex);
+    const mat=new THREE.MeshBasicMaterial({
+      map:tex,transparent:true,opacity:.99,side:THREE.DoubleSide,
+      depthTest:true,depthWrite:false,polygonOffset:true,
+      polygonOffsetFactor:-6,polygonOffsetUnits:-6,toneMapped:false
+    });
+    resources.push(mat);
+    const halfW=h*.75*.5,halfH=h*.5;
+    const x0=centerX-halfW,x1=centerX+halfW;
+    const y0=centerY-halfH,y1=centerY+halfH;
+    const vertices=[],uv=[];
+    const push=p=>{
+      const u=.5+(p[A.foreAft]-centerX)*rightSign/(h*.75);
+      const v=.5+(p.y-centerY)/h;
+      // Disloca il livello decal di pochi mm lungo la vera normale della
+      // faccia, non verso l'esterno dell'intero aereo.
+      vertices.push(p.x,p.y,p.z);
+      uv.push(u,v);
+    };
+    for(const face of relevant){
+      let poly=face.vertices.map(v=>v.clone());
+      poly=clip(poly,p=>p[A.foreAft]-x0);
+      poly=clip(poly,p=>x1-p[A.foreAft]);
+      poly=clip(poly,p=>p.y-y0);
+      poly=clip(poly,p=>y1-p.y);
+      if(poly.length<3)continue;
+      const offset=Math.max(.003,A.H*.001);
+      for(let i=1;i<poly.length-1;i++){
+        for(const p of [poly[0],poly[i],poly[i+1]])
+          push(p.clone().addScaledVector(face.normal,offset));
+      }
+    }
+    if(!vertices.length){
+      tex.dispose();mat.dispose();
+      resources.pop();resources.pop();
+      continue;
+    }
+    const geometry=new THREE.BufferGeometry();
+    geometry.setAttribute('position',new THREE.Float32BufferAttribute(vertices,3));
+    geometry.setAttribute('uv',new THREE.Float32BufferAttribute(uv,2));
+    geometry.computeVertexNormals();
+    const decal=new THREE.Mesh(geometry,mat);
+    decal.name='CENTURION2_livrea';
+    decal.renderOrder=20;
+    decal.frustumCulled=false;
+    scene.add(decal);nodes.push(decal);
+    console.info('CENTURION: cimiero centrato sulla deriva',opts.codice,
+      side,{X:centerX,Y:centerY,h,finHeight:height,midChord});
+  }
+  return {applied:nodes.length,codice:opts.codice||'CENT',dispose(){
     nodes.forEach(o=>{scene.remove(o);o.geometry.dispose();});
     resources.forEach(r=>r.dispose&&r.dispose());
   }};
@@ -358,7 +444,7 @@ export function applyLivreaCompleta(THREE, scene, aircraft, id){
   const info = LIVREA_CENTURION[id] || { codice: 'CENT', modex: '00' };
   const A = analizzaAirframe(THREE, aircraft, info.place || null);
   const paint = verniceCenturion(THREE, aircraft, A);
-  const marks = applyCenturion(THREE, scene, aircraft, Object.assign({ A }, info));
+  const marks = applyCenturion(THREE, scene, aircraft, Object.assign({ A, blackSurfaces: paint.overlays }, info));
   return {
     info, applied: marks.applied,
     dispose(){ marks.dispose(); paint.dispose(); }
