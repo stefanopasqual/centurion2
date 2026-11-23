@@ -119,7 +119,7 @@ const AAR_CINE = (() => {
     try { m = await Promise.race([VISTA3D.modelloPromise(ic, undefined, { tipoId: tipo }), new Promise(r => setTimeout(() => r(null), 700))]); } catch (e) {}
     if (!m) m = await VISTA3D.modelloProcedurale(ic, undefined, { tipoId: tipo });
     // materiali propri: quelli del GLB sono condivisi con le altre viste 3D, che hanno la loro luce ambientale
-    m.traverse(o => { if (!o.isMesh) return; o.material = Array.isArray(o.material) ? o.material.map(x => x.clone()) : o.material.clone(); [].concat(o.material).forEach(x => { if (envTex && "envMap" in x) { x.envMap = envTex; x.envMapIntensity = 1; x.needsUpdate = true; } }); });
+    m.traverse(o => { if (!o.isMesh) return; o.material = Array.isArray(o.material) ? o.material.map(x => x.clone()) : o.material.clone(); [].concat(o.material).forEach(x => { if (envTex && "envMap" in x) { x.envMap = envTex; x.envMapIntensity = (x.userData && x.userData.vernice) || 1; x.needsUpdate = true; } }); });
     m.position.set(0, 0, 0); m.rotation.set(0, 0, 0); m.updateMatrixWorld(true);
     return m;
   }

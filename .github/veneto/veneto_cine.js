@@ -92,7 +92,7 @@ const VENETO_CINE = (() => {
     return Promise.race([Promise.all(attese), new Promise(r => setTimeout(r, 1500))]);
   }
   function materialiPropri(m) {   // i materiali dei GLB sono condivisi con le altre viste: qui si usano copie con la luce di questo renderer
-    m.traverse(o => { if (o.isMesh && o.material) { o.material = Array.isArray(o.material) ? o.material.map(x => x.clone()) : o.material.clone(); [].concat(o.material).forEach(x => { if ("envMap" in x) { x.envMap = envTex; x.envMapIntensity = 1; x.needsUpdate = true; } }); } });
+    m.traverse(o => { if (o.isMesh && o.material) { o.material = Array.isArray(o.material) ? o.material.map(x => x.clone()) : o.material.clone(); [].concat(o.material).forEach(x => { if ("envMap" in x) { x.envMap = envTex; x.envMapIntensity = (x.userData && x.userData.vernice) || 1; x.needsUpdate = true; } }); } });
     return m;
   }
   const puff = () => (typeof VISTA3D !== "undefined" && VISTA3D.puffTexture) ? VISTA3D.puffTexture(false) : VENETO.puntoLuce();

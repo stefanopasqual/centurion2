@@ -46,12 +46,34 @@ patch("js/vista3d.js", "  function modelloPromise(icona, col, opt) {", r'''  // 
   }
   function conAmbiente(m) {
     // environment solo sui materiali dei GLB: terreno e modelli procedurali restano come prima
-    if (m && AMB.corrente) m.traverse(o => { if (o.isMesh) [].concat(o.material).forEach(mm => { if (mm && "envMap" in mm) { mm.envMap = AMB.corrente; mm.envMapIntensity = 1; mm.needsUpdate = true; } }); });
+    // (la vernice opaca di vernice() tiene un riflesso più basso, altrimenti il cielo la sbianca)
+    if (m && AMB.corrente) m.traverse(o => { if (o.isMesh) [].concat(o.material).forEach(mm => { if (mm && "envMap" in mm) { mm.envMap = AMB.corrente; mm.envMapIntensity = (mm.userData && mm.userData.vernice) || 1; mm.needsUpdate = true; } }); });
+    return m;
+  }
+  // Eurofighter (F2000): la carrozzeria usciva quasi bianca. Stessa vernice dell'hangar: texture originale
+  // (pannelli, scritte tecniche) scurita al grigio Eurofighter; senza texture, grigio #626c75 con resa da vernice;
+  // il tettuccio, esportato come metallo grezzo bianco, diventa vetro scuro. Gli altri jet restano com'erano.
+  // userData.vernice = intensità del riflesso ambientale da usare per quel materiale.
+  function vernice(m, tipo) {
+    if (!m || tipo !== "F2000") return m;
+    const lineare = !THREE.ColorManagement || THREE.ColorManagement.legacyMode === true || THREE.ColorManagement.enabled === false;
+    const colore = (mm, hex) => { mm.color.setHex(hex); if (lineare) mm.color.convertSRGBToLinear(); };
+    m.traverse(o => { if (!o.isMesh) return; [].concat(o.material).forEach(mm => {
+      if (!mm || !mm.isMeshStandardMaterial || (mm.userData && mm.userData.vernice)) return;
+      const nome = mm.name || "";
+      if (/glass|canopy|windscreen/i.test(nome)) { if (mm.map) return; colore(mm, 0x1d2a33); mm.metalness = 0.1; mm.roughness = 0.15; mm.userData.vernice = 0.6; }
+      else if (/airframe|fuselage|body|skin/i.test(nome)) {
+        if (mm.map) mm.color.setRGB(0.6, 0.63, 0.68);
+        else { colore(mm, 0x626c75); if (!mm.metalnessMap) mm.metalness = 0.2; if (!mm.roughnessMap) mm.roughness = 0.6; }
+        mm.userData.vernice = 0.5;
+      } else return;
+      mm.needsUpdate = true;
+    }); });
     return m;
   }
   function modelloPromise(icona, col, opt) {''')
 patch("js/vista3d.js", "return gltfModello(tipo, col, opt).catch(() => null).then(m => m || modelloProcedurale(icona, col, opt));",
-      "return gltfModello(tipo, col, opt).catch(() => null).then(m => m ? conAmbiente(m) : modelloProcedurale(icona, col, opt));")
+      "return gltfModello(tipo, col, opt).catch(() => null).then(m => m ? conAmbiente(vernice(m, tipo)) : modelloProcedurale(icona, col, opt));")
 patch("js/vista3d.js", "return { apri, chiudi, daEvento, modelloPromise, jetFallback,",
       "return { apri, chiudi, daEvento, modelloPromise, modelloProcedurale, ambiente, precarica, jetFallback,")
 

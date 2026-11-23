@@ -201,3 +201,36 @@ export function apply51Stormo(THREE, scene, aircraft) {
     }
   };
 }
+
+// Eurofighter dell'hangar senza livrea di reparto: niente insegne né codici, solo vernice.
+// La texture del modello è già ripulita dalle insegne tedesche: resta (pannelli, scritte tecniche)
+// e viene scurita al grigio Eurofighter usato anche in volo; il tettuccio diventa vetro scuro.
+export function verniceTyphoon(THREE, aircraft) {
+  const memo = new Map();
+  let changed = 0;
+  aircraft.traverse(object => {
+    if (!object.isMesh || !object.material) return;
+    const tratta = m => {
+      if (!m || !('color' in m)) return m;
+      if (memo.has(m)) return memo.get(m);
+      const name = (object.name || '') + ' ' + (m.name || '');
+      let c = null;
+      if (/glass|canopy|windscreen/i.test(name)) {
+        if (m.map) return m;
+        c = m.clone(); c.color = new THREE.Color('#1d2a33'); c.metalness = 0.1; c.roughness = 0.15;
+      } else if (/airframe|fuselage|body|skin/i.test(name)) {
+        c = m.clone();
+        if (c.map) c.color = new THREE.Color().setRGB(0.6, 0.63, 0.68);
+        else {
+          c.color = new THREE.Color('#626c75');
+          if (!c.metalnessMap) c.metalness = 0.2;
+          if (!c.roughnessMap) c.roughness = 0.6;
+        }
+      } else return m;
+      c.needsUpdate = true; memo.set(m, c); changed++;
+      return c;
+    };
+    object.material = Array.isArray(object.material) ? object.material.map(tratta) : tratta(object.material);
+  });
+  return changed;
+}
