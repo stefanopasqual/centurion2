@@ -16,6 +16,8 @@ MODELS = (
     ('mq9-centurion', 'MQ-9 Reaper', True),
     ('hermes900-centurion', 'Hermes 900', True),
     ('pj-operator', 'Pararescue Jumper (PJ) · operatore CSAR', False),
+    ('pj-mk18', 'Mk18 Mod0 · carabina del PJ', False),
+    ('pj-m18', 'SIG M18 · pistola del PJ', False),
 )
 
 def inspect_glb(path, expect_animation):
@@ -94,6 +96,16 @@ def add_hangar_models(root, out, report, dry_run=False):
                         license_url='https://creativecommons.org/licenses/by/4.0/',
                         source='https://sketchfab.com/3d-models/soldier-full-tactical-gear-lowpolygameready-850593a8c7114c188395ba1849a66eb9',
                         attribution='Soldier Full Tactical Gear by DanlyVostok, adapted as a Pararescue Jumper: helmet, plate carrier and pouches tinted coyote, textures reduced to 1024 px.')
+        if model_id == 'pj-mk18':
+            item.update(author='notcplkerry', license='CC BY 4.0',
+                        license_url='https://creativecommons.org/licenses/by/4.0/',
+                        source='https://sketchfab.com/3d-models/low-poly-mk18-mod0-full-loadout-9d913f52f59049219185cbccf688d5f1',
+                        attribution='Low-Poly Mk18 Mod0 full loadout by notcplkerry, carried slung by the PJ in the hangar.')
+        if model_id == 'pj-m18':
+            item.update(author='k4rmax', license='CC BY 4.0',
+                        license_url='https://creativecommons.org/licenses/by/4.0/',
+                        source='https://sketchfab.com/3d-models/sig-p320-m18-643cf5792c8e4ce5954d7929543857d3',
+                        attribution='SIG P320 M18 by k4rmax, packed as GLB and holstered on the PJ in the hangar.')
         if model_id == 'mq9-centurion':
             item.update(author='IProZenoN', license='CC BY 4.0',
                         license_url='https://creativecommons.org/licenses/by/4.0/',

@@ -46,3 +46,11 @@ adattamenti di un modello low-poly, non di riproduzioni perfette delle varianti.
 https://sketchfab.com/3d-models/soldier-full-tactical-gear-lowpolygameready-850593a8c7114c188395ba1849a66eb9,
 [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/). CENTURION2 lo ha adattato come operatore
 Pararescue (PJ): elmetto, giubbotto e tasche in tinta coyote, texture ridotte a 1024 px per i telefoni.
+
+Armi del PJ nell'hangar (agganciate allo scheletro; fondina e cinghie sono semplici forme CENTURION2):
+
+- «Low-Poly Mk18 Mod0 full loadout» di notcplkerry,
+  https://sketchfab.com/3d-models/low-poly-mk18-mod0-full-loadout-9d913f52f59049219185cbccf688d5f1,
+  [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/).
+- «SIG P320 M18» di k4rmax, https://sketchfab.com/3d-models/sig-p320-m18-643cf5792c8e4ce5954d7929543857d3,
+  [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/); convertito da glTF a GLB senza altre modifiche.
