@@ -139,74 +139,67 @@ export function analizzaAirframe(THREE, aircraft, ov){
   return { ok, box, size, min, meshes, samp, foreAft, lat, latCtr, L, Wl, H, tailEnd, noseEnd, span, baseY, finMask };
 }
 
-// Tactical-grey tint with the tail fin painted BLACK, via per-vertex
-// colours (works even when the fin shares a mesh with the fuselage).
-// Glass/metal/tyres preserved. Clones materials; reversible.
+// Livrea: il modello mantiene ESATTAMENTE le sue texture/materiali originali.
+// Solo i vertici della deriva verticale vengono oscurati in nero; nessuna
+// desaturazione della fusoliera, delle ali o dei colori originali.
+// Clone locale della geometria: tutte le modifiche sono reversibili.
 export function verniceCenturion(THREE, aircraft, A){
-  A = A || analizzaAirframe(THREE, aircraft);
-  const memo = new Map();
-  const restore = [];
-  const preserve = /glass|canop|vetro|cockpit|windscreen|window|interior|seat|pilot|engine|exhaust|nozzle|burner|turbine|wheel|tire|tyre|gear|rubber|brake|light|screen/i;
-  const minY = A.min.y, spanY = Math.max(1e-6, A.H);
-  const TOP = new THREE.Color().setRGB(0.25,0.28,0.33);
-  const BOT = new THREE.Color().setRGB(0.38,0.41,0.46);
-  const BLACK = new THREE.Color().setRGB(0.045,0.055,0.065);   // fin
-  const geomTouched = [];
-  const wv = new THREE.Vector3();
+  A=A||analizzaAirframe(THREE,aircraft);
+  const restored=[],colorBlack=0.018;
+  const exclude=/glass|canop|vetro|cockpit|windscreen|window|interior|seat|pilot|engine|exhaust|nozzle|burner|turbine|wheel|tire|tyre|gear|rubber|brake|light|screen/i;
+  const wv=new THREE.Vector3();
+  aircraft.updateMatrixWorld(true);
   aircraft.traverse(object=>{
-    if(!object.isMesh || !object.material) return;
-    const original = object.material;
-    restore.push([object, original]);
-    const name = (object.name||'') + ' ' + ((original&&original.name)||'');
-    const isPreserve = preserve.test(name);
-    // Per-vertex colours: grey body (two-tone by height) + black tail fin.
-    if(!isPreserve && object.geometry && object.geometry.attributes.position){
-      const g = object.geometry, pa = g.attributes.position, n = pa.count;
-      if(!g.getAttribute('__centBaseColor')){
-        const col = new Float32Array(n*3);
-        for(let i=0;i<n;i++){
-          wv.fromBufferAttribute(pa,i).applyMatrix4(object.matrixWorld);
-          const c = A.finMask(wv) ? BLACK
-            : BOT.clone().lerp(TOP, Math.pow(THREE.MathUtils.clamp((wv.y-minY)/spanY,0,1),0.8));
-          col[i*3]=c.r; col[i*3+1]=c.g; col[i*3+2]=c.b;
-        }
-        g.setAttribute('color', new THREE.BufferAttribute(col,3));
-        g.setAttribute('__centBaseColor', new THREE.BufferAttribute(new Float32Array(1),1)); // marker
-        geomTouched.push(g);
-      } else if(g.getAttribute('color')===undefined){ /* already */ }
+    if(!object.isMesh||!object.geometry||!object.material)return;
+    const mats=Array.isArray(object.material)?object.material:[object.material];
+    const name=(object.name||'')+' '+mats.map(m=>m?.name||'').join(' ');
+    if(exclude.test(name))return;
+    const oldGeometry=object.geometry,pa=oldGeometry.getAttribute('position');
+    if(!pa)return;
+    const finIndices=[];
+    for(let i=0;i<pa.count;i++){
+      wv.fromBufferAttribute(pa,i).applyMatrix4(object.matrixWorld);
+      if(A.finMask(wv))finIndices.push(i);
     }
-    const transform = m=>{
-      if(!m || !('color' in m)) return m;
-      if(isPreserve){
-        if(/glass|canop|vetro|windscreen/i.test(name) && !m.map){
-          if(memo.has(m)) return memo.get(m);
-          const g = m.clone(); g.color = new THREE.Color('#0e141b');
-          g.metalness = 0.25; g.roughness = 0.09; g.needsUpdate = true;
-          memo.set(m,g); return g;
-        }
-        return m;
-      }
-      if(memo.has(m)) return memo.get(m);
-      const clone = m.clone();
-      clone.map = null;                 // drop baked national colours
-      clone.vertexColors = true;        // grey body + black fin from attribute
-      clone.color = new THREE.Color(0xffffff);
-      clone.metalness = Math.min(Number(clone.metalness)||0, 0.25);
-      clone.roughness = Math.max(Number(clone.roughness)||0.6, 0.6);
-      clone.needsUpdate = true;
-      memo.set(m, clone);
-      return clone;
-    };
-    object.material = Array.isArray(original) ? original.map(transform) : transform(original);
+    if(!finIndices.length)return; // no modifications to other aircraft parts
+    const oldColor=oldGeometry.getAttribute('color');
+    const oldUsesColors=mats.some(m=>!!m?.vertexColors);
+    const colors=new Float32Array(pa.count*3);
+    // White multiplier leaves original paint/texture unchanged.
+    // Existing authored vertex colours are preserved when in use.
+    for(let i=0;i<pa.count;i++){
+      const k=i*3;
+      if(oldColor&&oldUsesColors){
+        colors[k]=oldColor.getX(i);
+        colors[k+1]=oldColor.getY(i);
+        colors[k+2]=oldColor.getZ(i);
+      }else colors[k]=colors[k+1]=colors[k+2]=1;
+    }
+    for(const i of finIndices){
+      const k=i*3;
+      colors[k]*=colorBlack;
+      colors[k+1]*=colorBlack;
+      colors[k+2]*=colorBlack;
+    }
+    const clonedGeometry=oldGeometry.clone();
+    clonedGeometry.setAttribute('color',new THREE.BufferAttribute(colors,3));
+    const clonedMaterial=Array.isArray(object.material)?
+      object.material.map(m=>{const c=m.clone();c.vertexColors=true;c.needsUpdate=true;return c;}):
+      object.material.clone();
+    if(!Array.isArray(clonedMaterial)){clonedMaterial.vertexColors=true;clonedMaterial.needsUpdate=true;}
+    object.geometry=clonedGeometry;
+    object.material=clonedMaterial;
+    restored.push({object,oldGeometry,materials:mats,
+      originalIsArray:Array.isArray(object.material),clonedGeometry,clonedMaterial});
   });
-  return {
-    changed: memo.size,
-    dispose(){
-      restore.forEach(([o,m])=>{ o.material = m; });
-      memo.forEach(c=>c.dispose && c.dispose());
-      geomTouched.forEach(g=>{ g.deleteAttribute('color'); g.deleteAttribute('__centBaseColor'); });
-    }
-  };
+  return {changed:restored.length,dispose(){
+    restored.forEach(r=>{
+      r.object.geometry=r.oldGeometry;
+      r.object.material=r.originalIsArray?r.materials:r.materials[0];
+      (Array.isArray(r.clonedMaterial)?r.clonedMaterial:[r.clonedMaterial]).forEach(m=>m.dispose());
+      r.clonedGeometry.dispose();
+    });
+  }};
 }
 
 // Cimieri proiettati sulla superficie 3D delle derive realmente annerite.
