@@ -58,9 +58,13 @@ function canvasTex(THREE, w, h, painter){
 }
 
 // Spartan helmet + tail code in tactical grey, drawn from the traced
-// outline. Sits on the black fin, so a mid grey reads cleanly.
-function elmoTex(THREE, codice){
+// outline. Sits on the black fin, so a mid grey reads cleanly. The source
+// helmet faces left; `mirror` flips only the helmet (the code stays
+// readable) so its face can point toward the aircraft nose on either side.
+function elmoTex(THREE, codice, mirror){
   return canvasTex(THREE, 420, 560, (c,w,h)=>{
+    c.save();
+    if(mirror){ c.translate(w,0); c.scale(-1,1); }   // mirror the helmet only
     c.save();
     const s = (w*0.80)/399;                 // fit width
     c.translate(w*0.10, h*0.02);
@@ -69,7 +73,8 @@ function elmoTex(THREE, codice){
     c.fillStyle = '#9aa6b4';                 // tactical grey helmet
     c.fill(new Path2D(ELMO_PATH));
     c.restore();
-    // tail code under the helmet, same grey family
+    c.restore();                             // undo mirror before the text
+    // tail code under the helmet, same grey family, always readable
     c.fillStyle = '#aeb9c6';
     c.textAlign = 'center'; c.textBaseline = 'middle';
     c.font = '700 60px Arial, Helvetica, sans-serif';
@@ -212,11 +217,16 @@ export function applyCenturion(THREE, scene, aircraft, opts = {}){
   if(!A.ok) return { applied:0, dispose(){} };
   scene.updateMatrixWorld(true);
   const { lat, Wl, foreAft } = A;
-  const tex = elmoTex(THREE, codice); resources.push(tex);
-  const mat = new THREE.MeshBasicMaterial({ map:tex, transparent:true, opacity:0.98,
-    side:THREE.DoubleSide, depthTest:true, depthWrite:false, polygonOffset:true,
-    polygonOffsetFactor:-6, polygonOffsetUnits:-6, toneMapped:false });
-  resources.push(mat);
+  const mkMat = mirror => {
+    const t = elmoTex(THREE, codice, mirror); resources.push(t);
+    const m = new THREE.MeshBasicMaterial({ map:t, transparent:true, opacity:0.98,
+      side:THREE.FrontSide, depthTest:true, depthWrite:false, polygonOffset:true,
+      polygonOffsetFactor:-6, polygonOffsetUnits:-6, toneMapped:false });
+    resources.push(m); return m;
+  };
+  const matNormal = mkMat(false), matMirror = mkMat(true);
+  // world direction toward the aircraft nose
+  const noseVec = new THREE.Vector3(); noseVec[foreAft] = Math.sign(A.noseEnd - A.tailEnd) || 1;
 
   function orient(normal){
     const q = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0,0,1), normal);
@@ -252,7 +262,11 @@ export function applyCenturion(THREE, scene, aircraft, opts = {}){
       c.y = ctr.y + finH*0.04;
       c[lat] = pl.lat;
       const normal = new THREE.Vector3(); normal[lat] = pl.side;
-      const mesh = new THREE.Mesh(new THREE.PlaneGeometry(ew, eh), mat);
+      // Pick normal/mirrored helmet so its face points toward the nose.
+      const right = new THREE.Vector3().crossVectors(new THREE.Vector3(0,1,0), normal).normalize();
+      const facingNormal = right.clone().multiplyScalar(-1);   // helmet faces local -X
+      const chosen = facingNormal.dot(noseVec) >= 0 ? matNormal : matMirror;
+      const mesh = new THREE.Mesh(new THREE.PlaneGeometry(ew, eh), chosen);
       mesh.position.copy(c).addScaledVector(normal, Math.max(0.03, Wl*0.02));
       mesh.quaternion.copy(orient(normal));
       mesh.renderOrder = 20; mesh.name = 'CENTURION2_livrea';
