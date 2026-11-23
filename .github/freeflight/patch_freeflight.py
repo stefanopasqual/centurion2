@@ -21,7 +21,10 @@ extra=r'''
     E7:{nome:"Boeing E-7 Wedgetail",icona:"e7",nonArmato:true,noEject:true,m:65000,S:125,Tmil:225000,Tab:225000,cd0:.026,k:.076,cla:4.7,amax:14,astall:17,pmax:55,gmax:2.5,gneg:1,fuel:23000,colpi:0,cannone:"Nessuno",carico:{}},
     UAV_FIXED:{nome:"UAV ad ala fissa · ricognizione",icona:"uav-fixed",drone:"fixed",nonArmato:true,noEject:true,m:28,S:4.7,Tmil:115,Tab:115,cd0:.041,k:.095,cla:3.7,amax:18,astall:19,pmax:80,gmax:3.5,gneg:1.5,fuel:10,colpi:0,cannone:"Nessuno",carico:{}},
     UAV_QUAD:{nome:"UAV quadricottero · osservazione",icona:"uav-quad",drone:"quad",nonArmato:true,noEject:true,m:6,S:.55,Tmil:75,Tab:75,cd0:.07,k:.10,cla:2.5,amax:15,astall:20,pmax:90,gmax:2,gneg:1.5,fuel:3,colpi:0,cannone:"Nessuno",carico:{}},
-    GERAN2:{nome:"Geran-2 · UAV di volo dimostrativo",icona:"geran2",drone:"geran",nonArmato:true,noEject:true,m:200,S:3.2,Tmil:650,Tab:650,cd0:.066,k:.11,cla:3,amax:15,astall:18,pmax:50,gmax:2.5,gneg:1,fuel:30,colpi:0,cannone:"Nessuno",carico:{}}
+    GERAN2:{nome:"Geran-2 · UAV di volo dimostrativo",icona:"geran2",drone:"geran",nonArmato:true,noEject:true,m:200,S:3.2,Tmil:650,Tab:650,cd0:.066,k:.11,cla:3,amax:15,astall:18,pmax:50,gmax:2.5,gneg:1,fuel:30,colpi:0,cannone:"Nessuno",carico:{}},
+    A10:{nome:"Fairchild Republic A-10C Thunderbolt II",icona:"a10",m:20000,S:47,span:17.53,oswald:.82,criticalMach:.72,waveRise:.12,Tmil:80600,Tab:80600,nonAB:true,vInizio:165,quotaInizio:4500,thrInizio:.78,cd0:.032,k:.06,cla:4.6,amax:20,astall:24,pmax:110,gmax:7.33,gneg:3,fuel:4850,colpi:1150,cannone:"GAU-8/A 30 mm",carico:{AIM120:0,AIM9X:2,AGM65:4}},
+    C130J:{nome:"Lockheed Martin C-130J Super Hercules",icona:"c130",nonArmato:true,noEject:true,m:62000,S:162.1,span:40.4,oswald:.82,criticalMach:.62,waveRise:.12,Tmil:150000,Tab:150000,nonAB:true,vInizio:140,quotaInizio:6100,thrInizio:.8,cd0:.03,k:.05,cla:5.0,amax:15,astall:17,pmax:45,gmax:2.5,gneg:1,fuel:20000,colpi:0,cannone:"Nessuno",carico:{}},
+    MQ9:{nome:"General Atomics MQ-9 Reaper",icona:"mq9",nonArmato:true,noEject:true,m:3500,S:20,span:20.1,oswald:.85,criticalMach:.55,waveRise:.05,Tmil:7000,Tab:7000,nonAB:true,vInizio:75,quotaInizio:4000,thrInizio:.8,cd0:.028,k:.03,cla:5.2,amax:14,astall:16,pmax:40,gmax:3,gneg:1.5,fuel:1800,colpi:0,cannone:"Nessuno",carico:{}}
 '''
 patch('  };\n  /* ---------- armi ---------- */',',\n'+extra+'  };\n  /* ---------- armi ---------- */')
 
@@ -41,6 +44,8 @@ patch('''    P.M = 0; P.agl = 0; P.qbar = 0;''','''    if(AEREI[S.cfg.aereo]?.dr
       P.vel=kind==="quad"?V3():V3(Math.sin(hdg),0,-Math.cos(hdg)).multiplyScalar(kind==="geran"?50:29);
       P.aTerra=false;P.carrello=false;S.thr=kind==="quad"?.5:.58;
     }
+    // aerei lenti (A-10, C-130J, MQ-9): in volo partono alla loro velocità e quota, non a 250 m/s
+    {const AV=AEREI[S.cfg.aereo];if(AV&&AV.vInizio&&!P.aTerra){P.vel.normalize().multiplyScalar(AV.vInizio);if(AV.quotaInizio&&!(APP.sc&&APP.sc.mappa5))P.pos.y=AV.quotaInizio;if(AV.thrInizio)S.thr=AV.thrInizio;}}
     P.M = 0; P.agl = 0; P.qbar = 0;''')
 patch('''  function fisica(dt) {
     const P = S.pl, A = P.A, In = S.in; if (!P.vivo) return;''',
@@ -155,3 +160,18 @@ if "centurion-freeflight-fleet" not in html:
  html=html.replace("</head>",style+"\n</head>",1)
 idx.write_text(html,encoding="utf-8")
 print("PASS: 12 flyable aircraft: 7 fighters, KC30, E7, two original UAVs and unarmed Geran-2 demo.")
+
+# Hangar models flown in Free Flight: A-10C, C-130J and MQ-9 use the same GLB as the 3D hangar
+# (models/), referenced from the flight manifest without copying it. Axes checked: nose +Z, up +Y.
+import json
+man=root/"modelli"/"manifest.json"
+if man.is_file():
+ flotta=json.loads(man.read_text(encoding="utf-8"))
+ nuovi=(("A10","a10-centurion.glb",[0,180,0],16.26,"bohmerang","CC BY-NC-SA 4.0","https://sketchfab.com/3d-models/a-10-thunderbolt-ii-free-f297968397534b59bd41fe989497ffcb"),
+        ("C130J","c130j-hercules.glb",[0,0,0],29.79,"KOG_THORNS","CC BY 4.0","https://sketchfab.com/3d-models/lockheed-martin-c130jsuper-hercules-reupload-223b4ff4abb945038fe35726bedd0db1"),
+        ("MQ9","mq9-centurion.glb",[0,90,0],11.0,"IProZenoN","CC BY 4.0","https://sketchfab.com/3d-models/mq-9-fabe963feb354c5584b51f9c470c3f7e"))
+ for code,glb,rot,lun,autore,lic,url in nuovi:
+  if (root/"models"/glb).is_file() and code not in flotta:
+   flotta[code]={"file":"../models/"+glb,"rot":rot,"lunghezza_m":lun,"tint":False,"gear":"up","autore":autore,"licenza":lic,"url":url}
+ man.write_text(json.dumps(flotta,indent=2),encoding="utf-8")
+ print("PASS: hangar GLB in free flight: "+", ".join(c for c,*_ in nuovi if c in flotta))
