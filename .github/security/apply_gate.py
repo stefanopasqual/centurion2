@@ -39,7 +39,8 @@ html.password-required #splash, html.password-required #app {display:none !impor
 #centurion-gate .gate-teams label:has(input:checked) {background:#1f3a5c;border-color:#8fc3ff}
 #centurion-gate .gate-teams label.red:has(input:checked) {background:#5c1f24;border-color:#ff9b9b}
 #centurion-gate .gate-teams input {margin-right:6px}
-#centurion-team-form button, #centurion-password-form button {width:100%;padding:14px;margin-top:12px;border:0;border-radius:10px;background:#53a8ff;color:#071525;font-weight:800;font-size:17px;cursor:pointer;min-height:48px}
+#centurion-main-password {width:100%;padding:14px;border:1px solid #7289a7;border-radius:10px;background:#101a28;color:#fff;font-size:18px;outline-offset:3px}
+#centurion-main-form button, #centurion-team-form button, #centurion-password-form button {width:100%;padding:14px;margin-top:12px;border:0;border-radius:10px;background:#53a8ff;color:#071525;font-weight:800;font-size:17px;cursor:pointer;min-height:48px}
 </style>
 <script>document.documentElement.classList.add("password-required");</script>
 """
@@ -47,8 +48,15 @@ form = """
 <div id="centurion-gate" role="main">
   <div class="gate-card">
     <h1>CENTURION2</h1>
+    <form id="centurion-main-form">
+      <p>Accesso al simulatore · Inserisci la password per iniziare.</p>
+      <label for="centurion-main-password">Password di accesso</label>
+      <input id="centurion-main-password" type="password" autocomplete="off" spellcheck="false" required autofocus>
+      <button type="submit">Accedi</button>
+    </form>
+    <div id="centurion-levels" hidden>
     <p>Scegli come entrare.</p>
-    <button id="centurion-free" type="button">✈ Volo libero e Hangar<small>senza password</small></button>
+    <button id="centurion-free" type="button">✈ Volo libero e Hangar<small>solo volo libero e hangar</small></button>
     <hr class="gate-sep">
     <form id="centurion-team-form">
       <h2>🎮 Gioca in squadra</h2>
@@ -64,6 +72,7 @@ form = """
       <input id="centurion-password" type="password" autocomplete="off" spellcheck="false" required>
       <button id="centurion-unlock" type="submit">Accedi</button>
     </form>
+    </div>
     <label class="gate-visibility"><input id="centurion-show-password" type="checkbox"> Mostra password</label>
     <p id="centurion-gate-message" role="status" aria-live="polite"></p>
   </div>

@@ -1,9 +1,10 @@
 (() => {
   "use strict";
-  /* Pagina d'ingresso a tre livelli (vedi accesso.js):
-     · Volo libero e hangar: senza password
-     · Squadra BLU / ROSSA: ognuna la sua password (impronte in .github/security/livelli.json)
-     · Costruttori (Trainer e Comandante): la password storica del sito, o quella nuova di livelli.json */
+  /* Ingresso in due fasi (vedi accesso.js):
+     1. password principale del sito, uguale per tutti;
+     2. scelta del livello: volo libero e hangar (nient'altro) · squadra BLU / ROSSA con la sua password ·
+        costruttori (Trainer e Comandante) con la loro password. Finché in livelli.json non c'è una password
+        dei costruttori distinta, per i costruttori vale la principale. */
   const ITERATIONS = 600000;
   const SALT = "1cde619737aa98e132b847b1c931ff36";
   const EXPECTED = "052711e982d114928a4e2572f2c835abefcc4ba4a3c656eb34f9ce948410c636";
@@ -24,10 +25,15 @@
     for (let i = 0; i < 32; i++) mismatch |= raw[i] ^ goal[i];
     return mismatch === 0;
   }
-  const costruttori = pw => LIVELLI.COSTRUTTORI ? verify(pw, LIVELLI.salt, LIVELLI.COSTRUTTORI, LIVELLI.iterations) : verify(pw, SALT, EXPECTED, ITERATIONS);
+  const principale = pw => verify(pw, SALT, EXPECTED, ITERATIONS);
+  const costruttori = pw => LIVELLI.COSTRUTTORI ? verify(pw, LIVELLI.salt, LIVELLI.COSTRUTTORI, LIVELLI.iterations) : principale(pw);
+  const PRINCIPALE_OK = "centurion_principale";
+  // per la pagina «Password squadre»: le nuove password devono essere diverse dalla principale
+  window.CENTURION_VERIFICA_PRINCIPALE = pw => principale(pw);
   const squadra = (pw, sq) => LIVELLI[sq] ? verify(pw, LIVELLI.salt, LIVELLI[sq], LIVELLI.iterations) : Promise.resolve(false);
 
   async function loadApp(accesso) {
+    accesso = Object.assign({}, accesso, { costruttoriDistinti: !!LIVELLI.COSTRUTTORI });
     window.CENTURION_ACCESSO = Object.freeze(accesso);
     try { sessionStorage.setItem(KEY, JSON.stringify(accesso)); } catch (e) {}
     const waiting = [...document.querySelectorAll("script[data-locked-src]")];
@@ -54,9 +60,14 @@
       if (prev && [1, 2, 3].includes(prev.livello)) { opening = true; say("Apertura del simulatore…"); loadApp(prev).catch(err => { opening = false; say("Impossibile aprire: " + err.message); }); return; }
     } catch (e) {}
 
+    // fase 1: password principale (nella stessa sessione del browser non viene richiesta di nuovo)
+    const livelli = document.getElementById("centurion-levels"), primaForm = document.getElementById("centurion-main-form");
+    const mostraLivelli = () => { if (primaForm) primaForm.hidden = true; if (livelli) livelli.hidden = false; say(""); };
+    try { if (sessionStorage.getItem(PRINCIPALE_OK) === "1") mostraLivelli(); } catch (e) {}
+
     const libero = document.getElementById("centurion-free");
     libero?.addEventListener("click", async () => {
-      if (opening) return; opening = true; say("Apertura di volo libero e hangar…");
+      if (opening || (livelli && livelli.hidden)) return; opening = true; say("Apertura di volo libero e hangar…");
       try { await loadApp({ livello: 3, squadra: null }); } catch (err) { opening = false; say("Impossibile aprire: " + (err.message || err)); }
     });
 
@@ -77,7 +88,9 @@
             await new Promise(resolve => setTimeout(resolve, Math.min(4000, attempts * 650)));
             return;
           }
-          opening = true; say("Apertura del simulatore…"); password.value = "";
+          password.value = "";
+          if (accesso === "fase2") return;
+          opening = true; say("Apertura del simulatore…");
           await loadApp(accesso);
         } catch (err) {
           opening = false;
@@ -88,6 +101,11 @@
         }
       });
     };
+    wire("centurion-main-form", "centurion-main-password", async pw => {
+      if (!await principale(pw)) return false;
+      try { sessionStorage.setItem(PRINCIPALE_OK, "1"); } catch (e) {}
+      mostraLivelli(); return "fase2";
+    });
     wire("centurion-password-form", "centurion-password", async pw => await costruttori(pw) ? { livello: 1, squadra: null } : false);
     wire("centurion-team-form", "centurion-team-password", async (pw, form) => {
       const sq = (form.querySelector('input[name="centurion-team"]:checked') || {}).value === "RED" ? "RED" : "BLUE";
@@ -97,7 +115,7 @@
 
     const visibility = document.getElementById("centurion-show-password");
     visibility?.addEventListener("change", () => {
-      document.querySelectorAll("#centurion-password, #centurion-team-password").forEach(p => { p.type = visibility.checked ? "text" : "password"; });
+      document.querySelectorAll("#centurion-main-password, #centurion-password, #centurion-team-password").forEach(p => { p.type = visibility.checked ? "text" : "password"; });
     });
   }
 

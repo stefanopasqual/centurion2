@@ -50,7 +50,8 @@ html[data-accesso="L3"] :is(.splash-roles,.splash-modo,#splash-multi,.role-btn,#
   function etichetta() {
     if (document.getElementById("centurion-livello") || !window.CENTURION_ACCESSO) return;
     const e = document.createElement("div"); e.id = "centurion-livello";
-    e.innerHTML = `<span>🔓 ${NOMI[L]}</span>` + (L === 1 ? `<button type="button" data-pw>🔑 Password squadre</button>` : "") + `<button type="button" data-esci>Cambia accesso</button>`;
+    const avvisoCostr = L === 1 && !A.costruttoriDistinti ? `<span title="Chi conosce la password principale può entrare come costruttore: imposta una password dei costruttori diversa">⚠ password costruttori = principale</span>` : "";
+    e.innerHTML = `<span>🔓 ${NOMI[L]}</span>` + avvisoCostr + (L === 1 ? `<button type="button" data-pw>🔑 Password squadre</button>` : "") + `<button type="button" data-esci>Cambia accesso</button>`;
     e.querySelector("[data-esci]").onclick = () => { try { sessionStorage.removeItem("centurion_accesso"); } catch (x) {} location.reload(); };
     const pw = e.querySelector("[data-pw]"); if (pw) pw.onclick = impostaPassword;
     document.body.appendChild(e);
@@ -66,10 +67,10 @@ html[data-accesso="L3"] :is(.splash-roles,.splash-modo,#splash-multi,.role-btn,#
     d.innerHTML = `<form class="box"><b>🔑 Password delle squadre</b>
       <label>Squadra BLU</label><input type="password" name="BLUE" autocomplete="new-password" minlength="6" required>
       <label>Squadra ROSSA</label><input type="password" name="RED" autocomplete="new-password" minlength="6" required>
-      <label>Nuova password Costruttori (facoltativa)</label><input type="password" name="COSTRUTTORI" autocomplete="new-password" minlength="8">
+      <label>Password Costruttori${A.costruttoriDistinti ? " (facoltativa: lascia vuoto per tenere l'attuale)" : " (consigliata: ora vale la principale)"}</label><input type="password" name="COSTRUTTORI" autocomplete="new-password" minlength="8">
       <small>Le password non lasciano questo dispositivo: si scarica solo il file <b>livelli.json</b> con le loro impronte cifrate (PBKDF2).
       Caricalo su GitHub nella cartella <b>.github/security</b> (si apre da sola) e premi Commit changes: dopo la pubblicazione valgono su tutti i dispositivi.
-      Blu e Rossa devono essere diverse tra loro.</small>
+      Tutte devono essere diverse tra loro e dalla password principale d'ingresso.</small>
       <div class="az"><button type="button" data-no style="background:#2a3b52;color:#fff">Annulla</button><button type="submit" style="background:#53a8ff;color:#071525">Crea livelli.json</button></div></form>`;
     document.body.appendChild(d);
     d.querySelector("[data-no]").onclick = () => d.remove();
@@ -77,6 +78,8 @@ html[data-accesso="L3"] :is(.splash-roles,.splash-modo,#splash-multi,.role-btn,#
       ev.preventDefault(); const f = ev.target, b = f.BLUE.value, r = f.RED.value, c = f.COSTRUTTORI.value;
       if (b.trim() === r.trim()) { alert("Le password di BLU e ROSSA devono essere diverse"); return; }
       if (c && (c.trim() === b.trim() || c.trim() === r.trim())) { alert("La password dei Costruttori deve essere diversa da quelle delle squadre"); return; }
+      const ver = window.CENTURION_VERIFICA_PRINCIPALE;
+      if (ver) { for (const [nome, v] of [["BLU", b], ["ROSSA", r], ["Costruttori", c]]) { if (v && await ver(v)) { alert("La password " + nome + " non può essere uguale alla password principale d'ingresso"); return; } } }
       const iterations = 600000, salt = hex(crypto.getRandomValues(new Uint8Array(16)));
       const out = { formato: "centurion-livelli-1", iterations, salt, BLUE: await impronta(b, salt, iterations), RED: await impronta(r, salt, iterations) };
       if (c) out.COSTRUTTORI = await impronta(c, salt, iterations);
