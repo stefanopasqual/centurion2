@@ -90,6 +90,68 @@ window.PILOTA3D = (() => {
     BONES.forEach(name => { const item=j[name]; if (!item) return; const a=angles[name] || [0,0,0]; euler.set(a[0],a[1],a[2],"XYZ"); delta.setFromEuler(euler); item.bone.quaternion.copy(item.rest).multiply(delta); });
     p.position.y = (p.userData.poseBaseY || 0) - drop; p.visible = true; g.userData.p3dOrig.forEach(o => { o.visible = false; });
   }
+  // Axis-aligned box (root-local) of the modelled cockpit interior. Returns null
+  // when the model has no interior (e.g. F-22): no external pilot is placed there.
+  const INT_RE = /cockpit|instrument|panel|seat|console|dashboard|mfd/i, GLASS_RE = /canopy|glass|windscreen|windshield|hud/i;
+  function boxInterni(root) {
+    root.updateMatrixWorld(true);
+    const inv = new THREE.Matrix4().copy(root.matrixWorld).invert(), lbox = new THREE.Box3();
+    let n = 0;
+    root.traverse(o => {
+      if (!o.isMesh || !o.geometry) return;
+      const name = (o.name || "") + " " + ((o.parent && o.parent.name) || "");
+      if (!INT_RE.test(name) || GLASS_RE.test(name)) return;
+      if (!o.geometry.boundingBox) o.geometry.computeBoundingBox();
+      if (!o.geometry.boundingBox) return;
+      const mb = o.geometry.boundingBox.clone().applyMatrix4(new THREE.Matrix4().multiplyMatrices(inv, o.matrixWorld));
+      if (!mb.isEmpty()) { lbox.union(mb); n++; }
+    });
+    return n && !lbox.isEmpty() ? lbox : null;
+  }
+  // Small per-type nudges (metres / scale) where a source model's cockpit mesh
+  // reads a little off. dy lifts/sinks, dz shifts fore/aft, s overrides scale.
+  const NUDGE = {
+    EA18: { dy: -1.05, dz: -0.15 }, F14: { dy: -1.25, dz: -0.15 },
+    F16: { dy: -0.75 }, SU35: { dy: -0.95 }, SU57: { dy: -0.9 },
+    F2000: { dy: -0.7 }, F15: { dy: -0.7 }
+  };
+  // Seat the owner pilot in a GLB cockpit so it is visible from outside. The
+  // wrapper is named "occupant..." so CENTURION_COCKPIT hides it in the internal
+  // (cockpit/helmet) view. Idempotent. Nose is +Z by default.
+  function inCabina(root, tipo, opt) {
+    opt = opt || {};
+    if (!root || root.getObjectByName("occupant_centurion")) return true;
+    const monta = () => {
+      if (!base || root.getObjectByName("occupant_centurion")) return;
+      const box = boxInterni(root);
+      if (!box) return;                                              // no modelled cockpit -> no external pilot
+      const size = box.getSize(new THREE.Vector3()), center = box.getCenter(new THREE.Vector3());
+      if (![size.x, size.y, size.z, center.x, center.y, center.z].every(Number.isFinite)) return;
+      const nd = NUDGE[tipo] || {};
+      const scala = opt.scala != null ? opt.scala : nd.s || Math.max(0.78, Math.min(0.98, size.y / 1.35));
+      const carrier = new THREE.Group();
+      if (!veste(carrier, { scala })) return;
+      posa(carrier, "seduto");
+      // Tag the figure's meshes so CENTURION_COCKPIT hides it in the internal
+      // view (its occlude test looks at each mesh's own name).
+      carrier.traverse(o => { if (o.isMesh) o.name = "occupant_" + (o.name || "m"); });
+      const holder = new THREE.Group(); holder.name = "occupant_centurion";
+      holder.add(carrier);
+      holder.rotation.y = (opt.yaw != null ? opt.yaw : 0);           // face the nose (+Z wrap)
+      holder.updateMatrixWorld(true);
+      // Shoulders near the cockpit rim: eye ~ interior top + a small margin.
+      const pb = new THREE.Box3().setFromObject(carrier), eyeLevel = pb.max.y - 0.14 * scala;
+      const eyeY = box.max.y + 0.30 + (nd.dy || 0) + (opt.dy || 0);
+      holder.position.set(
+        center.x + (opt.dx || 0),
+        eyeY - eyeLevel,
+        center.z + (nd.dz || 0) + (opt.dz || 0)
+      );
+      root.add(holder);
+    };
+    if (base) monta(); else carica().then(monta);
+    return true;
+  }
   function sorveglia() {
     try {
       const V = typeof VOLO !== "undefined" ? VOLO : null, S = V && V.stato, E = S && S.eiez;
@@ -98,5 +160,5 @@ window.PILOTA3D = (() => {
     requestAnimationFrame(sorveglia);
   }
   carica().then(m => { if (m) sorveglia(); });
-  return { carica, nuovo, veste, posa, get pronto() { return !!base; } };
+  return { carica, nuovo, veste, posa, inCabina, get pronto() { return !!base; } };
 })();

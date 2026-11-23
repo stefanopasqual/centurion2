@@ -130,6 +130,24 @@ if 'vestiCabina(occ' not in mtext:
     mtext = mtext.replace(old_bust, new_bust, 1)
 models3d.write_text(mtext, encoding='utf-8')
 
+# Cockpit occupant of the real glTF jets (vista3d.js gltfModello): seat the
+# owner's pilot in the modelled cockpit so it is visible from outside in Free
+# Flight and the missions. The wrap is oriented nose +Z; PILOTA3D.inCabina reads
+# the model's own cockpit interior and names the figure "occupant_*" so the
+# internal (cockpit/helmet) view hides it. Aircraft without a modelled interior
+# (e.g. F-22) are skipped by inCabina. Anchor is unchanged by other vista3d patches.
+vista = site / 'js/vista3d.js'
+vtext = vista.read_text(encoding='utf-8')
+if 'PILOTA3D.inCabina(wrap' not in vtext:
+    anchor = '        wrap.name = "gltf_" + tipo;'
+    if vtext.count(anchor) != 1:
+        raise RuntimeError('Could not find the glTF wrap to add the cockpit pilot')
+    vtext = vtext.replace(
+        anchor,
+        anchor + '\n        try { if (typeof PILOTA3D !== "undefined" && PILOTA3D.inCabina) PILOTA3D.inCabina(wrap, tipo); } catch (e) {}',
+        1)
+    vista.write_text(vtext, encoding='utf-8')
+
 html = (site / 'index.html').read_text(encoding='utf-8')
 if 'js/pilota3d.js' not in html or 'js/csar_zagros.js' not in html:
     raise RuntimeError('Pilot or rescue mission script is not loaded')
