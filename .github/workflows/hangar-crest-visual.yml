@@ -73,7 +73,7 @@ jobs:
               const summary=s.replace('Livrea CENTURION attiva','Livrea OK');
               reports.push({id,status:s});
               const target=page.locator('#view');
-              photos.front.push({id,summary,buffer:await target.screenshot({type:'jpeg',quality:78,timeout:20000})});
+              photos.front.push({id,summary,buffer:await page.screenshot({type:'jpeg',quality:78,timeout:45000,animations:'disabled',clip:await target.boundingBox()})});
               const rect=await target.boundingBox();
               if(rect){
                 const x=rect.x+rect.width*.56,y=rect.y+rect.height*.43;
@@ -83,7 +83,7 @@ jobs:
                 await page.mouse.up();
                 await page.waitForTimeout(450);
               }
-              photos.side.push({id,summary,buffer:await target.screenshot({type:'jpeg',quality:78,timeout:20000})});
+              photos.side.push({id,summary,buffer:await page.screenshot({type:'jpeg',quality:78,timeout:45000,animations:'disabled',clip:await target.boundingBox()})});
               console.log('MODEL_RESULT '+JSON.stringify(reports[reports.length-1]));
             }
             await sheet('front',photos.front);
