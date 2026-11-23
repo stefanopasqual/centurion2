@@ -256,6 +256,13 @@ jobs:
           python3 .github/pod/patch_pod_armi.py extracted/site
           python3 -m py_compile .github/pod/patch_pod_armi.py
           node --check extracted/site/js/pod.js
+          python3 .github/red_umano/patch_red_umano.py extracted/site
+          python3 -m py_compile .github/red_umano/patch_red_umano.py
+          node --check extracted/site/js/engine.js
+          node --check extracted/site/js/scenario_default.js
+          node --check extracted/site/js/ui.js
+          node --check extracted/site/js/red_umano.js
+          node .github/red_umano/test_red_umano.cjs extracted/site
           cp .github/ef2000/viewer.html extracted/site/ef2000/viewer.html
           cp .github/ef2000/livrea51.js extracted/site/ef2000/livrea51.js
           cp .github/ef2000/airbus_local.js extracted/site/ef2000/airbus_local.js
