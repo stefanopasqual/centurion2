@@ -156,7 +156,9 @@ export function verniceCenturion(THREE, aircraft, A){
   const axis=A.foreAft;
   const rearDirection=A.tailEnd===A.box.min[axis] ? 1 : -1;
   const limit=A.tailEnd+rearDirection*A.L*A.span;
-  const lateralLimit=A.Wl*.27;
+  // A-10: le due derive sono molto esterne, fuori dal limite generico del 27%.
+  // Estendi la regione soltanto per questo velivolo, non per le altre livree.
+  const lateralLimit=A.Wl*(A.airframeId==='a10-centurion'?.495:.27);
   const p0=new THREE.Vector3(),p1=new THREE.Vector3(),p2=new THREE.Vector3();
   const ab=new THREE.Vector3(),ac=new THREE.Vector3(),normal=new THREE.Vector3();
   const byAxis=(p,k)=>p[k];
@@ -279,7 +281,10 @@ export function applyCenturion(THREE, scene, aircraft, opts = {}){
   const right=main.filter(f=>f.center[A.lat]>A.latCtr+separation);
   const areaOf=set=>set.reduce((s,f)=>s+f.area,0);
   const upperArea=areaOf(main);
-  const twin=areaOf(left)>upperArea*.085&&areaOf(right)>upperArea*.085;
+  // A-10: due derive fisicamente separate. Non dedurre una deriva singola
+  // dalla disposizione delle normali (i GLB possono invertirne il verso).
+  const isA10=opts.airframeId==='a10-centurion';
+  const twin=isA10||(areaOf(left)>upperArea*.085&&areaOf(right)>upperArea*.085);
 
   // Due derive: un cimiero sulla faccia esterna di ciascuna.
   // Deriva singola: un cimiero su ognuno dei suoi due lati.
@@ -337,7 +342,9 @@ export function applyCenturion(THREE, scene, aircraft, opts = {}){
   for(const config of sides){
     const side=config.side;
     const relevant=faces.filter(f=>
-      f.normal[A.lat]*side>.35&&
+      // Per l'A-10 raggruppa per posizione della pinna, indipendentemente
+      // dalla normale esportata. Le due facce restano entrambe visibili.
+      (isA10?Math.abs(f.normal[A.lat])>.25:f.normal[A.lat]*side>.35)&&
       (!twin||((f.center[A.lat]-A.latCtr)*config.outer>separation*.5)));
     if(!relevant.length)continue;
     let ylo=Infinity,yhi=-Infinity;
@@ -443,8 +450,9 @@ export function applyCenturion(THREE, scene, aircraft, opts = {}){
 export function applyLivreaCompleta(THREE, scene, aircraft, id){
   const info = LIVREA_CENTURION[id] || { codice: 'CENT', modex: '00' };
   const A = analizzaAirframe(THREE, aircraft, info.place || null);
+  A.airframeId=id;
   const paint = verniceCenturion(THREE, aircraft, A);
-  const marks = applyCenturion(THREE, scene, aircraft, Object.assign({ A, blackSurfaces: paint.overlays }, info));
+  const marks = applyCenturion(THREE, scene, aircraft, Object.assign({ A, airframeId:id, blackSurfaces: paint.overlays }, info));
   return {
     info, applied: marks.applied,
     dispose(){ marks.dispose(); paint.dispose(); }
