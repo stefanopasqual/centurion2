@@ -127,7 +127,7 @@ function build(THREE,opts={}){
   // Distinctive A380 multi-bogie retractable main gear; 22 tyres simplified.
   const gear=new THREE.Group();gear.name='Retractable A380 landing gear';g.add(gear);
   const axle=(x,y,z,qty,spread)=>{
-    const stem=add('Gear strut',new THREE.CylinderGeometry(.23,.31,5.2,8),silver,x,y+2,z,'',gear);
+    const stem=add('Gear strut',new THREE.CylinderGeometry(.23,.31,5.2,8),silver,x,y+2,z,gear);
     for(let k=0;k<qty;k++){
       const wz=z+(k-(qty-1)/2)*spread;
       const tyre=add('Tyre',new THREE.CylinderGeometry(.82,.82,.47,10),wheel,x,y,wz,gear);
