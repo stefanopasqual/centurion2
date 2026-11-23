@@ -384,63 +384,127 @@ export function applyCenturion(THREE, scene, aircraft, opts = {}){
     }
     if(h<Math.max(.04,A.H*.012))continue;
 
-    // L'asse U segue la direzione letta dall'esterno della deriva.
-    const outward=new THREE.Vector3();outward[A.lat]=side;
-    const viewRight=new THREE.Vector3().crossVectors(
-      new THREE.Vector3(0,1,0),outward).normalize();
-    const rightSign=Math.sign(viewRight[A.foreAft])||1;
-    const mirror=rightSign*front>0;
-    const tex=elmoTex(THREE,opts.codice||'CENT',mirror);
-    resources.push(tex);
-    const mat=new THREE.MeshBasicMaterial({
-      map:tex,transparent:true,opacity:.99,side:THREE.DoubleSide,
-      depthTest:true,depthWrite:false,polygonOffset:true,
-      polygonOffsetFactor:-6,polygonOffsetUnits:-6,toneMapped:false
-    });
-    resources.push(mat);
-    const halfW=h*.75*.5,halfH=h*.5;
-    const x0=centerX-halfW,x1=centerX+halfW;
-    const y0=centerY-halfH,y1=centerY+halfH;
-    const vertices=[],uv=[];
-    const push=p=>{
-      const u=.5+(p[A.foreAft]-centerX)*rightSign/(h*.75);
-      const v=.5+(p.y-centerY)/h;
-      // Disloca il livello decal di pochi mm lungo la vera normale della
-      // faccia, non verso l'esterno dell'intero aereo.
-      vertices.push(p.x,p.y,p.z);
-      uv.push(u,v);
-    };
-    for(const face of relevant){
-      let poly=face.vertices.map(v=>v.clone());
-      poly=clip(poly,p=>p[A.foreAft]-x0);
-      poly=clip(poly,p=>x1-p[A.foreAft]);
-      poly=clip(poly,p=>p.y-y0);
-      poly=clip(poly,p=>y1-p.y);
-      if(poly.length<3)continue;
-      const offset=Math.max(.003,A.H*.001);
-      for(let i=1;i<poly.length-1;i++){
-        for(const p of [poly[0],poly[i],poly[i+1]])
-          push(p.clone().addScaledVector(face.normal,offset));
+    // Una deriva A-10 ha due pelli, interna ed esterna. La vecchia
+    // applicazione usava la normale dei triangoli GLB, che puo' puntare
+    // all'interno della fusoliera: i cimieri erano creati ma occultati.
+    // Qui campioniamo la pelle effettiva da ogni lato e disegniamo il
+    // simbolo appena ALL'ESTERNO della superficie nera, senza alterare
+    // texture, materiali o geometria originali del velivolo.
+    for(const skin of (isA10?[1,-1]:[1])){
+      const facing=isA10?side*skin:side;
+      const outward=new THREE.Vector3();outward[A.lat]=facing;
+      const viewRight=new THREE.Vector3().crossVectors(
+        new THREE.Vector3(0,1,0),outward).normalize();
+      const rightSign=Math.sign(viewRight[A.foreAft])||1;
+      const mirror=rightSign*front>0;
+      const tex=elmoTex(THREE,opts.codice||'CENT',mirror);
+      resources.push(tex);
+      const mat=new THREE.MeshBasicMaterial({
+        map:tex,transparent:true,opacity:.99,side:THREE.DoubleSide,
+        depthTest:true,depthWrite:false,polygonOffset:true,
+        polygonOffsetFactor:-8,polygonOffsetUnits:-8,toneMapped:false
+      });
+      resources.push(mat);
+      const halfW=h*.75*.5,halfH=h*.5;
+      const x0=centerX-halfW,x1=centerX+halfW;
+      const y0=centerY-halfH,y1=centerY+halfH;
+      const vertices=[],uv=[];
+      const push=p=>{
+        const u=.5+(p[A.foreAft]-centerX)*rightSign/(h*.75);
+        const v=.5+(p.y-centerY)/h;
+        vertices.push(p.x,p.y,p.z);
+        uv.push(u,v);
+      };
+      if(isA10){
+        // Proiezione 2D della deriva (asse avanti-indietro, altezza).
+        // Per ogni punto sceglie la pelle piu' esterna sul lato richiesto,
+        // quindi il decal non puo' rimanere nascosto dentro il modello.
+        const triangles=[];
+        for(const f of relevant){
+          const [a,b,c]=f.vertices;
+          const ax=a[A.foreAft],bx=b[A.foreAft],cx=c[A.foreAft];
+          const ay=a.y,by=b.y,cy=c.y;
+          const det=(bx-ax)*(cy-ay)-(cx-ax)*(by-ay);
+          if(Math.abs(det)<1e-10)continue;
+          triangles.push({a,b,c,ax,ay,bx,by,cx,cy,det,
+            xmin:Math.min(ax,bx,cx),xmax:Math.max(ax,bx,cx),
+            ymin:Math.min(ay,by,cy),ymax:Math.max(ay,by,cy)});
+        }
+        const bias=Math.max(.012,A.H*.004);
+        const sample=(x,y)=>{
+          let best=skin>0?-Infinity:Infinity;
+          let found=false;
+          for(const t of triangles){
+            if(x<t.xmin-1e-6||x>t.xmax+1e-6||
+               y<t.ymin-1e-6||y>t.ymax+1e-6)continue;
+            const u=((x-t.ax)*(t.cy-t.ay)-(t.cx-t.ax)*(y-t.ay))/t.det;
+            const v=((t.bx-t.ax)*(y-t.ay)-(x-t.ax)*(t.by-t.ay))/t.det;
+            if(u< -1e-5||v< -1e-5||u+v>1.00001)continue;
+            const lat=t.a[A.lat]+u*(t.b[A.lat]-t.a[A.lat])+
+              v*(t.c[A.lat]-t.a[A.lat]);
+            const distance=side*lat;
+            if(!found||skin*distance>skin*best){best=distance;found=true;}
+          }
+          if(!found)return null;
+          const p=new THREE.Vector3();
+          p[A.foreAft]=x;p.y=y;p[A.lat]=side*(best+skin*bias);
+          return p;
+        };
+        const nx=30,ny=34,grid=[];
+        for(let iy=0;iy<=ny;iy++){
+          const y=y0+(y1-y0)*iy/ny;
+          for(let ix=0;ix<=nx;ix++)
+            grid.push(sample(x0+(x1-x0)*ix/nx,y));
+        }
+        for(let iy=0;iy<ny;iy++)for(let ix=0;ix<nx;ix++){
+          const k=iy*(nx+1)+ix;
+          const a=grid[k],b=grid[k+1],c=grid[k+nx+1],d=grid[k+nx+2];
+          if(a&&b&&c&&d){
+            push(a);push(b);push(d);
+            push(a);push(d);push(c);
+          }
+        }
+      }else{
+        // Livree degli altri velivoli invariate.
+        for(const face of relevant){
+          let poly=face.vertices.map(v=>v.clone());
+          poly=clip(poly,p=>p[A.foreAft]-x0);
+          poly=clip(poly,p=>x1-p[A.foreAft]);
+          poly=clip(poly,p=>p.y-y0);
+          poly=clip(poly,p=>y1-p.y);
+          if(poly.length<3)continue;
+          const offset=Math.max(.003,A.H*.001);
+          for(let i=1;i<poly.length-1;i++){
+            for(const p of [poly[0],poly[i],poly[i+1]])
+              push(p.clone().addScaledVector(face.normal,offset));
+          }
+        }
       }
+      if(!vertices.length){
+        tex.dispose();mat.dispose();
+        resources.pop();resources.pop();
+        console.warn('CENTURION: cimiero senza superficie visibile',
+          opts.codice,side,skin);
+        continue;
+      }
+      const geometry=new THREE.BufferGeometry();
+      geometry.setAttribute('position',new THREE.Float32BufferAttribute(vertices,3));
+      geometry.setAttribute('uv',new THREE.Float32BufferAttribute(uv,2));
+      geometry.computeVertexNormals();
+      const decal=new THREE.Mesh(geometry,mat);
+      decal.name='CENTURION2_livrea';
+      decal.userData.centurionFin=side;
+      decal.userData.centurionSkin=skin;
+      decal.userData.centurionTriangles=vertices.length/9;
+      decal.renderOrder=20;
+      decal.frustumCulled=false;
+      scene.add(decal);nodes.push(decal);
+      console.info('CENTURION: cimiero sulla pelle della deriva',opts.codice,
+        {fin:side,skin,triangles:vertices.length/9,
+         X:centerX,Y:centerY,h,finHeight:height,midChord});
     }
-    if(!vertices.length){
-      tex.dispose();mat.dispose();
-      resources.pop();resources.pop();
-      continue;
-    }
-    const geometry=new THREE.BufferGeometry();
-    geometry.setAttribute('position',new THREE.Float32BufferAttribute(vertices,3));
-    geometry.setAttribute('uv',new THREE.Float32BufferAttribute(uv,2));
-    geometry.computeVertexNormals();
-    const decal=new THREE.Mesh(geometry,mat);
-    decal.name='CENTURION2_livrea';
-    decal.renderOrder=20;
-    decal.frustumCulled=false;
-    scene.add(decal);nodes.push(decal);
-    console.info('CENTURION: cimiero centrato sulla deriva',opts.codice,
-      side,{X:centerX,Y:centerY,h,finHeight:height,midChord});
   }
-  return {applied:nodes.length,codice:opts.codice||'CENT',dispose(){
+  return {applied:isA10 ? sides.filter(c=>nodes.some(n=>n.userData.centurionFin===c.side)).length : nodes.length,codice:opts.codice||'CENT',dispose(){
     nodes.forEach(o=>{scene.remove(o);o.geometry.dispose();});
     resources.forEach(r=>r.dispose&&r.dispose());
   }};
