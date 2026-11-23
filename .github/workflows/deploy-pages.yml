@@ -265,10 +265,13 @@ jobs:
           node .github/red_umano/test_red_umano.cjs extracted/site
           cp .github/ef2000/viewer.html extracted/site/ef2000/viewer.html
           cp .github/ef2000/livrea51.js extracted/site/ef2000/livrea51.js
+          cp .github/ef2000/livrea_centurion.js extracted/site/ef2000/livrea_centurion.js
           cp .github/ef2000/airbus_local.js extracted/site/ef2000/airbus_local.js
           node --check extracted/site/ef2000/airbus_local.js
           test -s extracted/site/ef2000/livrea51.js
           node --check extracted/site/ef2000/livrea51.js
+          test -s extracted/site/ef2000/livrea_centurion.js
+          node --check extracted/site/ef2000/livrea_centurion.js
           cp .github/ef2000/launcher.js extracted/site/ef2000/launcher.js
           cp .github/ef2000/home.js extracted/site/ef2000/home.js
           python3 .github/airbus/patch_a380.py extracted/site
