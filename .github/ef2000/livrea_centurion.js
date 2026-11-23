@@ -270,8 +270,8 @@ export function applyCenturion(THREE, scene, aircraft, opts = {}){
   }
   if(!faces.length)return empty();
 
-  const minY=Math.min(...faces.map(f=>f.center.y));
-  const maxY=Math.max(...faces.map(f=>f.center.y));
+  let minY=Infinity,maxY=-Infinity;
+  for(const face of faces){minY=Math.min(minY,face.center.y);maxY=Math.max(maxY,face.center.y);}
   const upper=faces.filter(f=>f.center.y>minY+(maxY-minY)*.45);
   const main=upper.length?upper:faces;
   const separation=Math.max(A.Wl*.048,A.H*.03);
