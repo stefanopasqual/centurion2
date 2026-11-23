@@ -194,7 +194,11 @@ def main():
                 if fh.read(4) != b'glTF':
                     raise RuntimeError('F-22 source is not a GLB')
             target = out / 'f22.glb'
-            shutil.copyfile(f22_src, target)
+            # Preserve the uploaded source; mirror matching RIGHT wing meshes
+            # to LEFT in both hangar and flyable-mission copies only.
+            subprocess.run(
+                ['python3', str(Path(__file__).parent / 'fix_f22_wing.py'),
+                 str(f22_src), str(target)], check=True)
             shutil.copyfile(target, mission / target.name)
             mission_manifest['F22'] = {
                 'file': target.name, 'rot': [0, 180, 0],

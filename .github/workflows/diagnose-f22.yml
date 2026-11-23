@@ -1,0 +1,20 @@
+name: Diagnose F-22 wing symmetry
+on:
+  push:
+    paths:
+      - '.github/models/inspect_f22.py'
+      - '.github/workflows/diagnose-f22.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  geometry:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install numpy
+      - name: Inspect F-22 original mesh
+        run: python .github/models/inspect_f22.py

@@ -1,3 +1,4 @@
+import {DecalGeometry} from 'three/addons/geometries/DecalGeometry.js';
 /*
  * CENTURION2 - Livrea CENTURION (reparto)
  * Low-visibility tactical-grey livery with the Spartan-helmet emblem,
@@ -138,157 +139,320 @@ export function analizzaAirframe(THREE, aircraft, ov){
   return { ok, box, size, min, meshes, samp, foreAft, lat, latCtr, L, Wl, H, tailEnd, noseEnd, span, baseY, finMask };
 }
 
-// Tactical-grey tint with the tail fin painted BLACK, via per-vertex
-// colours (works even when the fin shares a mesh with the fuselage).
-// Glass/metal/tyres preserved. Clones materials; reversible.
+// Vernice originale INTATTA: nessuna modifica a material, map, vertexColors
+// o geometry dei modelli sorgenti. Solo un rivestimento nero separato sulle
+// facce verticali delle derive, rimosso quando la livrea e' disattivata.
 export function verniceCenturion(THREE, aircraft, A){
-  A = A || analizzaAirframe(THREE, aircraft);
-  const memo = new Map();
-  const restore = [];
-  const preserve = /glass|canop|vetro|cockpit|windscreen|window|interior|seat|pilot|engine|exhaust|nozzle|burner|turbine|wheel|tire|tyre|gear|rubber|brake|light|screen/i;
-  const minY = A.min.y, spanY = Math.max(1e-6, A.H);
-  const TOP = new THREE.Color().setRGB(0.25,0.28,0.33);
-  const BOT = new THREE.Color().setRGB(0.38,0.41,0.46);
-  const BLACK = new THREE.Color().setRGB(0.045,0.055,0.065);   // fin
-  const geomTouched = [];
-  const wv = new THREE.Vector3();
-  aircraft.traverse(object=>{
-    if(!object.isMesh || !object.material) return;
-    const original = object.material;
-    restore.push([object, original]);
-    const name = (object.name||'') + ' ' + ((original&&original.name)||'');
-    const isPreserve = preserve.test(name);
-    // Per-vertex colours: grey body (two-tone by height) + black tail fin.
-    if(!isPreserve && object.geometry && object.geometry.attributes.position){
-      const g = object.geometry, pa = g.attributes.position, n = pa.count;
-      if(!g.getAttribute('__centBaseColor')){
-        const col = new Float32Array(n*3);
-        for(let i=0;i<n;i++){
-          wv.fromBufferAttribute(pa,i).applyMatrix4(object.matrixWorld);
-          const c = A.finMask(wv) ? BLACK
-            : BOT.clone().lerp(TOP, Math.pow(THREE.MathUtils.clamp((wv.y-minY)/spanY,0,1),0.8));
-          col[i*3]=c.r; col[i*3+1]=c.g; col[i*3+2]=c.b;
-        }
-        g.setAttribute('color', new THREE.BufferAttribute(col,3));
-        g.setAttribute('__centBaseColor', new THREE.BufferAttribute(new Float32Array(1),1)); // marker
-        geomTouched.push(g);
-      } else if(g.getAttribute('color')===undefined){ /* already */ }
-    }
-    const transform = m=>{
-      if(!m || !('color' in m)) return m;
-      if(isPreserve){
-        if(/glass|canop|vetro|windscreen/i.test(name) && !m.map){
-          if(memo.has(m)) return memo.get(m);
-          const g = m.clone(); g.color = new THREE.Color('#0e141b');
-          g.metalness = 0.25; g.roughness = 0.09; g.needsUpdate = true;
-          memo.set(m,g); return g;
-        }
-        return m;
-      }
-      if(memo.has(m)) return memo.get(m);
-      const clone = m.clone();
-      clone.map = null;                 // drop baked national colours
-      clone.vertexColors = true;        // grey body + black fin from attribute
-      clone.color = new THREE.Color(0xffffff);
-      clone.metalness = Math.min(Number(clone.metalness)||0, 0.25);
-      clone.roughness = Math.max(Number(clone.roughness)||0.6, 0.6);
-      clone.needsUpdate = true;
-      memo.set(m, clone);
-      return clone;
-    };
-    object.material = Array.isArray(original) ? original.map(transform) : transform(original);
+  A=A||analizzaAirframe(THREE,aircraft);
+  aircraft.updateMatrixWorld(true);
+  const rootInverse=new THREE.Matrix4().copy(aircraft.matrixWorld).invert();
+  const overlays=[];
+  const dark=new THREE.MeshStandardMaterial({
+    color:0x101218,roughness:0.72,metalness:0.12,
+    side:THREE.DoubleSide,depthTest:true,depthWrite:false,
+    polygonOffset:true,polygonOffsetFactor:-3,polygonOffsetUnits:-3
   });
+  const omit=/glass|canop|vetro|cockpit|windscreen|window|interior|seat|pilot|engine|exhaust|nozzle|burner|turbine|wheel|tire|tyre|gear|rubber|brake|light|screen/i;
+  const axis=A.foreAft;
+  const rearDirection=A.tailEnd===A.box.min[axis] ? 1 : -1;
+  const limit=A.tailEnd+rearDirection*A.L*A.span;
+  // A-10: le due derive sono molto esterne, fuori dal limite generico del 27%.
+  // Estendi la regione soltanto per questo velivolo, non per le altre livree.
+  const lateralLimit=A.Wl*(A.airframeId==='a10-centurion'?.495:.27);
+  const p0=new THREE.Vector3(),p1=new THREE.Vector3(),p2=new THREE.Vector3();
+  const ab=new THREE.Vector3(),ac=new THREE.Vector3(),normal=new THREE.Vector3();
+  const byAxis=(p,k)=>p[k];
+  // Clipping su base della deriva, parte posteriore e ingombro laterale.
+  // Evita di annerire ali, superfici orizzontali e resto della fusoliera.
+  function clip(poly,dist){
+    if(!poly.length)return poly;
+    const out=[];
+    for(let i=0;i<poly.length;i++){
+      const a=poly[i],b=poly[(i+1)%poly.length];
+      const da=dist(a),db=dist(b);
+      if(da>=0)out.push(a);
+      if((da<0&&db>0)||(da>0&&db<0))
+        out.push(a.clone().lerp(b,da/(da-db)));
+    }
+    return out;
+  }
+  for(const object of A.meshes){
+    const g=object.geometry,attr=g?.getAttribute('position');
+    if(!attr||!object.material)continue;
+    const mats=Array.isArray(object.material)?object.material:[object.material];
+    if(omit.test(object.name||''))continue;
+    const idx=g.index,groups=g.groups||[];
+    const triCount=Math.floor((idx?idx.count:attr.count)/3);
+    const vertices=[];
+    for(let tri=0;tri<triCount;tri++){
+      const i=tri*3;
+      if(groups.length){
+        const group=groups.find(h=>i>=h.start&&i<h.start+h.count);
+        if(group&&omit.test(mats[group.materialIndex||0]?.name||''))continue;
+      }else if(mats.length===1&&omit.test(mats[0]?.name||''))continue;
+      p0.fromBufferAttribute(attr,idx?idx.getX(i):i).applyMatrix4(object.matrixWorld);
+      p1.fromBufferAttribute(attr,idx?idx.getX(i+1):i+1).applyMatrix4(object.matrixWorld);
+      p2.fromBufferAttribute(attr,idx?idx.getX(i+2):i+2).applyMatrix4(object.matrixWorld);
+      ab.subVectors(p1,p0);ac.subVectors(p2,p0);
+      normal.crossVectors(ab,ac);
+      if(normal.lengthSq()<1e-12)continue;
+      normal.normalize();
+      // La deriva e' verticale: normale prevalentemente laterale.
+      if(Math.abs(normal[A.lat])<.38||Math.abs(normal.y)>.78)continue;
+      let poly=[p0.clone(),p1.clone(),p2.clone()];
+      poly=clip(poly,v=>v.y-A.baseY);
+      poly=clip(poly,v=>(limit-byAxis(v,axis))*rearDirection);
+      poly=clip(poly,v=>lateralLimit-Math.abs(v[A.lat]-A.latCtr));
+      if(poly.length<3)continue;
+      for(let n=1;n<poly.length-1;n++){
+        for(const p of [poly[0],poly[n],poly[n+1]]){
+          const local=p.clone().applyMatrix4(rootInverse);
+          vertices.push(local.x,local.y,local.z);
+        }
+      }
+    }
+    if(!vertices.length)continue;
+    const geo=new THREE.BufferGeometry();
+    geo.setAttribute('position',new THREE.Float32BufferAttribute(vertices,3));
+    geo.computeVertexNormals();
+    const overlay=new THREE.Mesh(geo,dark);
+    overlay.name='CENTURION2_black_vertical_tail';
+    overlay.frustumCulled=false;
+    overlay.renderOrder=5;
+    aircraft.add(overlay);
+    overlays.push(overlay);
+  }
+  if(!overlays.length)dark.dispose();
   return {
-    changed: memo.size,
+    changed:overlays.length,
+    overlays,
     dispose(){
-      restore.forEach(([o,m])=>{ o.material = m; });
-      memo.forEach(c=>c.dispose && c.dispose());
-      geomTouched.forEach(g=>{ g.deleteAttribute('color'); g.deleteAttribute('__centBaseColor'); });
+      overlays.forEach(o=>{o.parent?.remove(o);o.geometry.dispose();});
+      if(overlays.length)dark.dispose();
     }
   };
 }
 
-// Place the grey Spartan emblem (helmet + tail code) centred on the black
-// tail fin, on both faces. No nose markings: the whole fin is black, so the
-// emblem always sits on a black field and placement cannot miss.
+// Cimiero centrato sull'effettiva superficie nera di ogni deriva.
+// La maschera e' realizzata esclusivamente dai triangoli di verniciatura,
+// quindi nessun punto dell'emblema puo' uscire dalla superficie della pinna.
+// Le texture e i materiali dei GLB originali rimangono invariati.
 export function applyCenturion(THREE, scene, aircraft, opts = {}){
-  const codice = opts.codice || 'CENT';
-  const A = opts.A || analizzaAirframe(THREE, aircraft, opts.place || null);
-  const nodes = [], resources = [];
-  if(!A.ok) return { applied:0, dispose(){} };
-  scene.updateMatrixWorld(true);
-  const { lat, Wl, foreAft } = A;
-  const mkMat = mirror => {
-    const t = elmoTex(THREE, codice, mirror); resources.push(t);
-    const m = new THREE.MeshBasicMaterial({ map:t, transparent:true, opacity:0.98,
-      side:THREE.FrontSide, depthTest:true, depthWrite:false, polygonOffset:true,
-      polygonOffsetFactor:-6, polygonOffsetUnits:-6, toneMapped:false });
-    resources.push(m); return m;
-  };
-  const matNormal = mkMat(false), matMirror = mkMat(true);
-  // world direction toward the aircraft nose
-  const noseVec = new THREE.Vector3(); noseVec[foreAft] = Math.sign(A.noseEnd - A.tailEnd) || 1;
+  const A=opts.A||analizzaAirframe(THREE,aircraft,opts.place||null);
+  const black=opts.blackSurfaces||[];
+  const resources=[],nodes=[];
+  const empty=()=>({applied:0,dispose(){}});
+  if(!A.ok||!black.length)return empty();
+  aircraft.updateMatrixWorld(true);
 
-  function orient(normal){
-    const q = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0,0,1), normal);
-    if(Math.abs(normal.y) < 0.7){
-      const right = new THREE.Vector3().crossVectors(new THREE.Vector3(0,1,0), normal).normalize();
-      const up = new THREE.Vector3().crossVectors(normal, right).normalize();
-      q.setFromRotationMatrix(new THREE.Matrix4().makeBasis(right, up, normal));
-    }
-    return q;
-  }
-  // Emblem placed on the centroid of the black fin region for this side,
-  // sized to the fin so it stays within it.
-  const latCtr = A.latCtr;
-  const finVerts = A.samp.filter(A.finMask);
-  if(finVerts.length >= 3){
-    // Tallest fin point: central -> one fin (emblem on both faces);
-    // off-centre -> twin tails (one emblem per fin, on its outer face).
-    let top = finVerts[0]; for(const v of finVerts) if(v.y>top.y) top=v;
-    const d = Math.abs(top[lat]-latCtr);
-    const twin = d > Wl*0.12;
-    const placements = twin
-      ? [{ lat: latCtr+d, side: 1 }, { lat: latCtr-d, side: -1 }]
-      : [{ lat: latCtr, side: 1 }, { lat: latCtr, side: -1 }];
-    for(const pl of placements){
-      let col = finVerts.filter(v=> Math.abs(v[lat]-pl.lat) < Wl*0.16);
-      if(col.length < 3) col = finVerts;
-      const bb = new THREE.Box3(); col.forEach(v=>bb.expandByPoint(v));
-      const ctr = bb.getCenter(new THREE.Vector3()), sz = bb.getSize(new THREE.Vector3());
-      const finH = Math.max(sz.y, 1e-3);
-      const eh = Math.min(finH*0.82, A.H*0.42), ew = eh*0.75;
-      const c = new THREE.Vector3();
-      c[foreAft] = ctr[foreAft];
-      c.y = ctr.y + finH*0.04;
-      c[lat] = pl.lat;
-      const normal = new THREE.Vector3(); normal[lat] = pl.side;
-      // Pick normal/mirrored helmet so its face points toward the nose.
-      const right = new THREE.Vector3().crossVectors(new THREE.Vector3(0,1,0), normal).normalize();
-      const facingNormal = right.clone().multiplyScalar(-1);   // helmet faces local -X
-      const chosen = facingNormal.dot(noseVec) >= 0 ? matNormal : matMirror;
-      const mesh = new THREE.Mesh(new THREE.PlaneGeometry(ew, eh), chosen);
-      mesh.position.copy(c).addScaledVector(normal, Math.max(0.03, Wl*0.02));
-      mesh.quaternion.copy(orient(normal));
-      mesh.renderOrder = 20; mesh.name = 'CENTURION2_livrea';
-      scene.add(mesh); nodes.push(mesh);
+  // Ogni triangolo qui proviene da CENTURION2_black_vertical_tail:
+  // e' davvero nero e appartiene a una superficie verticale.
+  const faces=[];
+  const va=new THREE.Vector3(),vb=new THREE.Vector3(),vc=new THREE.Vector3();
+  const ab=new THREE.Vector3(),ac=new THREE.Vector3(),n=new THREE.Vector3();
+  for(const mesh of black){
+    const positions=mesh.geometry.getAttribute('position');
+    if(!positions)continue;
+    for(let i=0;i+2<positions.count;i+=3){
+      va.fromBufferAttribute(positions,i).applyMatrix4(mesh.matrixWorld);
+      vb.fromBufferAttribute(positions,i+1).applyMatrix4(mesh.matrixWorld);
+      vc.fromBufferAttribute(positions,i+2).applyMatrix4(mesh.matrixWorld);
+      ab.subVectors(vb,va);ac.subVectors(vc,va);
+      n.crossVectors(ab,ac);
+      const area=n.length()*0.5;
+      if(area<1e-10)continue;
+      const normal=n.clone().normalize();
+      if(Math.abs(normal[A.lat])<.35||Math.abs(normal.y)>.78)continue;
+      faces.push({
+        vertices:[va.clone(),vb.clone(),vc.clone()],
+        center:va.clone().add(vb).add(vc).multiplyScalar(1/3),
+        normal,area
+      });
     }
   }
-  return {
-    applied: nodes.length, codice,
-    dispose(){
-      nodes.forEach(o=>{ scene.remove(o); o.geometry.dispose(); });
-      resources.forEach(r=>r.dispose && r.dispose());
+  if(!faces.length)return empty();
+
+  let minY=Infinity,maxY=-Infinity;
+  for(const face of faces){minY=Math.min(minY,face.center.y);maxY=Math.max(maxY,face.center.y);}
+  const upper=faces.filter(f=>f.center.y>minY+(maxY-minY)*.45);
+  const main=upper.length?upper:faces;
+  const separation=Math.max(A.Wl*.048,A.H*.03);
+  const left=main.filter(f=>f.center[A.lat]<A.latCtr-separation);
+  const right=main.filter(f=>f.center[A.lat]>A.latCtr+separation);
+  const areaOf=set=>set.reduce((s,f)=>s+f.area,0);
+  const upperArea=areaOf(main);
+  // A-10: due derive fisicamente separate. Non dedurre una deriva singola
+  // dalla disposizione delle normali (i GLB possono invertirne il verso).
+  const isA10=opts.airframeId==='a10-centurion';
+  const twin=isA10||(areaOf(left)>upperArea*.085&&areaOf(right)>upperArea*.085);
+
+  // Due derive: un cimiero sulla faccia esterna di ciascuna.
+  // Deriva singola: un cimiero su ognuno dei suoi due lati.
+  const sides=twin
+    ?[{side:-1,outer:-1},{side:1,outer:1}]
+    :[{side:-1,outer:0},{side:1,outer:0}];
+
+  function clip(poly,dist){
+    if(!poly.length)return poly;
+    const out=[];
+    for(let i=0;i<poly.length;i++){
+      const a=poly[i],b=poly[(i+1)%poly.length];
+      const da=dist(a),db=dist(b);
+      if(da>=-1e-8)out.push(a);
+      if((da<0&&db>0)||(da>0&&db<0))
+        out.push(a.clone().lerp(b,da/(da-db)));
     }
-  };
+    return out;
+  }
+
+  // Sezione orizzontale della pinna: scegli il segmento nero continuo
+  // piu' ampio; il centro non deriva dalla geometria di ali/fusoliera.
+  function section(facesAt,y){
+    const spans=[];
+    for(const face of facesAt){
+      const v=face.vertices,ints=[];
+      for(let i=0;i<3;i++){
+        const a=v[i],b=v[(i+1)%3],dy=b.y-a.y;
+        if(Math.abs(dy)<1e-8){
+          if(Math.abs(a.y-y)<1e-6)ints.push(a[A.foreAft],b[A.foreAft]);
+        }else{
+          const t=(y-a.y)/dy;
+          if(t>=-1e-7&&t<=1+1e-7)
+            ints.push(a[A.foreAft]+(b[A.foreAft]-a[A.foreAft])*t);
+        }
+      }
+      if(ints.length>=2){
+        const lo=Math.min(...ints),hi=Math.max(...ints);
+        if(hi-lo>1e-7)spans.push([lo,hi]);
+      }
+    }
+    if(!spans.length)return null;
+    spans.sort((a,b)=>a[0]-b[0]);
+    const merged=[spans[0].slice()];
+    const epsilon=Math.max(A.L*1e-5,1e-6);
+    for(const [lo,hi] of spans.slice(1)){
+      const curr=merged[merged.length-1];
+      if(lo<=curr[1]+epsilon)curr[1]=Math.max(curr[1],hi);
+      else merged.push([lo,hi]);
+    }
+    return merged.reduce((best,p)=>!best||p[1]-p[0]>best[1]-best[0]?p:best,null);
+  }
+
+  const front=Math.sign(A.noseEnd-A.tailEnd)||1;
+  for(const config of sides){
+    const side=config.side;
+    const relevant=faces.filter(f=>
+      // Per l'A-10 raggruppa per posizione della pinna, indipendentemente
+      // dalla normale esportata. Le due facce restano entrambe visibili.
+      (isA10?Math.abs(f.normal[A.lat])>.25:f.normal[A.lat]*side>.35)&&
+      (!twin||((f.center[A.lat]-A.latCtr)*config.outer>separation*.5)));
+    if(!relevant.length)continue;
+    let ylo=Infinity,yhi=-Infinity;
+    for(const face of relevant)for(const v of face.vertices){
+      ylo=Math.min(ylo,v.y);yhi=Math.max(yhi,v.y);
+    }
+    const height=yhi-ylo;
+    if(height<1e-4)continue;
+    // Centro geometrico verticale della regione nera.
+    const centerY=(ylo+yhi)*.5;
+    const midSpan=section(relevant,centerY);
+    if(!midSpan)continue;
+    // Centro orizzontale della corda della deriva a mezza altezza.
+    let centerX=(midSpan[0]+midSpan[1])*.5;
+    const midChord=midSpan[1]-midSpan[0];
+    const requested=opts.place?.fin?.h;
+    let h=Math.min(height*.64,midChord*.72/.75,
+      Number.isFinite(requested)?A.H*requested:A.H*.26);
+    if(h<Math.max(.04,A.H*.012))continue;
+
+    // Riduci proporzionalmente se il trapezio si restringe: il disegno
+    // mantiene margini simmetrici e resta entro la pinna nera.
+    for(let attempt=0;attempt<12;attempt++){
+      const yA=centerY-h*.49,yB=centerY+h*.49;
+      const low=section(relevant,yA),high=section(relevant,yB);
+      const width=h*.75;
+      if(low&&high){
+        const xmin=Math.max(low[0],high[0],midSpan[0]);
+        const xmax=Math.min(low[1],high[1],midSpan[1]);
+        if(xmax-xmin>=width*1.14){
+          centerX=Math.max(xmin+width*.5*1.07,
+            Math.min(xmax-width*.5*1.07,centerX));
+          break;
+        }
+      }
+      h*=.83;
+    }
+    if(h<Math.max(.04,A.H*.012))continue;
+
+    // L'asse U segue la direzione letta dall'esterno della deriva.
+    const outward=new THREE.Vector3();outward[A.lat]=side;
+    const viewRight=new THREE.Vector3().crossVectors(
+      new THREE.Vector3(0,1,0),outward).normalize();
+    const rightSign=Math.sign(viewRight[A.foreAft])||1;
+    const mirror=rightSign*front>0;
+    const tex=elmoTex(THREE,opts.codice||'CENT',mirror);
+    resources.push(tex);
+    const mat=new THREE.MeshBasicMaterial({
+      map:tex,transparent:true,opacity:.99,side:THREE.DoubleSide,
+      depthTest:true,depthWrite:false,polygonOffset:true,
+      polygonOffsetFactor:-6,polygonOffsetUnits:-6,toneMapped:false
+    });
+    resources.push(mat);
+    const halfW=h*.75*.5,halfH=h*.5;
+    const x0=centerX-halfW,x1=centerX+halfW;
+    const y0=centerY-halfH,y1=centerY+halfH;
+    const vertices=[],uv=[];
+    const push=p=>{
+      const u=.5+(p[A.foreAft]-centerX)*rightSign/(h*.75);
+      const v=.5+(p.y-centerY)/h;
+      // Disloca il livello decal di pochi mm lungo la vera normale della
+      // faccia, non verso l'esterno dell'intero aereo.
+      vertices.push(p.x,p.y,p.z);
+      uv.push(u,v);
+    };
+    for(const face of relevant){
+      let poly=face.vertices.map(v=>v.clone());
+      poly=clip(poly,p=>p[A.foreAft]-x0);
+      poly=clip(poly,p=>x1-p[A.foreAft]);
+      poly=clip(poly,p=>p.y-y0);
+      poly=clip(poly,p=>y1-p.y);
+      if(poly.length<3)continue;
+      const offset=Math.max(.003,A.H*.001);
+      for(let i=1;i<poly.length-1;i++){
+        for(const p of [poly[0],poly[i],poly[i+1]])
+          push(p.clone().addScaledVector(face.normal,offset));
+      }
+    }
+    if(!vertices.length){
+      tex.dispose();mat.dispose();
+      resources.pop();resources.pop();
+      continue;
+    }
+    const geometry=new THREE.BufferGeometry();
+    geometry.setAttribute('position',new THREE.Float32BufferAttribute(vertices,3));
+    geometry.setAttribute('uv',new THREE.Float32BufferAttribute(uv,2));
+    geometry.computeVertexNormals();
+    const decal=new THREE.Mesh(geometry,mat);
+    decal.name='CENTURION2_livrea';
+    decal.renderOrder=20;
+    decal.frustumCulled=false;
+    scene.add(decal);nodes.push(decal);
+    console.info('CENTURION: cimiero centrato sulla deriva',opts.codice,
+      side,{X:centerX,Y:centerY,h,finHeight:height,midChord});
+  }
+  return {applied:nodes.length,codice:opts.codice||'CENT',dispose(){
+    nodes.forEach(o=>{scene.remove(o);o.geometry.dispose();});
+    resources.forEach(r=>r.dispose&&r.dispose());
+  }};
 }
 
 // Convenience: full livery (grey paint + black fin + emblem) for one airframe.
 export function applyLivreaCompleta(THREE, scene, aircraft, id){
   const info = LIVREA_CENTURION[id] || { codice: 'CENT', modex: '00' };
   const A = analizzaAirframe(THREE, aircraft, info.place || null);
+  A.airframeId=id;
   const paint = verniceCenturion(THREE, aircraft, A);
-  const marks = applyCenturion(THREE, scene, aircraft, Object.assign({ A }, info));
+  const marks = applyCenturion(THREE, scene, aircraft, Object.assign({ A, airframeId:id, blackSurfaces: paint.overlays }, info));
   return {
     info, applied: marks.applied,
     dispose(){ marks.dispose(); paint.dispose(); }
