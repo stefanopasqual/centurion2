@@ -30,3 +30,13 @@ serbatoi per rifornimento e sensore, rimosso le bandiere e il carrello esteso e
 animato le quattro eliche. È una variante approssimativa ottenuta dal C-130J,
 non una riproduzione esatta dell'MC-130J.
 
+## MH-6 e AH-6 Little Bird
+
+«MH-6 Little Bird [Low Poly]» di Muhamad Mirza Arrafi,
+https://sketchfab.com/3d-models/mh-6-little-bird-low-poly-d7068144bfeb4d91bde5d30755657d97,
+[CC BY 4.0](https://creativecommons.org/licenses/by/4.0/). Fonte della versione
+ottimizzata: https://github.com/nngeek195/Portfolio/blob/main/Model/CREDITS.md.
+CENTURION2 ha animato i rotori e modificato la tonalità dei vetri; sulla variante
+trasporto ha rimosso i pod esterni e aggiunto panche e supporti. Si tratta di
+adattamenti di un modello low-poly, non di riproduzioni perfette delle varianti.
+
