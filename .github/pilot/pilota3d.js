@@ -48,8 +48,12 @@ window.PILOTA3D = (() => {
     if (!g || g.userData.p3d) return !!(g && g.userData.p3d);
     const p = nuovo(); if (!p || !p.userData.pilotBones.spine || !p.userData.pilotBones.thigh_L || !p.userData.pilotBones.thigh_R) return false;
     opz = opz || {}; const orig = g.children.slice(); orig.forEach(o => { o.visible = false; });
-    if (opz.y) p.position.y = opz.y; if (opz.yaw) p.rotation.y = opz.yaw;
-    p.userData.poseBaseY = p.position.y; g.add(p); g.userData.p3d = p; g.userData.p3dOrig = orig; return true;
+    if (opz.scala) p.scale.setScalar(opz.scala);
+    if (opz.y != null) p.position.y = opz.y; if (opz.z != null) p.position.z = opz.z; if (opz.x != null) p.position.x = opz.x;
+    if (opz.yaw) p.rotation.y = opz.yaw;
+    p.userData.poseBaseY = p.position.y; g.add(p); g.userData.p3d = p; g.userData.p3dOrig = orig;
+    if (opz.posa) posa(g, opz.posa, 0);
+    return true;
   }
   function posa(g, nome, k) {
     const p = g && g.userData.p3d; if (!p) return;
