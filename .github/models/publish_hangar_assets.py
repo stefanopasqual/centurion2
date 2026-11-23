@@ -93,6 +93,11 @@ def add_hangar_models(root, out, report, dry_run=False):
                         license_url='https://creativecommons.org/licenses/by/4.0/',
                         source='https://sketchfab.com/3d-models/mq-9-fabe963feb354c5584b51f9c470c3f7e',
                         attribution='MQ-9 adapted from an optimized derivative: extended gear removed and propeller animated.')
+        if model_id in ('mh6-centurion', 'ah6-centurion'):
+            item.update(author='Muhamad Mirza Arrafi', license='CC BY 4.0',
+                        license_url='https://creativecommons.org/licenses/by/4.0/',
+                        source='https://sketchfab.com/3d-models/mh-6-little-bird-low-poly-d7068144bfeb4d91bde5d30755657d97',
+                        attribution='Low-poly original adapted for CENTURION2 with animated rotors; the transport variant includes added benches.')
         report.append(item)
         print(f'PASS hangar {model_id}' + ('' if dry_run else f': {target.stat().st_size} bytes'))
 
