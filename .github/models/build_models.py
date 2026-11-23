@@ -10,6 +10,7 @@ import subprocess
 import tempfile
 import zipfile
 from pathlib import Path
+from publish_hangar_assets import add_hangar_models
 
 MODELS = [
     ('typhoon', 'eurofighter-typhoon-fighter-jet-free.zip', 'Eurofighter Typhoon', 'https://sketchfab.com/3d-models/eurofighter-typhoon-fighter-jet-free-992bcc8987964ca09d55410330aa8579'),
@@ -54,6 +55,13 @@ def main():
             with tempfile.TemporaryDirectory(prefix='centurion_model_') as d:
                 stage = Path(d)
                 unpack_safe(zip_path, stage)
+                if code == 'typhoon':
+                    # texture originale con insegne tedesche, croci e codice 30+47 cancellati: resta la mimetica
+                    clean = Path(__file__).with_name('typhoon_basecolor_senza_insegne.png')
+                    found = list(stage.rglob('basecolor.png'))
+                    if not clean.is_file() or len(found) != 1:
+                        raise RuntimeError('typhoon: texture senza insegne o basecolor.png mancante')
+                    shutil.copyfile(clean, found[0])
                 sources = list(stage.rglob('*.blend'))
                 if len(sources) != 1:
                     raise RuntimeError(f'{archive}: expected one blend file, got {len(sources)}')
@@ -121,6 +129,32 @@ def main():
         'status': su35_state,
         'attribution': 'Model by bohmerang on Sketchfab (CC BY-NC-SA 4.0), landing gear hidden.'
     })
+    # F-14 Tomcat: original CENTURION2 procedural model built from public dimensions by
+    # .github/models/genera_f14.py (nose +Z, up +Y, metres, gear up, wing sweep 25 deg).
+    f14_src = root / 'model-sources' / 'f14.glb'
+    f14_url = ''
+    f14_state = 'source-missing'
+    if f14_src.is_file():
+        f14_state = 'ready-for-conversion' if args.dry_run else 'ready'
+        if not args.dry_run:
+            with f14_src.open('rb') as fh:
+                if fh.read(4) != b'glTF':
+                    raise RuntimeError('F-14 source is not a GLB')
+            target = out / 'f14.glb'
+            shutil.copyfile(f14_src, target)
+            shutil.copyfile(target, mission / target.name)
+            mission_manifest['F14'] = {
+                'file': target.name, 'rot': [0, 0, 0], 'lunghezza_m': 19.1,
+                'autore': 'CENTURION2 procedural', 'licenza': 'original approximation',
+                'url': f14_url, 'tint': False, 'gear': 'up'
+            }
+    report.append({
+        'id': 'f14', 'name': 'Grumman F-14 Tomcat',
+        'glb': 'models/f14.glb' if f14_state == 'ready' else None,
+        'source': f14_url, 'author': 'CENTURION2 procedural', 'license': 'original approximation',
+        'status': f14_state,
+        'attribution': 'Original CENTURION2 model from public F-14 dimensions (genera_f14.py).'
+    })
     # User-provided EA-18G Growler, gear-up variant prepared from CC BY 4.0 GLB.
     growler_src = root / 'model-sources' / 'ea18.glb'
     growler_url = 'https://sketchfab.com/3d-models/mcdonnell-douglas-fa-18eboeing-ea-18g-growler-d69153c8e91744cab2bad239a2cb5d98'
@@ -175,30 +209,32 @@ def main():
         'status': f22_state,
         'attribution': 'F22 RAPTOR by sxnneh on Sketchfab (Sketchfab Standard license), landing gear hidden.'
     })
-    # Original procedural F-16C, separate from the Sketchfab embed.
-    # Keep it in both the hangar (models/) and the flying simulation (modelli/).
+    # Detailed, gear-up F-16 by bohmerang. The source is calibrated to nose -Z,
+    # up +Y; the existing mission rotation turns the nose to +Z.
+    f16_source = root / 'model-sources' / 'hangar' / 'f16-rebuilt.glb'
+    f16_url = 'https://sketchfab.com/3d-models/f-16-fighting-falcon-fighter-jet-free-f0b00989e5634764848ef2c235c64db5'
     f16_target = out / 'f16.glb'
     if not args.dry_run:
-        subprocess.run(['blender', '-b', '--python-exit-code', '7', '--python',
-                        str(Path(__file__).with_name('generate_f16.py')), '--',
-                        str(f16_target)], check=True)
+        if not f16_source.is_file():
+            raise RuntimeError('Detailed F-16 source missing: ' + str(f16_source))
+        shutil.copyfile(f16_source, f16_target)
         with f16_target.open('rb') as fp:
             if fp.read(4) != b'glTF' or f16_target.stat().st_size < 10000:
-                raise RuntimeError('F-16 generation produced invalid or undersized GLB')
+                raise RuntimeError('Detailed F-16 source is invalid or undersized')
         shutil.copyfile(f16_target, mission / 'f16.glb')
         mission_manifest['F16'] = {
             'file': 'f16.glb', 'rot': [0, 180, 0],
             'lunghezza_m': 15.0, 'tint': False, 'gear': 'up',
-            'autore': 'CENTURION2 procedural', 'licenza': 'original approximation',
-            'url': ''
+            'autore': 'bohmerang', 'licenza': 'CC BY-NC-SA 4.0',
+            'url': f16_url
         }
     report.append({
         'id': 'f16', 'name': 'F-16C Fighting Falcon',
         'glb': 'models/f16.glb' if not args.dry_run else None,
-        'source': 'original CENTURION2 procedural model; not the Sketchfab source',
-        'author': 'CENTURION2 procedural', 'license': 'original approximation',
+        'source': f16_url,
+        'author': 'bohmerang', 'license': 'CC BY-NC-SA 4.0',
         'status': 'ready' if not args.dry_run else 'ready-for-conversion',
-        'attribution': 'Original simplified F-16C reconstruction, not the linked Sketchfab mesh.'
+        'attribution': 'Model by bohmerang; orientation adjusted and landing gear removed.'
     })
     # Geran-2 (famiglia Shahed-136): drone ostile della missione M12 Donbass e dell'hangar.
     # GLB fornito dall'utente, "Geranium-2" di Karosio su Sketchfab (CC BY-NC-SA 4.0).
@@ -227,6 +263,7 @@ def main():
         'status': geran_state,
         'attribution': 'Geranium-2 by Karosio on Sketchfab (CC BY-NC-SA 4.0).'
     })
+    add_hangar_models(root, out, report, args.dry_run)
     # Uploaded aircraft have already been copied and mapped above.
     # Do not overwrite calibrated rotations and real author/license metadata.
     (out / 'manifest.json').write_text(json.dumps({'models': report, 'notice': 'Third-party models: bohmerang / Sketchfab (CC BY-NC-SA 4.0), Rhine_Lab_Muelsyse / Sketchfab (CC BY 4.0), sxnneh / Sketchfab (Sketchfab Standard) and Karosio / Sketchfab (CC BY-NC-SA 4.0, Geran-2 drone). Attribution and noncommercial conditions apply.'}, indent=2), encoding='utf-8')
@@ -236,3 +273,4 @@ def main():
 
 if __name__ == '__main__':
     main()
+

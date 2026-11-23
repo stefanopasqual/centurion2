@@ -17,11 +17,11 @@ def patch(a,b):
 
 fleet='    A380:{nome:'
 patch(fleet,'''    UH60:{nome:"CENTURION UH-60 · elicottero",icona:"uh60-centurion",
-      rotorcraft:true,nonArmato:true,noEject:true,m:9500,fuel:1650,
+      rotorcraft:true,noEject:true,m:9500,fuel:1650,
       S:201,span:16.36,length:19.76,height:5.13,gearHeight:1.85,
       Tmil:0,Tab:0,cd0:.04,k:.07,cla:3,astall:20,amax:18,
       gmax:2.5,gneg:0,pmax:35,collectiveHover:.64,
-      colpi:0,cannone:"Nessuno",carico:{}},
+      colpi:1200,cannone:"GAU-19/A .50 (ESSS)",carico:{AGM114:8}},
     A380:{nome:''')
 
 patch('''    if(A.drone==="quad" || !P.aTerra)return fisica6(dt);''',
@@ -116,15 +116,26 @@ volo.write_text(s,encoding="utf-8")
 # The VISTA3D loader needs no extra model mapping: Free Flight passes
 # {tipoId:"UH60"} and publish_uh60.py registers that key in the manifest.
 
+# Collective keys: finer for rotorcraft (16 %/s instead of 45 %/s) so the climb rate can be set precisely.
+patch('''    if (k.shift || k["+"] || k.r) S.thr = clamp(S.thr + dt * 0.45, 0, 1); if (k.control || k["-"] || k.f) S.thr = clamp(S.thr - dt * 0.45, 0, 1);''',
+'''    { const cr = S.pl && S.pl.A.rotorcraft ? 0.16 : 0.45; if (k.shift || k["+"] || k.r) S.thr = clamp(S.thr + dt * cr, 0, 1); if (k.control || k["-"] || k.f) S.thr = clamp(S.thr - dt * cr, 0, 1); }''')
+
+# AGM-114 Hellfire: guided by the targeting pod like the Maverick, shorter range, lighter warhead.
+patch('''    GUN:    { nome: "Cannone",''',
+'''    AGM114: { nome: "AGM-114 Hellfire",   sigla: "AGM-114", bersaglio: "terra", guida: "tv",   cono: 25, rmin: 500,  burn: 2.5, acc: 110, maxG: 25, N: 3.5, fuse: 8, vita: 30, pk: 0.95, cd: 4.0e-5, lock: 1.2, call: "RIFLE" },
+    GUN:    { nome: "Cannone",''')
+patch('''const lista = ["AIM120", "AIM9X", "GUN", "AGM65"]''', '''const lista = ["AIM120", "AIM9X", "GUN", "AGM65", "AGM114"]''')
+patch('''if (arma === "AGM65") return { rmin: 900,''', '''if (arma === "AGM114") return { rmin: 500, rmax: clamp(7000 + 0.8 * Math.max(0, P.agl || h), 5000, 9000) }; if (arma === "AGM65") return { rmin: 900,''')
+patch('''S.arma !== "AGM65") return false;''', '''(S.arma !== "AGM65" && S.arma !== "AGM114")) return false;''')
+volo.write_text(s,encoding="utf-8")
+
 idx=site/"index.html";html=idx.read_text(encoding="utf-8")
 tag='<script src="js/heli_fdm.js"></script>'
 anchor='<script src="js/volo.js"></script>'
 assert anchor in html,"UH60: Free Flight loader missing"
 if tag not in html:html=html.replace(anchor,tag+"\n"+anchor,1)
 html=html.replace("</head>",'''<style id="centurion-uh60-ui">
-#volo.vl-rotorcraft #vl-arma,#volo.vl-rotorcraft #vl-fuoco,
-#volo.vl-rotorcraft #vl-lock,#volo.vl-rotorcraft #vl-eject,
-#volo.vl-rotorcraft #vl-flare{display:none!important}
+#volo.vl-rotorcraft #vl-eject{display:none!important}
 </style>
 </head>''',1)
 idx.write_text(html,encoding="utf-8")

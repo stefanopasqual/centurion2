@@ -45,7 +45,7 @@ function catInsignia(THREE) {
     c.beginPath(); c.arc(128, 236, 54, 0, Math.PI*2); c.fill();
     c.beginPath();
     c.moveTo(87,201); c.lineTo(95,148); c.lineTo(121,186);
-    c.lineTo(146,146); c.lineTo(158,204); c.close(); c.fill();
+    c.lineTo(146,146); c.lineTo(158,204); c.closePath(); c.fill();
     // Tail curled upwards with a broad rounded end.
     c.beginPath(); c.moveTo(333,286);
     c.bezierCurveTo(428,291,433,218,405,174);
@@ -54,7 +54,7 @@ function catInsignia(THREE) {
     // Forelegs / hindlegs.
     c.beginPath(); c.moveTo(152,324); c.lineTo(87,396); c.lineTo(103,414);
     c.lineTo(205,359); c.lineTo(297,341); c.lineTo(359,409);
-    c.lineTo(387,391); c.lineTo(344,304); c.close(); c.fill();
+    c.lineTo(387,391); c.lineTo(344,304); c.closePath(); c.fill();
     // Green mice identify the Gatti Neri tradition (simplified artwork).
     c.fillStyle='#567c59';
     [[143,441],[239,451],[337,451]].forEach(([x,y])=>{

@@ -172,9 +172,10 @@ mod_path.write_text(source.replace(old,new,1),encoding="utf-8")
 
 # Hangar: user import takes priority; source remains intact including Lufthansa texture.
 v=root/"ef2000"/"viewer.html";page=v.read_text(encoding="utf-8")
-old="{id:'f16',name:'General Dynamics F-16C Fighting Falcon',tag:'F-16C',url:'',info:'F-16C Fighting Falcon · modello originale semplificato CENTURION2, carrello retratto'},"
+f16_entries=[line for line in page.splitlines() if line.startswith("{id:'f16',")]
+if len(f16_entries)!=1:raise RuntimeError("A380 hangar menu anchor mismatch")
+old=f16_entries[0]
 new=old+"\n{id:'a380',name:'Airbus A380-841 · Lufthansa 100th Year',tag:'A380-841',url:'https://sketchfab.com/3d-models/airbus-a380-841-lufthansa-100th-year-0de836a0d2b04fdf92f0d56c7886c82b',info:'Airbus A380-841 Lufthansa 100th Year · Nobilis 2, CC BY 4.0 · importa GLB se non presente sul sito'},"
-if page.count(old)!=1:raise RuntimeError("A380 hangar menu anchor mismatch")
 page=page.replace(old,new,1)
 old="const CREDITI={"
 if page.count(old)!=1:raise RuntimeError("A380 credit anchor mismatch")
@@ -231,3 +232,4 @@ style="""<style id="a380-airliner-ui">
 if "a380-airliner-ui" not in html:html=html.replace("</head>",style+"\n</head>",1)
 index.write_text(html,encoding="utf-8")
 print("PASS A380: hangar selector, local GLB, original attribution, civilian 6DOF, 4-engine profile")
+

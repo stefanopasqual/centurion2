@@ -48,11 +48,46 @@ def main():
             except Exception as exc:
                 log('Texture warning', img.name, str(exc))
 
+    # CENTURION2 Typhoon: the .blend embeds its own copy of basecolor.png, so relinking the file is not enough.
+    # Assign the clean texture (German crosses, 30+47, flags and unit badges erased by build_models.py) to every
+    # image node that feeds a Base Color, or whose image is the original basecolor.
+    clean = textures / 'basecolor.png'
+    if output.name.lower() == 'typhoon.glb' and clean.is_file() and __import__('os').environ.get('CENTURION_TYPHOON_GRIGIO') != '1':
+        new_img = bpy.data.images.load(str(clean), check_existing=False)
+        new_img.name = 'basecolor_senza_insegne'
+        new_img.pack()
+        old_names = set()
+        for material in bpy.data.materials:
+            if not material.use_nodes or not material.node_tree:
+                continue
+            for node in material.node_tree.nodes:
+                if node.type != 'BSDF_PRINCIPLED':
+                    continue
+                base = node.inputs.get('Base Color')
+                for link in (base.links if base else []):
+                    src = link.from_node
+                    if src.type == 'TEX_IMAGE' and src.image:
+                        old_names.add(src.image.name)
+        for img in bpy.data.images:
+            if 'basecolor' in (img.name + ' ' + Path(bpy.path.abspath(img.filepath)).name).lower() and img is not new_img:
+                old_names.add(img.name)
+        swapped = 0
+        for material in bpy.data.materials:
+            if not material.use_nodes or not material.node_tree:
+                continue
+            for node in material.node_tree.nodes:
+                if node.type == 'TEX_IMAGE' and node.image and node.image.name in old_names:
+                    node.image = new_img
+                    swapped += 1
+        if swapped == 0:
+            raise RuntimeError('Typhoon clean skin: no basecolor image node found')
+        log('TYPHOON_CLEAN_SKIN: clean basecolor assigned to', swapped, 'image nodes, replaced', sorted(old_names))
+
     # CENTURION2 Typhoon: remove the German Bundeswehr livery at SOURCE.
     # One "Airframe" material carries its flag/crosses and camouflage in the
     # basecolor.png texture. Detach only that channel; keep normal, roughness,
     # metallic textures, topology and transparency untouched.
-    if output.name.lower() == 'typhoon.glb':
+    if output.name.lower() == 'typhoon.glb' and __import__('os').environ.get('CENTURION_TYPHOON_GRIGIO') == '1':
         changed = 0
         for material in bpy.data.materials:
             if material.name.lower() != 'airframe':

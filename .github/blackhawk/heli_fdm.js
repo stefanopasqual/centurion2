@@ -56,14 +56,18 @@
     // Stabilization uses body-relative gravity, not world-up components.
     // Cyclic control remains consistent through large heading changes.
     const localUp=FDM.inverse(s.q,[0,1,0]);
+    // Tail-fin weathervane: in forward flight the fin turns the nose into the airflow, so a banked
+    // helicopter turns instead of sliding sideways (body +X is left: airflow from the left yaws the nose left).
+    const lv=FDM.inverse(s.q,relative),airspeed=Math.hypot(lv[0],lv[2]);
+    const vane=airspeed>1?cl(lv[0]/airspeed,-1,1)*1.1*cl((airspeed-8)/18,0,1):0;
     const demand=[
       cl(-cyclicY*.48+localUp[2]*.73,-.65,.65),
-      cl(-pedal*.53-.09*(s.collective-(spec.collectiveHover??.64)),-.7,.7),
+      cl(-pedal*.53-.09*(s.collective-(spec.collectiveHover??.64))+vane,-.7,.7),
       cl(cyclicX*.48-localUp[0]*.73,-.65,.65)
     ];
     const inertia=FDM.inertia({icona:'uh60',S:201,span:16.36,length:19.76,height:5.13},mass);
     const gyro=FDM.angularAccel(inertia,s.w,[0,0,0]);
-    const gain=[3.0,2.4,3.0];
+    const gain=[3.0,3.6,3.0];   // pedals: the nose stops turning promptly when released
     const torque=[
       inertia.ix*((demand[0]-s.w[0])*gain[0]-gyro[0]),
       inertia.iy*((demand[1]-s.w[1])*gain[1]-gyro[1]),
@@ -79,7 +83,13 @@
     const radius=Number(spec.rotorRadius)||8.18,disk=PI*radius*radius;
     const seaThrust=Number(spec.maxRotorThrust)||
       (Number(spec.m)||9500)*G/(Number(spec.collectiveHover)||.64);
-    const requested=seaThrust*s.collective*densityFactor*etl*ge*s.rpm*s.rpm;
+    // Induced-flow heave damping (momentum theory): climbing through the rotor reduces blade
+    // angle of attack and thrust, descending raises it, so a fixed collective settles on a steady
+    // climb or sink rate instead of an ever-growing one. Diluted in forward flight.
+    const vi0=Math.sqrt(Math.max(1,mass*G)/(2*rho*disk));
+    const axial=relative[1];   // vertical climb/sink rate: forward speed is not counted as climbing through the disk
+    const inflow=cl(1-axial/(2*vi0+.6*horizontal),.45,1.55);
+    const requested=seaThrust*s.collective*densityFactor*etl*ge*s.rpm*s.rpm*inflow;
     const power=(Number(spec.shaftPower)||3.15e6)*Math.pow(rho/1.225,.65);
     const efficiency=Number(spec.rotorEfficiency)||.74;
     const powerThrust=Math.pow(2*rho*disk*Math.pow(power*s.rpm*efficiency,2),1/3);
@@ -92,7 +102,7 @@
     const rotor=rot(s.q,[0,rotorLift,0]);
     // Stronger parasitic drag prevents unphysical 130m/s acceleration.
     const local=FDM.inverse(s.q,relative),cdA=[11,4.4,10];
-    const drag=rot(s.q,local.map((v,i)=>-.5*rho*cdA[i]*v*Math.abs(v)));
+    const drag=rot(s.q,local.map((v,i)=>-.5*rho*cdA[i]*v*Math.abs(v)-(i===1?0:.04*mass*v)));   // + rotor H-force damping in the disk plane
     const force=add(rotor,drag);
     const acceleration=add(mul(force,1/mass),[0,-G,0]);
     const oldV=s.v.slice();
@@ -153,5 +163,5 @@
     s.last.impactSpeed=impactSpeed||s.damage?.impactSpeed||0;
     return s.last;
   }
-  return Object.freeze({version:'uh60-6dof-3',create,step});
+  return Object.freeze({version:'uh60-6dof-4',create,step});
 });
