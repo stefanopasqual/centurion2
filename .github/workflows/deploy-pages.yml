@@ -76,6 +76,8 @@ jobs:
           python3 .github/cockpit/patch_cockpit.py extracted/site
           python3 .github/cockpit/patch_cockpit3d.py extracted/site
           node --check extracted/site/js/cockpit3d.js
+          python3 .github/cockpit/patch_cockpit_interno.py extracted/site
+          node --check extracted/site/js/volo.js
           python3 .github/vfx/patch_vfx.py extracted/site
           node --check extracted/site/js/volo.js
           python3 .github/models/patch_render.py extracted/site

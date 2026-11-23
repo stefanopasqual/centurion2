@@ -92,6 +92,44 @@ new_eject = 'const pil = vestiPilota(persona({ tuta: 0x56653a, giubbotto: 0x3d4a
 replace_once(old_eject, new_eject, 'academy ejection pilot')
 rescue.write_text(text, encoding='utf-8')
 
+# Cockpit occupant of the procedural aircraft (modelli3d.js tettuccio): the
+# baked bust/helmet becomes the owner's rigged pilot, seated. The bust stays
+# as a fallback until the model loads. Applies to every procedural jet.
+models3d = site / 'js/modelli3d.js'
+mtext = models3d.read_text(encoding='utf-8')
+cab_helper = '''  // Occupante della cabina: il pilota 3D del proprietario, seduto. Finche il
+  // modello non e caricato resta l'abbozzo (busto/casco) come fallback.
+  function vestiCabina(occ, altCanopy) {
+    const P3 = (typeof window !== "undefined") && window.PILOTA3D; if (!P3 || !P3.veste) return;
+    const fai = () => {
+      try {
+        const h = altCanopy || 0.75, scala = Math.max(0.44, Math.min(0.66, h * 0.8));
+        if (!P3.veste(occ, { scala })) return;
+        P3.posa(occ, "seduto");
+        const p = occ.userData.p3d; if (p) { p.position.y = -(h * 0.78); p.position.z = -0.10; }
+      } catch (e) { console.warn("Pilota cabina:", e); }
+    };
+    if (P3.pronto) fai(); else P3.carica().then(fai);
+  }
+  function tettuccio(cn, M) {'''
+if 'function vestiCabina(' not in mtext:
+    if mtext.count('  function tettuccio(cn, M) {') != 1:
+        raise RuntimeError('Could not find tettuccio() to add the cockpit pilot')
+    mtext = mtext.replace('  function tettuccio(cn, M) {', cab_helper, 1)
+old_bust = ('''      G.add(mesh(new THREE.BoxGeometry(0.46, 0.5, 0.3), M.tuta, 0, hc - 0.45, z - 0.08)); // busto
+      G.add(mesh(new THREE.SphereGeometry(0.145, 10, 7), M.casco, 0, hc, z));
+      G.add(mesh(new THREE.SphereGeometry(0.152, 10, 4, Math.PI / 2 - 1.05, 2.1, 1.05, 0.7), M.visiera, 0, hc, z));''')
+new_bust = ('''      const occ = new THREE.Group(); occ.position.set(0, hc - 0.45, z - 0.04); occ.userData.cabinaAlt = cn.h;
+      occ.add(mesh(new THREE.BoxGeometry(0.46, 0.5, 0.3), M.tuta, 0, 0, -0.04)); // busto (fallback)
+      occ.add(mesh(new THREE.SphereGeometry(0.145, 10, 7), M.casco, 0, 0.45, 0.04));
+      occ.add(mesh(new THREE.SphereGeometry(0.152, 10, 4, Math.PI / 2 - 1.05, 2.1, 1.05, 0.7), M.visiera, 0, 0.45, 0.04));
+      G.add(occ); vestiCabina(occ, cn.h);''')
+if 'vestiCabina(occ' not in mtext:
+    if mtext.count(old_bust) != 1:
+        raise RuntimeError('Could not find the cockpit bust in tettuccio()')
+    mtext = mtext.replace(old_bust, new_bust, 1)
+models3d.write_text(mtext, encoding='utf-8')
+
 html = (site / 'index.html').read_text(encoding='utf-8')
 if 'js/pilota3d.js' not in html or 'js/csar_zagros.js' not in html:
     raise RuntimeError('Pilot or rescue mission script is not loaded')
