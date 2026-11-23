@@ -33,7 +33,7 @@ import * as THREE from 'three';
 import {OrbitControls} from 'three/addons/controls/OrbitControls.js';
 import {GLTFLoader} from 'three/addons/loaders/GLTFLoader.js';
 import {RoomEnvironment} from 'three/addons/environments/RoomEnvironment.js';
-import {apply51Stormo} from './livrea51.js';
+import {verniceTyphoon} from './livrea51.js';
 import {scanAirbus,consolidateAirbus,activateAirbus,archiveImportedAirbus,makeAirbusArchive,downloadArchive,canonicalAirbusId} from './airbus_local.js';
 const MODELS=[
 {id:'f22',name:'Lockheed Martin F-22 Raptor',tag:'F-22',url:'https://sketchfab.com/3d-models/f22-raptor-ec44bd6cffa649b4927799a7b19c703b'},
@@ -156,10 +156,10 @@ function place(glb){clear();aircraft=glb.scene;if(selected.info)$('#hint').textC
  }
  if(selected.id==='typhoon'){
   try{
-   livery51=apply51Stormo(THREE,scene,aircraft);
-   $('#hint').textContent='Eurofighter Typhoon · texture originale senza insegne tedesche · insegne italiane';
-   note(livery51.applied ? 'Eurofighter Typhoon · ' + livery51.applied + ' decalcomanie italiane applicate · carrello retratto' : 'Eurofighter originale · decalcomanie non proiettate sul modello');
-  }catch(e){console.warn('Eurofighter 51 Stormo:',e);note('Eurofighter originale · decalcomanie non disponibili');}
+   const n=verniceTyphoon(THREE,aircraft);
+   $('#hint').textContent='Eurofighter Typhoon · vernice grigia senza insegne · texture originale con pannelli e scritte tecniche';
+   note(n ? 'Eurofighter Typhoon · vernice grigia · carrello retratto' : 'Eurofighter originale · vernice non applicata');
+  }catch(e){console.warn('Eurofighter vernice:',e);note('Eurofighter originale · vernice non applicata');}
  }else note(selected.drone?'GLB UAV importato · orbita e zoom attivi':(selected.id==='pilota'||selected.persona?'Personale 3D · orbita e zoom attivi':'Modello 3D originale · carrello retratto · orbita e zoom attivi'));}
 function showDrone(m,created){
  if(!created?.g)throw Error('Geometria UAV mancante');
