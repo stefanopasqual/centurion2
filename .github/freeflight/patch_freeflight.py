@@ -138,6 +138,11 @@ patch('''p[k] = v; salvaPref(p);''',
       if(k==="aereo"&&AEREI[v]?.nonArmato){p.nemici=0;p.sam=false;}
       if(k==="aereo"&&AEREI[v]?.drone)p.partenza="volo";
       salvaPref(p);''')
+# External camera sized on the aircraft (fixed 28 m put it inside A380 / KC-30 / E-7); gear follows GEAR on models that offer it.
+patch("_cp.set(0, 0, 0).addScaledVector(_fwd, -28).add(V3(0, 8, 0));",
+ "const _mdl=P.obj&&P.obj.userData.mdl;if(_mdl&&_mdl.userData&&_mdl.userData.setGear)_mdl.userData.setGear(!!P.carrello);"
+ "if(_mdl&&S.camL==null){const _q=P.obj.quaternion.clone();P.obj.quaternion.identity();P.obj.updateMatrixWorld(true);const _d=new THREE.Box3().setFromObject(_mdl).getSize(V3());P.obj.quaternion.copy(_q);P.obj.updateMatrixWorld(true);S.camL=Math.max(_d.x,_d.y,_d.z)||15;}"
+ "const _L=Math.max(15,S.camL||15);_cp.set(0, 0, 0).addScaledVector(_fwd, -Math.max(28,_L*1.25)).add(V3(0, Math.max(8,_L*.3), 0));")
 p.write_text(s,encoding="utf-8")
 idx=root/"index.html";html=idx.read_text(encoding="utf-8")
 style="""<style id="centurion-freeflight-fleet">
