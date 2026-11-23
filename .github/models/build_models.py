@@ -129,10 +129,11 @@ def main():
         'status': su35_state,
         'attribution': 'Model by bohmerang on Sketchfab (CC BY-NC-SA 4.0), landing gear hidden.'
     })
-    # F-14 Tomcat: original CENTURION2 procedural model built from public dimensions by
-    # .github/models/genera_f14.py (nose +Z, up +Y, metres, gear up, wing sweep 25 deg).
+    # F-14 Tomcat: detailed model by bohmerang (CC BY-NC-SA 4.0), extended gear removed and
+    # textures reduced for the web (2048 px colour, 1024 px normal). Source axes: nose -Z, up +Y.
+    # The earlier procedural model generator remains in .github/models/genera_f14.py.
     f14_src = root / 'model-sources' / 'f14.glb'
-    f14_url = ''
+    f14_url = 'https://sketchfab.com/3d-models/f-14-tomcat-fighter-jet-free-497f77c311b5411d9b567d8707a81c33'
     f14_state = 'source-missing'
     if f14_src.is_file():
         f14_state = 'ready-for-conversion' if args.dry_run else 'ready'
@@ -144,16 +145,16 @@ def main():
             shutil.copyfile(f14_src, target)
             shutil.copyfile(target, mission / target.name)
             mission_manifest['F14'] = {
-                'file': target.name, 'rot': [0, 0, 0], 'lunghezza_m': 19.1,
-                'autore': 'CENTURION2 procedural', 'licenza': 'original approximation',
+                'file': target.name, 'rot': [0, -90, 0], 'lunghezza_m': 19.1,
+                'autore': 'bohmerang', 'licenza': 'CC BY-NC-SA 4.0',
                 'url': f14_url, 'tint': False, 'gear': 'up'
             }
     report.append({
         'id': 'f14', 'name': 'Grumman F-14 Tomcat',
         'glb': 'models/f14.glb' if f14_state == 'ready' else None,
-        'source': f14_url, 'author': 'CENTURION2 procedural', 'license': 'original approximation',
+        'source': f14_url, 'author': 'bohmerang', 'license': 'CC BY-NC-SA 4.0',
         'status': f14_state,
-        'attribution': 'Original CENTURION2 model from public F-14 dimensions (genera_f14.py).'
+        'attribution': 'Model by bohmerang on Sketchfab (CC BY-NC-SA 4.0): extended landing gear removed, textures reduced.'
     })
     # User-provided EA-18G Growler, gear-up variant prepared from CC BY 4.0 GLB.
     growler_src = root / 'model-sources' / 'ea18.glb'
