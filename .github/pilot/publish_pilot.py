@@ -5,6 +5,7 @@ import json
 import struct
 import sys
 from pathlib import Path
+from static_pilot import make_hangar_glb
 
 site = Path(sys.argv[1])
 parts = [Path('model-sources/pilot') / f'pilot.part{i:02}' for i in range(9)]
@@ -30,6 +31,10 @@ for resource in document.get('buffers', []) + document.get('images', []):
 asset = site / 'assets/pilota.glb'
 asset.parent.mkdir(parents=True, exist_ok=True)
 asset.write_bytes(data)
+# A smaller, non-skinned rest pose avoids GPU skinning for the mobile hangar.
+# A distinct URL also bypasses a previous cached hangar model on the device.
+hangar_asset = site / 'assets/pilota-hangar-v2.glb'
+hangar_asset.write_bytes(make_hangar_glb(data))
 script = site / 'js/pilota3d.js'
 script.write_bytes(Path('.github/pilot/pilota3d.js').read_bytes())
 

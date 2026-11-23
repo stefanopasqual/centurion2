@@ -389,11 +389,12 @@ jobs:
       - name: Install the owner-supplied animated pilot
         run: |
           python3 .github/pilot/publish_pilot.py extracted/site
-          python3 -m py_compile .github/pilot/publish_pilot.py
+          python3 -m py_compile .github/pilot/publish_pilot.py .github/pilot/static_pilot.py
           node --check extracted/site/js/pilota3d.js
           node --check extracted/site/js/csar_zagros.js
           node --check extracted/site/js/soccorso.js
           node .github/pilot/test_pilot.cjs extracted/site
+          node .github/pilot/test_hangar.cjs extracted/site
       - name: Refresh offline cache for 3D hangar
         run: |
           # Force a fresh offline cache for the cinematic model and scene assets.
@@ -510,4 +511,5 @@ jobs:
       - name: Deploy website
         id: deployment
         uses: actions/deploy-pages@v4
+
 
