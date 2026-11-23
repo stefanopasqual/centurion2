@@ -79,7 +79,7 @@ const controls=new OrbitControls(camera,renderer.domElement);controls.enableDamp
 const loader=new GLTFLoader();let selected=MODELS[0],aircraft=null,token=0,animationDriver=null,procedural=false,droneLoad=null,livery51=null,liveryHandle=null;
 // Livrea CENTURION: stato globale (tutta la flotta) + eccezioni per singolo velivolo, salvati nel browser.
 const LIVERY={
- global:(()=>{try{return localStorage.getItem('centurion2-livrea-global')==='1';}catch(e){return false;}})(),
+ global:(()=>{try{return localStorage.getItem('centurion2-livrea-global')!=='0';}catch(e){return true;}})(),  // attiva di default in hangar
  exc:(()=>{try{return new Set(JSON.parse(localStorage.getItem('centurion2-livrea-exc')||'[]'));}catch(e){return new Set();}})(),
  save(){try{localStorage.setItem('centurion2-livrea-global',this.global?'1':'0');localStorage.setItem('centurion2-livrea-exc',JSON.stringify([...this.exc]));}catch(e){}},
  attiva(id){return haLivrea(id)&&(this.global!==this.exc.has(id));}
