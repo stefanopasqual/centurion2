@@ -83,8 +83,9 @@ function sortie(name,spec){
         pitch_deg:+(p.pitch*DEG).toFixed(2),fuel_kg:+fuel.toFixed(1)});
     }
   }
-  const hi=spec.icona==='a380'?3.5:11;
-  if(maxG>hi)issues.push('excessive G '+maxG.toFixed(1));
+  // Safety envelope is aircraft-specific, not a permissive generic threshold.
+  const hi=(spec.gmax||9)+0.15;
+  if(maxG>hi)issues.push('excessive G '+maxG.toFixed(2)+' > '+(spec.gmax||9));
   if(minAlt<100)issues.push('terrain collision risk at '+minAlt.toFixed(1)+' m');
   if(rows.length<80)issues.push('sortie ended early');
   const summary={name,result:issues.length?'FLAG':'PASS',minAlt:+minAlt.toFixed(1),
