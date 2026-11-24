@@ -51,6 +51,11 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+      - name: Check flight, hangar and mission regressions
+        run: |
+          node .github/aero/test_all_fleet.cjs
+          node .github/ef2000/test_hangar_async.cjs
+          node .github/commander/test_commander.cjs
       - name: Extract mobile website
         run: |
           test -f CENTURION2_GITHUB_MOBILE.zip || { echo "::error::Upload CENTURION2_GITHUB_MOBILE.zip to the root of this repository"; exit 1; }

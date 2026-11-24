@@ -63,7 +63,7 @@
     const iy=mass*(len*len+b*b)*.052;
     const iz=mass*(b*b+h*h)*.051;
     const iyz=.025*Math.sqrt(iy*iz);
-    return {ix,iy,iz,iyz,det:iy*iz-iyz*iy};
+    return {ix,iy,iz,iyz,det:iy*iz-iyz*iyz};
   }
   function Iw(I,w){return [I.ix*w[0],I.iy*w[1]+I.iyz*w[2],I.iyz*w[1]+I.iz*w[2]];}
   function angularAccel(I,w,M){
@@ -128,6 +128,8 @@
     const pitchRate=s.w[0]*chord/(2*safeV);
     const rollRate=s.w[2]*span/(2*safeV);
     const yawRate=s.w[1]*span/(2*safeV);
+    const eff=clamp(qbar/14000,.12,1)*(1-.65*aero.stallBlend)*
+      (1-.18*Math.min(1,Math.max(0,mach-1)));
     const stabilizer=.28*atm.alpha-.63*pitchRate;
     const yawStabilizer=-.23*atm.beta-.72*yawRate;
     const rollStabilizer=-.28*rollRate+.045*atm.beta;
@@ -143,34 +145,36 @@
     const liftTarget=mass*g*targetG/Math.max(300,surfaceQ);
     const maxAoA=Math.min(.68,Math.max(.25,(spec.amax||30)*pi/180));
     const alphaTarget=clamp(liftTarget/Math.max(.25,aero.liftSlope),-.24,maxAoA);
-    const pitchOmegaWanted=-clamp((alphaTarget-atm.alpha)*3.2,-.95,.95);
-    const pitchMomentWanted=I.ix*clamp((pitchOmegaWanted-s.w[0])*3.1,-4.5,4.5);
+    const servoTau=Math.max(.07,spec.servoTau||.18);
+    // Slower actuators need a lower feedback bandwidth to avoid pitch oscillation.
+    const pitchBandwidth=Math.min(1,.18/servoTau);
+    const pitchOmegaWanted=-clamp((alphaTarget-atm.alpha)*3.2*pitchBandwidth,-.95,.95);
+    const pitchMomentWanted=I.ix*clamp((pitchOmegaWanted-s.w[0])*3.1*pitchBandwidth,-4.5,4.5);
+    // Invert the same effective control derivatives used by the moment model.
     const elevTarget=clamp((armPitch*stabilizer-pitchMomentWanted)/
-      Math.max(2,armPitch*.46),-1,1);
+      Math.max(2,armPitch*.46*eff),-1,1);
     const pmax=Math.min(3.5,(spec.pmax||170)*pi/180);
     const rollOmegaWanted=clamp(input.roll||0,-1,1)*pmax*
       clamp(qbar/9000,.12,1);
     const rollMomentWanted=I.iz*clamp((rollOmegaWanted-s.w[2])*4,-6,6);
     const ailTarget=clamp((rollMomentWanted-armRoll*rollStabilizer)/
-      Math.max(3,armRoll*.135),-1,1);
+      Math.max(3,armRoll*.135*eff),-1,1);
     const right=rotate(s.q,[-1,0,0]);
     const bank=Math.atan2(-right[1],bankUp[1]);
     const turnWanted=-g*Math.tan(clamp(bank,-1.1,1.1))/Math.max(65,V);
     const yawOmegaWanted=clamp(turnWanted-clamp(input.rudder||0,-1,1)*.52,-.9,.9);
     const yawMomentWanted=I.iy*clamp((yawOmegaWanted-s.w[1])*2.8,-3,3);
     const rudTarget=clamp((armRoll*yawStabilizer-yawMomentWanted)/
-      Math.max(3,armRoll*.20),-1,1);
+      Math.max(3,armRoll*.20*eff),-1,1);
 
-    const response=1-Math.exp(-dt/Math.max(.07,spec.servoTau||.18));
+    const response=1-Math.exp(-dt/servoTau);
     s.actuator.ail+=clamp(ailTarget-s.actuator.ail,-response,response);
     s.actuator.elev+=clamp(elevTarget-s.actuator.elev,-response,response);
     s.actuator.rud+=clamp(rudTarget-s.actuator.rud,-response,response);
-    const eff=clamp(qbar/14000,.12,1)*(1-.65*aero.stallBlend)*
-      (1-.18*Math.min(1,Math.max(0,mach-1)));
     const moments=[
       armPitch*(stabilizer-.46*s.actuator.elev*eff),
-      armRoll*(yawStabilizer-.20*s.actuator.rud*eff+.018*s.actuator.ail),
-      armRoll*(rollStabilizer+.135*s.actuator.ail*eff+.018*s.actuator.rud)
+      armRoll*(yawStabilizer+eff*(-.20*s.actuator.rud+.018*s.actuator.ail)),
+      armRoll*(rollStabilizer+eff*(.135*s.actuator.ail+.018*s.actuator.rud))
     ];
 
     // Full body-coordinate wind-axis aerodynamic force projection.

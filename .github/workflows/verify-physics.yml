@@ -1,10 +1,15 @@
-name: Validate Airbus A380 and helicopter physics
+name: Validate flight, hangar and mission regressions
 on:
   push:
     branches: [main]
     paths:
       - '.github/blackhawk/**'
       - '.github/aero/**'
+      - '.github/airbus/**'
+      - '.github/freeflight/**'
+      - '.github/ef2000/**'
+      - '.github/commander/**'
+      - '_integration_inspect/volo.js'
       - '.github/workflows/verify-physics.yml'
       - 'model-sources/uh60m_b64/**'
       - '.github/workflows/deploy-pages.yml'
@@ -13,6 +18,11 @@ on:
     paths:
       - '.github/blackhawk/**'
       - '.github/aero/**'
+      - '.github/airbus/**'
+      - '.github/freeflight/**'
+      - '.github/ef2000/**'
+      - '.github/commander/**'
+      - '_integration_inspect/volo.js'
       - '.github/workflows/verify-physics.yml'
   workflow_dispatch:
 permissions:
@@ -31,6 +41,8 @@ jobs:
           node .github/aero/test_fdm6.cjs
           node .github/aero/test_pilota_prova.cjs
           node .github/aero/test_all_fleet.cjs
+          node .github/ef2000/test_hangar_async.cjs
+          node .github/commander/test_commander.cjs
           node .github/blackhawk/test_heli.cjs
           node .github/blackhawk/test_pilot.cjs
           node .github/blackhawk/test_heli_edge.cjs
