@@ -6,6 +6,7 @@ const aero=require('./aero_core.js'),fdm=require('./fdm6.js'),heli=require('../b
 const expected=['F16','F15','F2000','F22','SU35','F14','SU57','EA18','KC30','E7','UAV_FIXED','UAV_QUAD','GERAN2','A10','C130J','MQ9','A380','UH60'];
 const files=['_integration_inspect/volo.js','.github/freeflight/patch_freeflight.py','.github/airbus/patch_a380.py','.github/blackhawk/patch_rotor.py'];
 const clamp=(v,a,b)=>Math.min(b,Math.max(a,v)),norm=v=>Math.hypot(...v),rad=Math.PI/180;
+const angleDelta=(a,b)=>Math.atan2(Math.sin(a-b),Math.cos(a-b));
 const root=path.resolve(__dirname,'../..'),DT=1/120;
 function extract(){
  const found={};
@@ -98,19 +99,30 @@ function fixed(key,sp){
   if(k%120===0)samples.push({t:Math.round(t),phase:phase(t).name,alt_m:+s.r[1].toFixed(1),
    speed_kts:+(v*1.943844).toFixed(1),G:+(s.last?.nz||0).toFixed(2),
    mach:+(v/aero.isa(s.r[1]).soundSpeed).toFixed(3),
-   heading_deg:+(pose(s).heading/rad).toFixed(1),vs_ms:+s.v[1].toFixed(2)});
+   heading_deg:+(pose(s).heading/rad).toFixed(1),bank_deg:+(pose(s).bank/rad).toFixed(1),
+   beta_deg:+(fdm.atmosphere(s,[0,0,0]).beta/rad).toFixed(1),vs_ms:+s.v[1].toFixed(2)});
  }
  if(maxG>(sp.gmax||9)+.15)issues.push('max G '+maxG.toFixed(2)+' > '+sp.gmax);
  if(minH<Math.max(40,h0*.15))issues.push('minimum altitude unsafe: '+minH.toFixed(0));
  if(samples.length<80)issues.push('sortie incomplete');
  if(stalled>10)warnings.push('stall for '+(stalled*DT).toFixed(1)+' s');
  if(minV<speed0*.45)warnings.push('speed decay >55%');
- if(Math.abs(pose(s).heading)<.08)warnings.push('poor heading response');
+ // A commanded turn must measurably change heading and bank; G-limit alone cannot prove it.
+ const turn=samples.filter(x=>x.t>=34&&x.t<=55);
+ const turnDegrees=turn.length>1?angleDelta(turn.at(-1).heading_deg*rad,turn[0].heading_deg*rad)/rad:0;
+ const turnBank=Math.max(0,...turn.map(x=>Math.abs(x.bank_deg||0)));
+ const turnSlip=Math.max(0,...turn.map(x=>Math.abs(x.beta_deg||0)));
+ if(Math.abs(turnDegrees)<2)issues.push('commanded turn changed heading only '+turnDegrees.toFixed(1)+' deg');
+ if(turnBank<1)issues.push('commanded turn did not bank: '+turnBank.toFixed(1)+' deg');
+ if(Math.abs(turnDegrees)>90)issues.push('turn overshot >90 deg: '+turnDegrees.toFixed(1));
+ if(turnSlip>25)warnings.push('turn sideslip >25 deg: '+turnSlip.toFixed(1));
  if(maxH<h0+20&&!sp.drone)warnings.push('poor climb response');
  const summary={name:key,type:sp.drone?'UAV':sp.nonArmato?'transport':'fighter',
   outcome:issues.length?'FAIL':warnings.length?'WARN':'PASS',maxG:+maxG.toFixed(2),
   gLimit:sp.gmax,altMin:+minH.toFixed(1),altMax:+maxH.toFixed(1),
-  finalKts:samples.at(-1)?.speed_kts,issues,warnings,samples:samples.length};
+  finalKts:samples.at(-1)?.speed_kts,
+  turnDeg:+turnDegrees.toFixed(1),turnBankDeg:+turnBank.toFixed(1),turnSlipDeg:+turnSlip.toFixed(1),
+  issues,warnings,samples:samples.length};
  console.log('FLEET_RESULT '+JSON.stringify(summary));
  out.push({summary,data:samples});return !bad;
 }
@@ -158,7 +170,7 @@ const report={date:new Date().toISOString(),kind:'production-flight-engines',sim
  validated:expected,counts,results:out,
  caveat:'Simulated air sorties, not OEM benchmark, runway test or browser QA'};
 fs.writeFileSync(path.join(dir,'all-aircraft-flight-report.json'),JSON.stringify(report,null,2));
-const fields=['name','type','outcome','maxG','gLimit','altMin','altMax','finalKts','issues','warnings'];
+const fields=['name','type','outcome','maxG','gLimit','altMin','altMax','finalKts','turnDeg','turnBankDeg','turnSlipDeg','issues','warnings'];
 fs.writeFileSync(path.join(dir,'all-aircraft-flight-summary.csv'),fields.join(',')+'\n'+
  out.map(x=>fields.map(k=>JSON.stringify(String(Array.isArray(x.summary[k])?x.summary[k].join(';'):x.summary[k]??''))).join(',')).join('\n')+'\n');
 console.log('FLEET_TOTAL '+JSON.stringify({tested:out.length,counts,
