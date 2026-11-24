@@ -164,4 +164,5 @@ fs.writeFileSync(path.join(dir,'all-aircraft-flight-summary.csv'),fields.join(',
 console.log('FLEET_TOTAL '+JSON.stringify({tested:out.length,counts,
  failures:out.filter(x=>x.summary.outcome==='FAIL').map(x=>x.summary.name),
  warnings:out.filter(x=>x.summary.outcome==='WARN').map(x=>x.summary.name)}));
-if(out.some(x=>x.summary.issues.some(s=>/nonfinite/.test(s))))process.exitCode=1;
+// An existing physical flight-envelope violation must fail fleet QA, not show green.
+if(out.some(x=>x.summary.outcome==='FAIL'))process.exitCode=1;
