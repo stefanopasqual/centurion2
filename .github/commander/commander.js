@@ -186,8 +186,9 @@
   const s=state.sc,x=s[kind]&&s[kind].find(e=>e.id===id);if(!x)return;
   if(kind==="basi"&&s.formazioni.some(f=>f.base===id))throw Error("Sposta le formazioni prima di eliminare la base");
   if(!confirm("Eliminare «"+(x.nome||id)+"»?"))return;
-  s[kind]=s[kind].filter(e=>e.id!==id);if(state.selection&&state.selection.id===id)state.selection=null;
-  C().reconcile(s);redrawDetails();toast("Eliminato: "+(x.nome||id)+" · restano "+s[kind].length);
+  const next=C().clone(s);next[kind]=next[kind].filter(e=>e.id!==id);C().reconcile(next);
+  state.sc=next;if(state.selection&&state.selection.id===id)state.selection=null;
+  redrawDetails();toast("Eliminato: "+(x.nome||id)+" · restano "+next[kind].length);
  }
  function action(name) {
   try{

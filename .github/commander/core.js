@@ -203,7 +203,8 @@
       const fromDb = await idbAll(), mem = readLibrary(); let restored = false;
       fromDb.forEach(e => { const i = mem.findIndex(x => x.id === e.id);
         if (i < 0) { mem.push(e); restored = true; } else if (String(e.savedAt) > String(mem[i].savedAt)) { mem[i] = e; restored = true; } });
-      mem.forEach(e => { if (!fromDb.some(x => x.id === e.id)) idbPut(e).catch(() => {}); });
+      mem.forEach(e => { const saved = fromDb.find(x => x.id === e.id);
+        if (!saved || String(e.savedAt) > String(saved.savedAt)) idbPut(e).catch(() => {}); });
       if (restored) { lsWrite(mem); changed(); }
     } catch (e) {}
   })();

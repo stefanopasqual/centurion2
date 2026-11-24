@@ -9,6 +9,10 @@ const jet={icona:'f16',m:12000,S:27.87,span:9.96,Tmil:76300,Tab:127000,cla:3.6,a
 const quad={icona:'uav-quad',m:6,S:.55,span:1.4,length:.7,height:.24,drone:'quad'};
 const inertia=f.inertia(jet,jet.m);
 assert.ok(inertia.det>0&&inertia.ix>0&&inertia.iy>0&&inertia.iz>0,'positive definite inertia tensor');
+const torque=[37,-23,11],angular=f.angularAccel(inertia,[0,0,0],torque);
+approx(inertia.ix*angular[0],torque[0],1e-10,'inertia inverse preserves pitch torque');
+approx(inertia.iy*angular[1]+inertia.iyz*angular[2],torque[1],1e-10,'inertia inverse preserves yaw torque');
+approx(inertia.iyz*angular[1]+inertia.iz*angular[2],torque[2],1e-10,'inertia inverse preserves roll torque');
 const gravity=f.create(jet,{r:[0,2000,0],v:[0,0,0]});
 for(let i=0;i<120;i++)f.stepFixed(gravity,1/120,{},{mass:jet.m,thrust:0,agl:2000});
 approx(gravity.v[1],-a.GRAVITY,0.1,'free-fall gravity over 1 second');
