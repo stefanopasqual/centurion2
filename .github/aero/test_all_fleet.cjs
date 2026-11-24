@@ -11,7 +11,12 @@ function extract(){
  const found={};
  for(const file of files){
   const data=fs.readFileSync(path.join(root,file),'utf8');
-  const rx=/^\s*([A-Z][A-Z0-9_]*):\s*\{/gm;let match;
+  // A380 and UH60 fleet entries are embedded after Python string prefixes.
+  // Match their exact complete object definitions, not later patch anchors.
+  const rx=file.includes('airbus/')?/(A380):\{/g:
+    file.includes('blackhawk/')?/(UH60):\{/g:
+    /^\s*([A-Z][A-Z0-9_]*):\s*\{/gm;
+  let match;
   while((match=rx.exec(data))){
    const key=match[1];if(!expected.includes(key)||found[key])continue;
    const start=match.index+match[0].lastIndexOf('{');
