@@ -51,6 +51,17 @@ const qrTurn=f.create(quad,{r:[0,100,0]});
 for(let i=0;i<150;i++)f.stepRotor(qrTurn,1/120,{throttle:.58,roll:.6,pitch:-.4,rudder:.4},{mass:6});
 assert.ok(Math.hypot(...qrTurn.w)>.0001,'differential rotors produce all-axis angular response');
 approx(norm(qrTurn.q),1,1e-8,'rotor quaternion normalized');
+// Independently exercise quad yaw and lateral response, not just mixed motor inputs.
+const yawQuad=f.create(quad,{r:[0,100,0],v:[0,0,0]});
+const rollQuad=f.create(quad,{r:[0,100,0],v:[0,0,0]});
+for(let i=0;i<240;i++){
+ f.stepRotor(yawQuad,1/120,{throttle:.53,rudder:.45},{mass:6});
+ f.stepRotor(rollQuad,1/120,{throttle:.6,roll:.45},{mass:6});
+}
+const yawForward=f.rotate(yawQuad.q,[0,0,1]);
+assert.ok(Math.abs(Math.atan2(-yawForward[0],yawForward[2]))>.03,'quad pedals change heading by >1.7 degrees');
+assert.ok(Math.abs(rollQuad.r[0])>.1,'quad cyclic roll moves laterally');
+assert.ok([yawQuad,rollQuad].every(x=>[...x.r,...x.v,...x.w,...x.q].every(Number.isFinite)),'quad maneuver states finite');
 
 let s=f.create(jet,{r:[0,6000,0],v:[0,0,280]});
 for(let i=0;i<1200;i++){
