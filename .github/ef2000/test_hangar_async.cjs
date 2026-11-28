@@ -33,6 +33,32 @@ function harness(){
  return {context,saved,archived,placed,notes,requests,file,importFile:()=>context.$('#upload').onchange()};
 }
 const tests=[
+ ['display modes restore original materials and hide unsupported overlays',()=>{
+  const elements=new Map(),engineeringMaterial={},originalMaterial={};
+  const context={aircraft:{material:originalMaterial},selected:model('f16'),scene:{},grid:{},floor:{},engineeringMaterial,controls:{},
+   $:key=>{if(!elements.has(key))elements.set(key,{setAttribute(name,value){this[name]=value;},classList:{toggle(){}}});return elements.get(key);}};
+  vm.createContext(context);
+  vm.runInContext(section('function setDisplayMode(mode)','\n// Livrea CENTURION'),context);
+  const mode=context.setDisplayMode,orbit=context.setCinematic;
+  mode('engineering');
+  assert.equal(context.scene.overrideMaterial,engineeringMaterial);
+  assert.equal(context.grid.visible,false);
+  mode('standard');
+  assert.equal(context.scene.overrideMaterial,null);
+  assert.equal(context.aircraft.material,originalMaterial);
+  assert.equal(context.grid.visible,true);
+  mode('aerodynamic');
+  assert.equal(context.$('#flow-overlay').hidden,false);
+  context.selected=model('pilota');
+  mode('aerodynamic');
+  assert.equal(context.$('#display-mode').value,'standard');
+  assert.equal(context.$('#flow-overlay').hidden,true);
+  orbit(true);assert.equal(context.controls.autoRotate,true);
+  context.aircraft=null;
+  orbit(true);mode('engineering');
+  assert.equal(context.controls.autoRotate,false);
+  assert.equal(context.scene.overrideMaterial,null);
+ }],
  ['an import keeps its original aircraft when selection changes',async()=>{
   const h=harness(),parsing=deferred();
   h.context.loader.parseAsync=()=>parsing.promise;
