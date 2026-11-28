@@ -1,0 +1,34 @@
+name: Verify radar game mechanics
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'CENTURION2_GITHUB_MOBILE.zip'
+      - '.github/radar/**'
+      - '.github/workflows/verify-radar.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'CENTURION2_GITHUB_MOBILE.zip'
+      - '.github/radar/**'
+      - '.github/workflows/verify-radar.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  radar:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@v4
+      - name: Extract website
+        run: |
+          mkdir -p extracted
+          unzip -q CENTURION2_GITHUB_MOBILE.zip -d extracted
+      - name: Patch and test radar mechanics
+        run: |
+          python3 .github/radar/patch_radar.py extracted/site
+          node --check extracted/site/js/radar_model.js
+          node --check extracted/site/js/engine.js
+          node --check extracted/site/js/volo.js
+          node .github/radar/test_radar.cjs extracted/site
