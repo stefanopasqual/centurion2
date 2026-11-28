@@ -17,4 +17,19 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - run: node --test physics-lab/test.mjs physics-lab/advanced.test.mjs
+      - run: node --test physics-lab/test.mjs physics-lab/advanced.test.mjs physics-lab/nesc02.test.mjs
+  browser:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        engine: [chromium, firefox, webkit]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm install --prefix physics-lab --no-save --package-lock=false --ignore-scripts playwright@1.56.1
+      - run: physics-lab/node_modules/.bin/playwright install --with-deps ${{ matrix.engine }}
+      - run: node physics-lab/browser.test.mjs ${{ matrix.engine }}

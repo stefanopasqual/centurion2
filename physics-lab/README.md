@@ -13,7 +13,7 @@ Contract:
 - clock at 120 Hz by default, render rate independent for identical timed inputs
 - overrun and discarded time reported explicitly; reset fractional clock on pause
 
-Run: `node --test physics-lab/test.mjs physics-lab/advanced.test.mjs`
+Run: `node --test physics-lab/test.mjs physics-lab/advanced.test.mjs physics-lab/nesc02.test.mjs`
 
 The tests are analytic or numerical checks on generic inert bodies only. The
 torque-free case is inspired by rigid-body verification methodology; it is NOT a
@@ -39,3 +39,22 @@ continuous invariant envelopes over 120 minutes, and jitter/overrun accounting.
 The RK4 reference uses generic inert objects and is not a production integrator.
 The official NESC atmospheric case 02 includes WGS-84 rotation and J2 gravity;
 its full dataset is not yet compared. Browser and mobile measurements remain outstanding.
+
+## External reference and browser checks
+
+Case 02: the archived NASA NESC SIM 01, 02, 04 and 06 angular-rate channels
+are extracted into a local fixture with source paths and blob hashes. The test
+compares the inertial body angular rate only at 301 shared time samples over 30 s.
+The absolute vector error limits (0.02 deg/s max, 0.01 deg/s RMS) are lab-defined,
+not NASA acceptance criteria. The local inertial lab does not reproduce the
+WGS-84 Earth, J2 gravity, local attitude or translational trajectory. This is a
+partial external numerical verification, not full case validation.
+Reference parameters: https://nasa.github.io/simupy-flight/nesc_test_cases/nesc_case02.html
+
+Browser CI uses Playwright 1.56.1 and real headless Chromium, Firefox and WebKit
+engines on Linux; it includes Pixel 7 and iPhone 13 emulated profiles, not physical
+phones or installed mobile Chrome/Safari. It tests actual requestAnimationFrame
+scheduling, tick accounting, same-engine replay, and cross-engine numerical
+agreement against Node. CPU batch timings are informational runner measurements.
+Actual tab suspension, battery/thermal behaviour and on-device performance
+still require physical-device testing. No production app or aircraft is loaded.
