@@ -43,6 +43,21 @@ new THREE.GLTFLoader().parse(bytes, '', async gltf => {
     TEST_SOCCORSO._posa(p, 'seduto', 0);
     assert(p.userData.p3d.visible && !p.userData.p3dOrig[0].visible);
     assert(p.userData.p3d.userData.pilotBones.thigh_L.bone.quaternion.angleTo(p.userData.p3d.userData.pilotBones.thigh_L.rest) > .5);
+    // Check the actual compiled canopy geometry and its changing line attachments.
+    const flight = fs.readFileSync(path.join(site, 'js/volo.js'), 'utf8');
+    const canopyStart = flight.indexOf('  function creaParacadute() {');
+    const canopyEnd = flight.indexOf('  function aggiornaEiezione(dt) {', canopyStart);
+    assert(canopyStart >= 0 && canopyEnd > canopyStart);
+    const makeCanopy = new Function('THREE', 'V3', flight.slice(canopyStart, canopyEnd) + '\nreturn creaParacadute;')(THREE, (x,y,z)=>new THREE.Vector3(x,y,z));
+    const chute = makeCanopy(), lines = chute.linee.geometry.attributes.position;
+    assert.equal(lines.count, 48);
+    assert(chute.vela.geometry.attributes.position.count > 1000);
+    const initial = lines.getX(0);
+    chute.vela.scale.set(1,.72,1); chute.aggiornaFuni();
+    assert(Math.abs(lines.getX(0)) > Math.abs(initial) * 5);
+    assert(Math.abs(lines.getY(1) - 1.43) < 1e-5);
+    assert(Array.from(lines.array).every(Number.isFinite));
+    console.log('PASS: EJECT canopy geometry and dynamic suspension lines');
     console.log('PASS: pilot GLB, independent skeletons, rescue and ejection poses');
   } catch (e) { console.error(e); process.exitCode = 1; }
 }, e => { console.error(e); process.exitCode = 1; });
