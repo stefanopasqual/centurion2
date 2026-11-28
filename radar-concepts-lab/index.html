@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="it">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>CENTURION2 | Sensor Lab</title>
+<style>
+:root{color-scheme:dark;--bg:#080f19;--panel:#101d2b;--line:#334b60;--ink:#e3eff8;--accent:#83e8d0}*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.5 system-ui,sans-serif}main{max-width:1100px;margin:auto;padding:clamp(16px,4vw,40px)}h1,h2,p{margin:0 0 12px}h1{font-size:clamp(28px,5vw,46px);letter-spacing:-.04em}h2{font-size:18px}.eyebrow{letter-spacing:.18em;font-size:12px;color:var(--accent)}.notice{border-left:3px solid var(--accent);padding:8px 12px;background:var(--panel);margin:20px 0}.grid{display:grid;grid-template-columns:2fr 1fr;gap:16px}.panel{border:1px solid var(--line);border-radius:12px;background:var(--panel);padding:16px;min-width:0}.side{display:grid;gap:16px}svg{width:100%;height:auto;display:block}button{font:inherit;color:var(--ink);background:#1b3041;border:1px solid #678298;border-radius:8px;padding:10px 14px;cursor:pointer;min-height:44px}button[aria-pressed=true]{background:#174c48;border-color:var(--accent)}button:focus-visible,a:focus-visible{outline:3px solid #f7d883;outline-offset:3px}.controls{display:flex;flex-wrap:wrap;gap:8px;margin:12px 0}.muted{color:#bbcedd;font-size:14px}.quiz{margin-top:16px}a{color:var(--accent)}.pulse{stroke-dasharray:9 11;animation:flow 1.8s linear infinite}@keyframes flow{to{stroke-dashoffset:-40}}body.paused .pulse{animation-play-state:paused}@media(prefers-reduced-motion:reduce){.pulse{animation:none}}@media(max-width:720px){.grid{grid-template-columns:1fr}}
+</style></head>
+<body><main>
+<header><p class="eyebrow">CENTURION2 / TRAINING MODULE / 01</p><h1>Reflection &amp; Radar Concepts Lab</h1><p>Un laboratorio per distinguere fenomeno, informazione e rappresentazione.</p></header>
+<p class="notice"><strong>Modello concettuale, non predittivo.</strong> Le forme, le onde e i segnali sono illustrazioni; non rappresentano prestazioni o firme di sistemi reali.</p>
+<section aria-label="Controlli"><h2>Esplora il fenomeno</h2><div class="controls" role="group" aria-label="Forma geometrica"><button type="button" data-shape="sphere" aria-pressed="true">Sfera</button><button type="button" data-shape="plane" aria-pressed="false">Piano</button><button type="button" data-shape="prism" aria-pressed="false">Prisma</button></div>
+<div class="controls" role="group" aria-label="Fasi della lezione"><button type="button" data-step="0" aria-pressed="true">1. Emissione</button><button type="button" data-step="1" aria-pressed="false">2. Interazione</button><button type="button" data-step="2" aria-pressed="false">3. Ricezione</button><button type="button" data-step="3" aria-pressed="false">4. Display</button><button type="button" id="motion" aria-pressed="false">Pausa animazione</button></div></section>
+<div class="grid"><section class="panel"><h2>Scena concettuale</h2>
+<svg viewBox="0 0 600 360" role="img" aria-labelledby="scene-title scene-desc"><title id="scene-title">Diagramma di emissione e dispersione</title><desc id="scene-desc">Una sorgente emette un'onda verso una forma astratta. Le frecce indicano concettualmente la dispersione.</desc><defs><radialGradient id="metal"><stop stop-color="#b8d3e5"/><stop offset="1" stop-color="#36566d"/></radialGradient><marker id="a" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0 0L8 4L0 8Z" fill="#85dbfc"/></marker><marker id="b" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0 0L8 4L0 8Z" fill="#ffd38b"/></marker></defs>
+<rect width="600" height="360" rx="10" fill="#091522"/><g stroke="#1a3346"><path d="M0 60H600M0 120H600M0 180H600M0 240H600M0 300H600M100 0V360M200 0V360M300 0V360M400 0V360M500 0V360"/></g>
+<g id="shape-sphere"><circle cx="370" cy="155" r="57" fill="url(#metal)" stroke="#c7e8ff" stroke-width="2"/><ellipse cx="370" cy="155" rx="24" ry="57" fill="none" stroke="#d1e8fa" opacity=".45"/></g>
+<g id="shape-plane" style="display:none"><path d="M319 86L425 120L425 221L319 187Z" fill="url(#metal)" stroke="#c7e8ff" stroke-width="2"/></g>
+<g id="shape-prism" style="display:none"><path d="M313 191L370 90L427 191Z" fill="#718fa5" stroke="#c7e8ff" stroke-width="2"/><path d="M370 90L460 108L427 191Z" fill="#37586d" stroke="#c7e8ff" stroke-width="2"/></g>
+<g stroke="#c7e8ff" stroke-width="4" fill="none"><path d="M68 174Q94 232 145 179M107 205V266M77 266H137M107 205L124 164"/></g><text x="107" y="288" fill="#e3eff8" text-anchor="middle" font-size="14">Sorgente</text>
+<g id="incident"><path d="M127 169L303 156" class="pulse" fill="none" stroke="#85dbfc" stroke-width="3" marker-end="url(#a)"/><text x="202" y="138" fill="#85dbfc" text-anchor="middle" font-size="14">Incidente</text></g>
+<g id="scatter" style="display:none" fill="none" stroke="#ffd38b" stroke-width="3" marker-end="url(#b)"><path d="M435 150L548 83"/><path d="M434 167L554 230"/><path d="M367 94L367 27"/><path d="M366 218L367 296"/></g>
+<g id="received" style="display:none"><path d="M306 181L144 190" stroke="#ffd38b" stroke-dasharray="3 7" stroke-width="3" marker-end="url(#b)"/><text x="221" y="222" fill="#ffd38b" text-anchor="middle" font-size="14">Ricevuta (esempio)</text></g>
+<text x="300" y="334" text-anchor="middle" fill="#bbcedd" font-size="13">Frecce illustrative: non calcolate dalla geometria</text></svg>
+<p id="explanation" aria-live="polite">Una sorgente emette energia elettromagnetica verso una regione dello spazio.</p><p class="muted">La geometria cambia il fenomeno fisico, ma le frecce di questa lezione non sono un calcolo di scattering.</p></section>
+<div class="side"><section class="panel"><h2>PPI illustrativo</h2><svg viewBox="0 0 220 190" role="img" aria-label="Rappresentazione schematica di un display radar"><rect width="220" height="190" rx="8" fill="#071913"/><g fill="none" stroke="#416d60"><circle cx="110" cy="95" r="28"/><circle cx="110" cy="95" r="56"/><circle cx="110" cy="95" r="84"/><path d="M110 11V179M26 95H194"/></g><g id="blip" style="display:none" fill="#b5ffe5"><circle cx="144" cy="56" r="5"/><text x="154" y="48" font-size="12">A</text></g></svg><div class="controls"><button id="display" type="button" aria-pressed="true" disabled>Mostra simbolo: sì</button></div><p class="muted" id="ppi-text" aria-live="polite">Il display sarà introdotto nella fase 4.</p></section>
+<section class="panel"><h2>Sequenza del segnale</h2><svg viewBox="0 0 220 90" role="img" aria-label="Sequenza concettuale emissione, interazione e ricezione"><path d="M15 45H205" stroke="#6d8798" stroke-width="2"/><g id="nodes" fill="#101d2b" stroke="#bbcedd" stroke-width="2"><circle cx="30" cy="45" r="8"/><circle cx="110" cy="45" r="8"/><circle cx="190" cy="45" r="8"/></g><g fill="#e3eff8" font-size="10" text-anchor="middle"><text x="30" y="72">Emessa</text><text x="110" y="72">Diffusa</text><text x="190" y="72">Ricevuta</text></g></svg><p class="muted">Sequenza qualitativa, senza scala temporale o ampiezza reale.</p></section></div></div>
+<section class="panel quiz"><h2>Verifica di comprensione</h2><p>Se sul display non compare un simbolo, possiamo concludere che non esiste energia diffusa?</p><div class="controls"><button type="button" data-answer="yes">Sì</button><button type="button" data-answer="no">No</button></div><p id="feedback" aria-live="polite">Seleziona una risposta.</p></section>
+<footer class="muted" style="margin-top:24px">Riferimenti: <a href="https://science.nasa.gov/mission/nisar/get-to-know-sar/">NASA — principi radar</a> · <a href="https://www.faa.gov/air_traffic/publications/aim_html/chap4_section_5.html">FAA — sistemi di sorveglianza</a>. Modulo autonomo, senza collegamento a missioni o modelli di volo.</footer>
+</main><script>
+'use strict';
+const explanations=[
+'Una sorgente emette energia elettromagnetica verso una regione dello spazio.',
+'L\u2019energia interagisce con un oggetto. Una parte può essere diffusa in diverse direzioni; la geometria e altre proprietà influenzano il fenomeno.',
+'Il ricevitore osserva soltanto una parte del fenomeno. Non misura tutta l\u2019energia diffusa.',
+'Un simbolo sul display è una rappresentazione elaborata, non una misura diretta della proprietà fisica dell\u2019oggetto. Prova a nascondere il simbolo: la scena resta invariata.'
+];
+const state={shape:'sphere',step:0,display:true};
+const byId=id=>document.getElementById(id);
+function pressed(selector,key,value){document.querySelectorAll(selector).forEach(b=>b.setAttribute('aria-pressed',String(b.dataset[key]===String(value))))}
+function visible(id,on){byId(id).style.display=on?'':'none'}
+function render(){
+['sphere','plane','prism'].forEach(s=>visible('shape-'+s,s===state.shape));
+pressed('[data-shape]','shape',state.shape);pressed('[data-step]','step',state.step);
+visible('scatter',state.step>=1);visible('received',state.step>=2);visible('blip',state.step===3&&state.display);
+byId('explanation').textContent=explanations[state.step];
+byId('display').disabled=state.step!==3;byId('display').setAttribute('aria-pressed',String(state.display));byId('display').textContent='Mostra simbolo: '+(state.display?'sì':'no');
+byId('ppi-text').textContent=state.step<3?'Il display sarà introdotto nella fase 4.':state.display?'Simbolo presente (scenario illustrativo).':'Simbolo nascosto: non implica assenza di energia diffusa.';
+document.querySelectorAll('#nodes circle').forEach((c,i)=>c.setAttribute('fill',i<=state.step?'#83e8d0':'#101d2b'));
+}
+document.querySelectorAll('[data-shape]').forEach(b=>b.addEventListener('click',()=>{state.shape=b.dataset.shape;render()}));
+document.querySelectorAll('[data-step]').forEach(b=>b.addEventListener('click',()=>{state.step=Number(b.dataset.step);render()}));
+byId('display').addEventListener('click',()=>{state.display=!state.display;render()});
+byId('motion').addEventListener('click',()=>{const paused=document.body.classList.toggle('paused');byId('motion').setAttribute('aria-pressed',String(paused));byId('motion').textContent=paused?'Riprendi animazione':'Pausa animazione'});
+document.querySelectorAll('[data-answer]').forEach(b=>b.addEventListener('click',()=>{byId('feedback').textContent=b.dataset.answer==='no'?'Corretto. Energia diffusa, energia ricevuta e simbolo visualizzato sono concetti distinti.':'Non necessariamente: un simbolo assente non dimostra che non esista energia diffusa.'}));
+render();
+</script></body></html>
