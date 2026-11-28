@@ -19,7 +19,7 @@ jobs:
           node-version: '22'
       - run: node --test physics-lab/test.mjs physics-lab/advanced.test.mjs physics-lab/nesc02.test.mjs
   browser:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 15
     strategy:
       fail-fast: false
