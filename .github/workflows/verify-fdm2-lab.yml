@@ -17,4 +17,4 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - run: node --test physics-lab/test.mjs
+      - run: node --test physics-lab/test.mjs physics-lab/advanced.test.mjs
